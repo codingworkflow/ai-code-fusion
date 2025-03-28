@@ -46,28 +46,44 @@ async function start() {
     log('Starting development server...', colors.blue);
 
     // Use concurrently directly to run all the required processes
-    const { spawn } = require('child_process');
+    // Simplified approach without inline environment variable assignments
+
+    // Just run electron without trying to set NODE_ENV inline
+    const electronCommand = 'npx electron .';
 
     const concurrently = spawn(
       'npx',
-      [
-        'concurrently',
-        '--kill-others',
-        'npm:watch:css',
-        'npm:watch:webpack',
-        `cross-env NODE_ENV=development electron .`,
-      ],
+      ['concurrently', '--kill-others', 'npm:watch:css', 'npm:watch:webpack', electronCommand],
       {
         stdio: 'inherit',
         shell: true,
         cwd: utils.ROOT_DIR,
+        env: {
+          ...process.env,
+          // Explicitly set NODE_ENV - this is the proper way to set environment variables on all platforms
+          NODE_ENV: 'development',
+        },
       }
     );
 
-    // Handle process exit
+    // Improved error handling
+    concurrently.on('error', (error) => {
+      log(`Concurrently process error: ${error.message}`, colors.red);
+      log(
+        'This may be due to missing dependencies. Try running "npm install" first.',
+        colors.yellow
+      );
+    });
+
+    // Handle process exit with better error messaging
     concurrently.on('close', (code) => {
       if (code !== 0) {
         log(`Development process exited with code ${code}`, colors.red);
+        log('Check the error messages above for more details.', colors.yellow);
+        log('Common issues:', colors.yellow);
+        log('1. Conflicting file locks - Try closing other instances first', colors.yellow);
+        log('2. Missing dependencies - Run "npm install"', colors.yellow);
+        log('3. Port conflicts - Check if another app is using the required ports', colors.yellow);
         process.exit(code);
       }
     });

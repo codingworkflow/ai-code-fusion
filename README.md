@@ -106,6 +106,18 @@ make dev
 npm run dev
 ```
 
+#### Troubleshooting Development
+
+If you encounter issues with the development server:
+
+1. For Windows users: The `make.bat` file has special handling for the `dev` command that properly sets environment variables
+2. If you're still having issues:
+   - Ensure all dependencies are installed: `npm install`
+   - Try rebuilding: `npm run rebuild`
+   - Close any running instances of the app
+   - Restart your terminal/command prompt
+   - As a last resort, try direct electron launch: `npm run dev:direct`
+
 ### Building
 
 ```bash
