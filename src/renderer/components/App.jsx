@@ -5,7 +5,12 @@ import ConfigTab from './ConfigTab';
 import AnalyzeTab from './AnalyzeTab';
 import ProcessedTab from './ProcessedTab';
 
-const defaultConfig = `# File extensions to include (with dot)
+const defaultConfig = `# Filtering options
+use_custom_excludes: true
+use_gitignore: false
+
+
+# File extensions to include (with dot)
 include_extensions:
   - .py
   - .ts
@@ -83,6 +88,8 @@ const App = () => {
     // If switching from config tab to source tab and we have a root path, refresh the directory tree
     // This allows the exclude patterns to be applied when the config is updated
     if (activeTab === 'config' && tab === 'source' && rootPath) {
+      // Reset gitignore parser cache to ensure fresh parsing
+      window.electronAPI.resetGitignoreCache && window.electronAPI.resetGitignoreCache();
       // refreshDirectoryTree now resets selection states and gets a fresh tree
       refreshDirectoryTree();
     }

@@ -48,12 +48,11 @@ async function start() {
     // Use concurrently directly to run all the required processes
     // Simplified approach without inline environment variable assignments
 
-    // Just run electron without trying to set NODE_ENV inline
-    const electronCommand = 'npx electron .';
-
+    // Use direct shell command to ensure proper argument parsing
+    // This mimics exactly how make.bat does it successfully
     const concurrently = spawn(
-      'npx',
-      ['concurrently', '--kill-others', 'npm:watch:css', 'npm:watch:webpack', electronCommand],
+      'npx concurrently --kill-others "npm run watch:css" "npm run watch:webpack" "cross-env NODE_ENV=development electron ."',
+      [],
       {
         stdio: 'inherit',
         shell: true,

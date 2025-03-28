@@ -34,9 +34,11 @@ const matchPattern = (filepath, pattern) => {
 };
 
 class FileAnalyzer {
-  constructor(config, tokenCounter) {
+  constructor(config, tokenCounter, options = {}) {
     this.config = config;
     this.tokenCounter = tokenCounter;
+    this.useGitignore = options.useGitignore || false;
+    this.gitignorePatterns = options.gitignorePatterns || [];
   }
 
   shouldProcessFile(filePath) {
@@ -48,29 +50,61 @@ class FileAnalyzer {
       return false;
     }
 
-    // Check each part of the path against exclude patterns
-    const pathParts = normalizedPath.split('/');
-    for (let i = 0; i < pathParts.length; i++) {
-      const currentPath = pathParts.slice(i).join('/');
+    // Check if custom excludes are enabled (default to true if not specified)
+    const useCustomExcludes = this.config.use_custom_excludes !== false;
+    
+    // Check custom exclude patterns if enabled
+    if (useCustomExcludes) {
+      // Check each part of the path against exclude patterns
+      const pathParts = normalizedPath.split('/');
+      for (let i = 0; i < pathParts.length; i++) {
+        const currentPath = pathParts.slice(i).join('/');
 
-      for (const pattern of this.config.exclude_patterns || []) {
-        // Remove leading **/ from pattern for direct matching
-        const cleanPattern = pattern.replace('**/', '');
+        for (const pattern of this.config.exclude_patterns || []) {
+          // Remove leading **/ from pattern for direct matching
+          const cleanPattern = pattern.replace('**/', '');
 
-        if (
-          this._matchPattern(currentPath, cleanPattern) ||
-          this._matchPattern(currentPath, pattern)
-        ) {
-          return false;
+          if (
+            this._matchPattern(currentPath, cleanPattern) ||
+            this._matchPattern(currentPath, pattern)
+          ) {
+            return false;
+          }
+        }
+      }
+    }
+    
+    // Check gitignore patterns if enabled
+    if (this.useGitignore && this.gitignorePatterns.length > 0) {
+      // Check each part of the path against gitignore patterns
+      const pathParts = normalizedPath.split('/');
+      for (let i = 0; i < pathParts.length; i++) {
+        const currentPath = pathParts.slice(i).join('/');
+
+        for (const pattern of this.gitignorePatterns) {
+          // Remove leading **/ from pattern for direct matching
+          const cleanPattern = pattern.replace('**/', '');
+
+          if (
+            this._matchPattern(currentPath, cleanPattern) ||
+            this._matchPattern(currentPath, pattern)
+          ) {
+            return false;
+          }
         }
       }
     }
 
-    // Get file extension
-    const ext = path.extname(filePath).toLowerCase();
-
-    // Check if extension is in included list
-    return (this.config.include_extensions || []).includes(ext);
+    // If custom excludes are enabled, check file extension
+    if (useCustomExcludes) {
+      // Get file extension
+      const ext = path.extname(filePath).toLowerCase();
+      // Check if extension is in included list
+      return (this.config.include_extensions || []).includes(ext);
+    }
+    
+    // If custom excludes are disabled, include all files that passed gitignore filters
+    return true;
   }
 
   _matchPattern(filepath, pattern) {

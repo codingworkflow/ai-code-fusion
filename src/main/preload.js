@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getDirectoryTree: (dirPath, configContent) =>
     ipcRenderer.invoke('fs:getDirectoryTree', dirPath, configContent),
   saveFile: (options) => ipcRenderer.invoke('fs:saveFile', options),
+  
+  // Gitignore operations
+  resetGitignoreCache: () => ipcRenderer.invoke('gitignore:resetCache'),
 
   // Repository operations
   analyzeRepository: (options) => ipcRenderer.invoke('repo:analyze', options),
