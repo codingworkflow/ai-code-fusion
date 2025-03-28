@@ -27,6 +27,30 @@ if /i "%1"=="release" (
   exit /b %errorlevel%
 )
 
+rem Special handling for dev command on Windows
+if /i "%1"=="dev" (
+  echo Starting development environment for Windows...
+
+  rem Set environment variables
+  set NODE_ENV=development
+
+  rem Build CSS if needed
+  if not exist "src\renderer\output.css" (
+    echo Building CSS...
+    call npm run build:css
+  )
+
+  rem Build webpack bundle if needed
+  if not exist "src\renderer\index.js" (
+    echo Building webpack bundle...
+    call npm run build:webpack
+  )
+
+  echo Starting development server...
+  npx concurrently --kill-others "npm:watch:css" "npm:watch:webpack" "npx electron ."
+  exit /b %errorlevel%
+)
+
 rem Run the command through our unified Node.js script
 node scripts/index.js %*
 exit /b %errorlevel%

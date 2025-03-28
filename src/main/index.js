@@ -98,8 +98,8 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
 
   // Helper function to check if a path should be excluded
   const shouldExclude = (itemPath, itemName) => {
-    // Normalize path for pattern matching (use forward slashes)
-    const normalizedPath = path.relative(dirPath, itemPath).replace(/\\/g, '/');
+    // Use our consistent path normalization function
+    const normalizedPath = getRelativePath(itemPath, dirPath);
 
     // Check for common directories to exclude
     if (['node_modules', '.git', 'dist', 'build'].includes(itemName)) {
@@ -195,6 +195,17 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
   }
 });
 
+// Utility function to normalize paths consistently
+const normalizePath = (inputPath) => {
+  return inputPath.replace(/\\/g, '/');
+};
+
+// Utility function to get relative path consistently
+const getRelativePath = (filePath, rootPath) => {
+  const relativePath = path.relative(rootPath, filePath);
+  return normalizePath(relativePath);
+};
+
 // Analyze repository
 ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFiles }) => {
   try {
@@ -207,8 +218,14 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
     let totalTokens = 0;
 
     for (const filePath of selectedFiles) {
-      // Check if file should be processed based on config rules
-      const relativePath = path.relative(rootPath, filePath);
+      // Verify the file is within the current root path
+      if (!filePath.startsWith(rootPath)) {
+        console.warn(`Skipping file outside current root directory: ${filePath}`);
+        continue;
+      }
+
+      // Use consistent path normalization
+      const relativePath = getRelativePath(filePath, rootPath);
 
       if (fileAnalyzer.shouldProcessFile(relativePath)) {
         const tokenCount = fileAnalyzer.analyzeFile(filePath);
@@ -267,7 +284,15 @@ ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, option
 
     for (const { path: filePath, tokens } of filesInfo) {
       try {
+        // Use consistent path joining
         const fullPath = path.join(rootPath, filePath);
+
+        // Validate the full path is within the root path
+        if (!normalizePath(fullPath).startsWith(normalizePath(rootPath))) {
+          console.warn(`Skipping file outside root directory: ${filePath}`);
+          skippedFiles++;
+          continue;
+        }
 
         if (fs.existsSync(fullPath)) {
           const content = contentProcessor.processFile(fullPath, filePath, processingOptions);

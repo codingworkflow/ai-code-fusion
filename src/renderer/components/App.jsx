@@ -80,61 +80,35 @@ const App = () => {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
 
-    // If switching from config tab and we have a root path, refresh the directory tree
+    // If switching from config tab to source tab and we have a root path, refresh the directory tree
     // This allows the exclude patterns to be applied when the config is updated
     if (activeTab === 'config' && tab === 'source' && rootPath) {
+      // refreshDirectoryTree now resets selection states and gets a fresh tree
       refreshDirectoryTree();
+    }
+
+    // Clear analysis and processed results when switching to source to select new files
+    // But don't clear selections when switching from analyze to source
+    if (tab === 'source' && activeTab !== 'analyze') {
+      setAnalysisResult(null);
+    }
+
+    if (tab === 'source' && activeTab !== 'processed') {
+      setProcessedResult(null);
     }
   };
 
   // Function to refresh the directory tree with current config
   const refreshDirectoryTree = async () => {
     if (rootPath) {
+      // Reset selection states completely instead of filtering
+      // This prevents stale references and duplicates
+      setSelectedFiles([]);
+      setSelectedFolders([]);
+
+      // Get fresh directory tree
       const tree = await window.electronAPI.getDirectoryTree(rootPath, configContent);
       setDirectoryTree(tree);
-
-      // Reset selected files and folders that may no longer exist in the new tree
-      setSelectedFiles((prev) => {
-        return prev.filter((file) => {
-          // Check if the file still exists in the tree
-          const fileExists = (items) => {
-            for (const item of items) {
-              if (item.type === 'file' && item.path === file) {
-                return true;
-              }
-              if (item.type === 'directory' && item.children) {
-                if (fileExists(item.children)) {
-                  return true;
-                }
-              }
-            }
-            return false;
-          };
-
-          return fileExists(tree);
-        });
-      });
-
-      setSelectedFolders((prev) => {
-        return prev.filter((folder) => {
-          // Check if the folder still exists in the tree
-          const folderExists = (items) => {
-            for (const item of items) {
-              if (item.type === 'directory' && item.path === folder) {
-                return true;
-              }
-              if (item.type === 'directory' && item.children) {
-                if (folderExists(item.children)) {
-                  return true;
-                }
-              }
-            }
-            return false;
-          };
-
-          return folderExists(tree);
-        });
-      });
     }
   };
 
@@ -142,7 +116,12 @@ const App = () => {
     const dirPath = await window.electronAPI.selectDirectory();
 
     if (dirPath) {
+      // Reset selection states first to prevent duplicates and stale references
+      setSelectedFiles([]);
+      setSelectedFolders([]);
+      // Update rootPath
       setRootPath(dirPath);
+      // Get fresh directory tree
       const tree = await window.electronAPI.getDirectoryTree(dirPath, configContent);
       setDirectoryTree(tree);
     }
@@ -158,11 +137,30 @@ const App = () => {
     }
 
     try {
+      // Validate selected files before analysis
+      const validFiles = selectedFiles.filter((file) => {
+        const withinRoot = file.startsWith(rootPath);
+
+        if (!withinRoot) {
+          console.warn(`Skipping file outside current root directory: ${file}`);
+          return false;
+        }
+
+        return true;
+      });
+
+      if (validFiles.length === 0) {
+        alert(
+          'No valid files selected for analysis. Please select files within the current directory.'
+        );
+        return Promise.reject(new Error('No valid files selected'));
+      }
+
       // Apply current config before analyzing
       const result = await window.electronAPI.analyzeRepository({
         rootPath,
         configContent,
-        selectedFiles,
+        selectedFiles: validFiles, // Use validated files only
       });
 
       setAnalysisResult(result);
@@ -303,9 +301,27 @@ const App = () => {
     }
   };
 
+  // Utility function for path validation
+  const isValidFilePath = (filePath) => {
+    // Check if file path exists and is within the current root path
+    if (!filePath || !rootPath) return false;
+
+    // Ensure the file is within the current root path
+    return filePath.startsWith(rootPath);
+  };
+
   const handleFileSelect = (filePath, isSelected) => {
+    // Validate file path before selection
+    if (isSelected && !isValidFilePath(filePath)) {
+      console.warn(`Attempted to select an invalid file: ${filePath}`);
+      return;
+    }
+
     if (isSelected) {
-      setSelectedFiles((prev) => [...prev, filePath]);
+      setSelectedFiles((prev) => {
+        // Avoid duplicates using Set
+        return [...new Set([...prev, filePath])];
+      });
     } else {
       setSelectedFiles((prev) => prev.filter((path) => path !== filePath));
     }
@@ -315,6 +331,12 @@ const App = () => {
   const [selectedFolders, setSelectedFolders] = useState([]);
 
   const handleFolderSelect = (folderPath, isSelected) => {
+    // Validate folder path before selection
+    if (isSelected && (!folderPath || !rootPath || !folderPath.startsWith(rootPath))) {
+      console.warn(`Attempted to select an invalid folder: ${folderPath}`);
+      return;
+    }
+
     // Find the folder in the directory tree
     const findFolder = (items, path) => {
       for (const item of items) {
@@ -341,8 +363,11 @@ const App = () => {
 
       for (const item of folder.children) {
         if (item.type === 'directory') {
-          folders.push(item.path);
-          folders = [...folders, ...getAllSubFolders(item)];
+          // Validate each folder is within current root
+          if (item.path.startsWith(rootPath)) {
+            folders.push(item.path);
+            folders = [...folders, ...getAllSubFolders(item)];
+          }
         }
       }
 
@@ -357,7 +382,10 @@ const App = () => {
 
       for (const item of folder.children) {
         if (item.type === 'file') {
-          files.push(item.path);
+          // Validate each file is within current root
+          if (item.path.startsWith(rootPath)) {
+            files.push(item.path);
+          }
         } else if (item.type === 'directory') {
           files = [...files, ...getAllFiles(item)];
         }
