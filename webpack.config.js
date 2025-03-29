@@ -1,8 +1,11 @@
 const path = require('path');
 const fs = require('fs');
 
+// Source and destination paths
+const srcPath = path.resolve(__dirname, 'src/renderer');
+const entryFile = path.resolve(srcPath, 'index.js');
+
 // Check if the entry file exists and create it if it doesn't
-const entryFile = path.resolve(__dirname, 'src/renderer/index.js');
 if (!fs.existsSync(entryFile)) {
   const entryContent = `import React from 'react';
 import { createRoot } from 'react-dom/client';
@@ -19,8 +22,12 @@ root.render(<App />);
 module.exports = {
   entry: entryFile,
   output: {
-    filename: 'index.js',
-    path: path.resolve(__dirname, 'src/renderer'),
+    filename: 'bundle.js', // Output to bundle.js to avoid webpack processing its own output
+    path: srcPath, // Same directory for simplicity
+  },
+  // Increase the node options to allow more stack space
+  node: {
+    global: true,
   },
   module: {
     rules: [

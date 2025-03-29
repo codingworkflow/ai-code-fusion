@@ -103,6 +103,8 @@ async function cleanBuildArtifacts() {
     path.join(ROOT_DIR, 'dist'),
     path.join(ROOT_DIR, 'src', 'renderer', 'index.js'),
     path.join(ROOT_DIR, 'src', 'renderer', 'index.js.map'),
+    path.join(ROOT_DIR, 'src', 'renderer', 'bundle.js'),
+    path.join(ROOT_DIR, 'src', 'renderer', 'bundle.js.map'),
     path.join(ROOT_DIR, 'src', 'renderer', 'output.css'),
   ];
 

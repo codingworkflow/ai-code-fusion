@@ -1,4 +1,6 @@
 const fs = require('fs');
+const path = require('path');
+const { isBinaryFile } = require('./file-analyzer');
 
 class ContentProcessor {
   constructor(tokenCounter) {
@@ -7,6 +9,29 @@ class ContentProcessor {
 
   processFile(filePath, relativePath, options = {}) {
     try {
+      // For binary files, show a note instead of content
+      if (isBinaryFile(filePath)) {
+        console.log(`Binary file detected during processing: ${filePath}`);
+
+        // Get file stats for size info
+        const stats = fs.statSync(filePath);
+        const fileSizeInKB = (stats.size / 1024).toFixed(2);
+
+        const headerContent = `${relativePath} (binary file)`;
+
+        const formattedContent =
+          `######\n` +
+          `${headerContent}\n` +
+          `######\n\n` +
+          `[BINARY FILE]\n` +
+          `File Type: ${path.extname(filePath).replace('.', '').toUpperCase()}\n` +
+          `Size: ${fileSizeInKB} KB\n\n` +
+          `Note: Binary files are included in the file tree but not processed for content.\n\n`;
+
+        return formattedContent;
+      }
+
+      // Process only text files
       const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
       const tokenCount = this.tokenCounter.countTokens(content);
 

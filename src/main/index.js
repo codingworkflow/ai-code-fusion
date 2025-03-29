@@ -5,6 +5,10 @@ const yaml = require('yaml');
 const { TokenCounter } = require('../utils/token-counter');
 const { FileAnalyzer } = require('../utils/file-analyzer');
 const { ContentProcessor } = require('../utils/content-processor');
+const { GitignoreParser } = require('../utils/gitignore-parser');
+
+// Initialize the gitignore parser
+const gitignoreParser = new GitignoreParser();
 
 // Keep a global reference of the window object to avoid garbage collection
 let mainWindow;
@@ -85,16 +89,43 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
   // preventing node_modules, .git, and other large directories from being included
   // in the UI tree view. This is critical for performance with large repositories.
 
-  // Parse config to get exclude patterns
-  const config = configContent ? yaml.parse(configContent) : { exclude_patterns: [] };
+  // Parse config to get settings and exclude patterns
+  let excludePatterns;
+  try {
+    const config = configContent ? yaml.parse(configContent) : { exclude_patterns: [] };
 
-  // Default exclude patterns if none provided in config
-  const excludePatterns = config.exclude_patterns || [
-    '**/node_modules/**',
-    '**/.git/**',
-    '**/dist/**',
-    '**/build/**',
-  ];
+    // Check if we should use custom excludes (default to true if not specified)
+    const useCustomExcludes = config.use_custom_excludes !== false;
+
+    // Check if we should use gitignore (default to false if not specified)
+    const useGitignore = config.use_gitignore === true;
+
+    // Start with default critical patterns
+    excludePatterns = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'];
+
+    // Add custom exclude patterns if enabled
+    if (useCustomExcludes && config.exclude_patterns && Array.isArray(config.exclude_patterns)) {
+      excludePatterns = [...excludePatterns, ...config.exclude_patterns];
+    }
+
+    // Add gitignore patterns if enabled
+    if (useGitignore) {
+      const gitignoreResult = gitignoreParser.parseGitignore(dirPath);
+      if (gitignoreResult.excludePatterns && gitignoreResult.excludePatterns.length > 0) {
+        excludePatterns = [...excludePatterns, ...gitignoreResult.excludePatterns];
+      }
+
+      // Handle negated patterns (these will be processed later to override excludes)
+      if (gitignoreResult.includePatterns && gitignoreResult.includePatterns.length > 0) {
+        // We'll store includePatterns separately to process later
+        excludePatterns.includePatterns = gitignoreResult.includePatterns;
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing config:', error);
+    // Fall back to default exclude patterns
+    excludePatterns = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'];
+  }
 
   // Helper function to check if a path should be excluded
   const shouldExclude = (itemPath, itemName) => {
@@ -106,9 +137,56 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
       return true;
     }
 
-    // Check against exclude patterns
-    for (const pattern of excludePatterns) {
+    // Special case for root-level files - check if the file name directly matches a pattern
+    // This ensures patterns like ".env" will match files at the root level
+    const isRootLevelFile = normalizedPath.indexOf('/') === -1;
+
+    // First check if path is in include patterns (negated gitignore patterns)
+    // includePatterns take highest priority
+    if (excludePatterns.includePatterns) {
+      for (const pattern of excludePatterns.includePatterns) {
+        try {
+          // Direct match for simple patterns (especially for root-level files)
+          if (isRootLevelFile && !pattern.includes('/') && !pattern.includes('*')) {
+            if (normalizedPath === pattern) {
+              return false; // Include this file
+            }
+          }
+
+          // Simple pattern matching
+          if (pattern.includes('*')) {
+            // Replace ** with wildcard
+            const regexPattern = pattern
+              .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+              .replace(/\*\*/g, '.*')
+              .replace(/\*/g, '[^/]*')
+              .replace(/\?/g, '[^/]');
+
+            // Match against the pattern
+            const regex = new RegExp(`^${regexPattern}$`);
+            if (regex.test(normalizedPath) || regex.test(itemName)) {
+              // This path explicitly matches an include pattern, so don't exclude it
+              return false;
+            }
+          } else if (normalizedPath === pattern || itemName === pattern) {
+            return false;
+          }
+        } catch (error) {
+          console.error(`Error matching include pattern ${pattern}:`, error);
+        }
+      }
+    }
+
+    // Then check exclude patterns
+    for (const pattern of Array.isArray(excludePatterns) ? excludePatterns : []) {
       try {
+        // Direct match for simple patterns (especially for root-level files)
+        if (isRootLevelFile && !pattern.includes('/') && !pattern.includes('*')) {
+          if (normalizedPath === pattern) {
+            return true; // Exclude this file
+          }
+        }
+
         // Simple pattern matching
         if (pattern.includes('*')) {
           // Replace ** with wildcard
@@ -141,7 +219,7 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
       try {
         const itemPath = path.join(dir, item);
 
-        // Skip excluded items
+        // Skip excluded items based on patterns, but don't exclude binary files from the tree
         if (shouldExclude(itemPath, item)) {
           continue;
         }
@@ -211,11 +289,23 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
   try {
     const config = yaml.parse(configContent);
     const tokenCounter = new TokenCounter();
-    const fileAnalyzer = new FileAnalyzer(config, tokenCounter);
+
+    // Process gitignore if enabled
+    let gitignorePatterns = { excludePatterns: [], includePatterns: [] };
+    if (config.use_gitignore === true) {
+      gitignorePatterns = gitignoreParser.parseGitignore(rootPath);
+    }
+
+    // Create a file analyzer instance with the appropriate settings
+    const fileAnalyzer = new FileAnalyzer(config, tokenCounter, {
+      useGitignore: config.use_gitignore === true,
+      gitignorePatterns: gitignorePatterns,
+    });
 
     // If selectedFiles is provided, only analyze those files
     const filesInfo = [];
     let totalTokens = 0;
+    let skippedBinaryFiles = 0;
 
     for (const filePath of selectedFiles) {
       // Verify the file is within the current root path
@@ -227,7 +317,22 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
       // Use consistent path normalization
       const relativePath = getRelativePath(filePath, rootPath);
 
-      if (fileAnalyzer.shouldProcessFile(relativePath)) {
+      // For binary files, record them as skipped but don't prevent selection
+      let isBinary = false;
+      if (!fileAnalyzer.shouldReadFile(filePath)) {
+        console.log(`Binary file detected (will skip processing): ${relativePath}`);
+        isBinary = true;
+        skippedBinaryFiles++;
+      }
+
+      if (isBinary) {
+        // For binary files, add to filesInfo but with zero tokens and a flag
+        filesInfo.push({
+          path: relativePath,
+          tokens: 0,
+          isBinary: true,
+        });
+      } else if (fileAnalyzer.shouldProcessFile(relativePath)) {
         const tokenCount = fileAnalyzer.analyzeFile(filePath);
 
         if (tokenCount !== null) {
@@ -244,9 +349,12 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
     // Sort by token count
     filesInfo.sort((a, b) => b.tokens - a.tokens);
 
+    console.log(`Skipped ${skippedBinaryFiles} binary files during analysis`);
+
     return {
       filesInfo,
       totalTokens,
+      skippedBinaryFiles,
     };
   } catch (error) {
     console.error('Error analyzing repository:', error);
@@ -349,4 +457,10 @@ ipcMain.handle('fs:saveFile', async (_, { content, defaultPath }) => {
 
   fs.writeFileSync(filePath, content);
   return filePath;
+});
+
+// Reset gitignore cache
+ipcMain.handle('gitignore:resetCache', () => {
+  gitignoreParser.clearCache();
+  return true;
 });
