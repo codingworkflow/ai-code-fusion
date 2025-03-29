@@ -14,10 +14,15 @@
     "watch:webpack": "cross-env NODE_ENV=development webpack --mode development --watch",
     "dev": "node scripts/index.js dev",
     "dev:direct": "npx cross-env NODE_ENV=development npx electron .",
-    "lint": "eslint src --ext .js,.jsx --cache",
+    "lint": "eslint src tests --ext .js,.jsx --cache",
+    "lint:tests": "eslint tests --ext .js,.jsx --cache",
     "format": "prettier --write \"**/*.{js,jsx,json,md,html,css}\"",
     "test": "jest --config jest.config.js --passWithNoTests",
     "test:watch": "jest --watch --config jest.config.js --passWithNoTests",
+    "test:gitignore": "jest --config jest.config.js --testMatch=\"**/tests/unit/gitignore-parser.test.js\" --verbose",
+    "test:binary": "jest --config jest.config.js --testMatch=\"**/tests/unit/binary-detection.test.js\" --verbose",
+    "test:patterns": "jest --config jest.config.js --testMatch=\"**/tests/**/*pattern*.test.js\" --verbose",
+    "test:lint": "npm run test && npm run lint:tests",
     "watch:css": "npx tailwindcss -i ./src/renderer/styles.css -o ./src/renderer/output.css --watch",
     "build:css": "npx tailwindcss -i ./src/renderer/styles.css -o ./src/renderer/output.css",
     "prepare": "husky install",
@@ -34,7 +39,7 @@
   "author": "AI Code Fusion <m@codingworkflow.com>",
   "license": "GPL-3.0",
   "lint-staged": {
-    "src/**/*.{js,jsx}": [
+    "{src,tests}/**/*.{js,jsx}": [
       "eslint --fix"
     ],
     "*.{json,md,html,css}": [
