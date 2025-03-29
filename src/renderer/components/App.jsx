@@ -5,6 +5,10 @@ import ConfigTab from './ConfigTab';
 import AnalyzeTab from './AnalyzeTab';
 import ProcessedTab from './ProcessedTab';
 
+// Import the path utilities through the electron bridge
+// In a real implementation, we would need to expose these through preload.js
+// For now, we'll keep our local implementation but note it should be replaced
+
 const defaultConfig = `# Filtering options
 use_custom_excludes: true
 use_gitignore: true
@@ -227,7 +231,8 @@ const App = () => {
     }
   };
 
-  // Helper function for consistent path normalization
+  // Helper function for consistent path normalization 
+  // Note: In a complete implementation, this would come from path-utils.js via preload
   const normalizeAndGetRelativePath = (filePath) => {
     if (!filePath || !rootPath) return '';
 
@@ -371,6 +376,7 @@ const App = () => {
   };
 
   // Utility function for path validation
+  // Note: In a complete implementation, this would come from path-utils.js via preload
   const isValidFilePath = (filePath) => {
     // Check if file path exists and is within the current root path
     if (!filePath || !rootPath) return false;

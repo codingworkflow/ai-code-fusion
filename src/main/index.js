@@ -7,6 +7,7 @@ const { FileAnalyzer } = require('../utils/file-analyzer');
 const { ContentProcessor } = require('../utils/content-processor');
 const { GitignoreParser } = require('../utils/gitignore-parser');
 const { matchPattern, matchCompiledPattern } = require('../utils/pattern-matcher');
+const { normalizePath, getRelativePath } = require('../utils/path-utils');
 
 // Initialize the gitignore parser
 const gitignoreParser = new GitignoreParser();
@@ -138,6 +139,10 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
       ...(useCustomExcludes ? patternSets.customExcludePatterns : []),
       ...(useGitignore ? patternSets.gitignoreExcludePatterns : [])
     ];
+    
+    // Pre-compile all exclude patterns for better performance
+    const { compilePatterns } = require('../utils/pattern-matcher');
+    patternSets.compiledAllExcludePatterns = compilePatterns(patternSets.allExcludePatterns);
   } catch (error) {
     console.error('Error parsing config:', error);
     // Fall back to default pattern sets
@@ -150,6 +155,10 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
       useCustomExcludes: true,
       useGitignore: false
     };
+    
+    // Pre-compile default patterns
+    const { compilePatterns } = require('../utils/pattern-matcher');
+    patternSets.compiledAllExcludePatterns = compilePatterns(patternSets.allExcludePatterns);
   }
 
   // Helper function to check if a path should be excluded
@@ -162,8 +171,7 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
       return true;
     }
 
-    // Special case for root-level files
-    const isRootLevelFile = normalizedPath.indexOf('/') === -1;
+    // We don't need the isRootLevelFile check with our new pattern matcher
 
     // First check if path is in gitignore include patterns (negated patterns)
     // These have highest priority as per gitignore standard behavior
@@ -188,9 +196,13 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
 
     // Then check all exclude patterns (default + custom + gitignore)
     // This implements the "exclusion is a SUM" principle
-    for (const pattern of patternSets.allExcludePatterns) {
-      if (matchPattern(normalizedPath, pattern) || matchPattern(itemName, pattern)) {
-        return true; // Exclude this file
+    // Use compiled patterns for better performance
+    if (patternSets.compiledAllExcludePatterns && patternSets.compiledAllExcludePatterns.length > 0) {
+      for (const compiledPattern of patternSets.compiledAllExcludePatterns) {
+        if (matchCompiledPattern(normalizedPath, compiledPattern) || 
+            matchCompiledPattern(itemName, compiledPattern)) {
+          return true; // Exclude this file
+        }
       }
     }
     
@@ -259,16 +271,7 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
   }
 });
 
-// Utility function to normalize paths consistently
-const normalizePath = (inputPath) => {
-  return inputPath.replace(/\\/g, '/');
-};
-
-// Utility function to get relative path consistently
-const getRelativePath = (filePath, rootPath) => {
-  const relativePath = path.relative(rootPath, filePath);
-  return normalizePath(relativePath);
-};
+// We're now using the centralized path utilities from path-utils.js
 
 // Analyze repository
 ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFiles }) => {

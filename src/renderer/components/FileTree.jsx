@@ -178,10 +178,7 @@ FileTreeItemComponent.propTypes = {
   onFolderSelect: PropTypes.func.isRequired,
 };
 
-FileTreeItemComponent.defaultProps = {
-  level: 0,
-  selectedFolders: [],
-};
+// Default props are handled via destructuring defaults in the function parameters
 
 // Memoize the component and set display name
 const FileTreeItem = React.memo(FileTreeItemComponent);
@@ -357,10 +354,7 @@ FileTreeComponent.propTypes = {
   onFolderSelect: PropTypes.func.isRequired,
 };
 
-FileTreeComponent.defaultProps = {
-  items: [],
-  selectedFolders: [],
-};
+// Default props are handled via destructuring defaults in the function parameters
 
 // Memoize the component and set display name
 const FileTree = React.memo(FileTreeComponent);

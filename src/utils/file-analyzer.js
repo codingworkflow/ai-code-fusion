@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const { matchPattern, matchAnyPattern } = require('./pattern-matcher');
+const { matchAnyPattern } = require('./pattern-matcher');
+const { normalizePath } = require('./path-utils');
 
 // Helper function to check if a file is a binary file by examining content
 const isBinaryFile = (filePath) => {
@@ -58,7 +59,7 @@ class FileAnalyzer {
 
   shouldProcessFile(filePath) {
     // Convert path to forward slashes for consistent pattern matching
-    const normalizedPath = filePath.replace(/\\/g, '/');
+    const normalizedPath = normalizePath(filePath);
 
     // Check if path contains node_modules - explicit check
     if (normalizedPath.split('/').includes('node_modules')) {
