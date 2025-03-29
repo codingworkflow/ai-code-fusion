@@ -72,3 +72,6 @@ $RECYCLE.BIN/
 start/
 start/*
 /signed/
+src/renderer/bundle.js.LICENSE.txt
+src/renderer/bundle.js.map
+src/renderer/bundle.js

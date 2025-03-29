@@ -32,11 +32,22 @@ async function start() {
     const cssFile = path.join(utils.ROOT_DIR, 'src', 'renderer', 'output.css');
     if (!fs.existsSync(cssFile)) {
       log('CSS not found, building...', colors.yellow);
-      utils.runNpmScript('build:css');
+      try {
+        // Try direct command execution first
+        const { execSync } = require('child_process');
+        log('Running tailwindcss directly...', colors.blue);
+        execSync('npx tailwindcss -i ./src/renderer/styles.css -o ./src/renderer/output.css', {
+          stdio: 'inherit',
+          cwd: utils.ROOT_DIR
+        });
+      } catch (err) {
+        log(`Error running tailwindcss: ${err.message}`, colors.red);
+        throw err;
+      }
     }
 
     // Check if webpack output exists
-    const webpackOutput = path.join(utils.ROOT_DIR, 'src', 'renderer', 'index.js');
+    const webpackOutput = path.join(utils.ROOT_DIR, 'src', 'renderer', 'bundle.js');
     if (!fs.existsSync(webpackOutput)) {
       log('Webpack bundle not found, building...', colors.yellow);
       utils.runNpmScript('build:webpack');

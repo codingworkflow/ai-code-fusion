@@ -108,10 +108,18 @@ const App = () => {
   // Function to refresh the directory tree with current config
   const refreshDirectoryTree = async () => {
     if (rootPath) {
-      // Reset selection states completely instead of filtering
-      // This prevents stale references and duplicates
+      // Reset selection states completely
       setSelectedFiles([]);
       setSelectedFolders([]);
+      
+      // Reset analysis results to prevent stale data
+      setAnalysisResult(null);
+      setProcessedResult(null);
+
+      // Reset gitignore cache to ensure fresh parsing
+      if (window.electronAPI.resetGitignoreCache) {
+        await window.electronAPI.resetGitignoreCache();
+      }
 
       // Get fresh directory tree
       const tree = await window.electronAPI.getDirectoryTree(rootPath, configContent);
@@ -123,11 +131,20 @@ const App = () => {
     const dirPath = await window.electronAPI.selectDirectory();
 
     if (dirPath) {
-      // Reset selection states first to prevent duplicates and stale references
+      // First reset selection states and analysis results
       setSelectedFiles([]);
       setSelectedFolders([]);
+      setAnalysisResult(null);
+      setProcessedResult(null);
+      
       // Update rootPath
       setRootPath(dirPath);
+      
+      // Reset gitignore cache to ensure fresh parsing
+      if (window.electronAPI.resetGitignoreCache) {
+        await window.electronAPI.resetGitignoreCache();
+      }
+      
       // Get fresh directory tree
       const tree = await window.electronAPI.getDirectoryTree(dirPath, configContent);
       setDirectoryTree(tree);
@@ -181,6 +198,19 @@ const App = () => {
     }
   };
 
+  // Helper function for consistent path normalization
+  const normalizeAndGetRelativePath = (filePath) => {
+    if (!filePath || !rootPath) return '';
+    
+    // Get path relative to root
+    const relativePath = filePath
+      .replace(rootPath, '')
+      .replace(/\\/g, '/')
+      .replace(/^\/+/, '');
+      
+    return relativePath;
+  };
+
   // Helper function to generate tree view of selected files
   const generateTreeView = () => {
     if (!selectedFiles.length) return '';
@@ -190,8 +220,14 @@ const App = () => {
 
     // Process selected files to build a tree structure
     selectedFiles.forEach((filePath) => {
-      // Get relative path
-      const relativePath = filePath.replace(rootPath, '').replace(/\\/g, '/').replace(/^\/+/, '');
+      // Get relative path using the consistent normalization function
+      const relativePath = normalizeAndGetRelativePath(filePath);
+      
+      if (!relativePath) {
+        console.warn(`Skipping invalid path: ${filePath}`);
+        return;
+      }
+      
       const parts = relativePath.split('/');
 
       // Build tree structure
