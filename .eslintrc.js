@@ -1,28 +1,34 @@
 module.exports = {
-  root: true,
   env: {
     browser: true,
     node: true,
-    es6: true,
-    jest: true,
+    es2021: true,
   },
-  extends: ['eslint:recommended', 'plugin:react/recommended'],
+  extends: [
+    'eslint:recommended',
+    'plugin:react/recommended',
+    'plugin:react-hooks/recommended',
+    'plugin:prettier/recommended',
+  ],
   parserOptions: {
-    ecmaVersion: 2020,
-    sourceType: 'module',
     ecmaFeatures: {
       jsx: true,
     },
+    ecmaVersion: 'latest',
+    sourceType: 'module',
   },
-  settings: {
-    react: {
-      version: 'detect',
-    },
-  },
-  ignorePatterns: ['node_modules/**', 'dist/**', 'build/**', 'coverage/**', 'scripts/**'],
+  plugins: ['react', 'react-hooks', 'prettier'],
   rules: {
-    'react/react-in-jsx-scope': 'off',
-    'react/prop-types': 'warn',
     'no-unused-vars': 'warn',
+    'react/react-in-jsx-scope': 'off',
   },
+  ignorePatterns: [
+    'node_modules/**',
+    'build/**',
+    'dist/**',
+    'src/renderer/bundle.js',
+    'src/renderer/index.js',
+    '**/*.map',
+    '**/*.LICENSE.txt',
+  ],
 };

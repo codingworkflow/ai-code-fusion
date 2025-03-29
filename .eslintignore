@@ -1,15 +1,7 @@
 # Ignore generated files
+src/renderer/bundle.js
+src/renderer/bundle.js.map
 src/renderer/index.js
 src/renderer/index.js.map
-src/renderer/output.css
-
-# Dependencies
-node_modules/
-**/node_modules/
-
-# Build directories
-build/
-dist/
-
-# Scripts and configs
-scripts/
+src/renderer/bundle.js.LICENSE.txt
+src/renderer/index.js.LICENSE.txt
