@@ -1,5 +1,4 @@
 const { contextBridge, ipcRenderer } = require('electron');
-const { normalizePath, getRelativePath, isWithinRoot } = require('../utils/path-utils');
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -17,10 +16,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   analyzeRepository: (options) => ipcRenderer.invoke('repo:analyze', options),
   processRepository: (options) => ipcRenderer.invoke('repo:process', options),
   
-  // Path utilities
+  // Path utilities implemented inline
   pathUtils: {
-    normalizePath,
-    getRelativePath,
-    isWithinRoot
+    normalizePath: (inputPath) => {
+      return inputPath.replace(/\\/g, '/');
+    },
+    getRelativePath: (filePath, rootPath) => {
+      if (!filePath || !rootPath) return '';
+      const relativePath = filePath.replace(rootPath, '').replace(/\\/g, '/').replace(/^\/+/, '');
+      return relativePath;
+    },
+    isWithinRoot: (filePath, rootPath) => {
+      if (!filePath || !rootPath) return false;
+      return filePath.startsWith(rootPath);
+    }
   }
 });
