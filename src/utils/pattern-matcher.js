@@ -23,30 +23,17 @@ function matchPattern(path, pattern) {
       return true;
     }
     
-    // Handle gitignore directory patterns (ending with /)
-    // When a pattern ends with /, it should match all contents in that directory
-    if (pattern.endsWith('/')) {
-      // Create a pattern that properly handles directory contents
-      const dirContents = pattern.slice(0, -1) + '/**';
-      try {
-        return minimatch(path, dirContents, MINIMATCH_OPTIONS);
-      } catch (dirError) {
-        console.error(`Error matching directory pattern ${dirContents} against ${path}:`, dirError);
+    // Special handling for directory patterns with trailing slashes
+    if (pattern.endsWith('/') && !path.endsWith('/')) {
+      // For patterns like 'dist/', treat as 'dist/**' to match contents
+      if (path.startsWith(pattern) || path.startsWith(pattern.slice(0, -1) + '/')) {
+        return true;
       }
     }
     
-    // Handle patterns with leading slash (anchored to root)
-    if (pattern.startsWith('/') && !path.startsWith('/')) {
-      // Strip the leading slash for matching, similar to gitignore-parser's behavior
-      try {
-        return minimatch(path, pattern.substring(1), MINIMATCH_OPTIONS);
-      } catch (slashError) {
-        console.error(`Error matching root pattern ${pattern} against ${path}:`, slashError);
-      }
-    }
-    
-    // Use minimatch for all patterns
-    return minimatch(path, pattern, MINIMATCH_OPTIONS);
+    // For all patterns, create a new matcher to ensure consistent behavior
+    const matcher = new minimatch.Minimatch(pattern, MINIMATCH_OPTIONS);
+    return matcher.match(path);
   } catch (error) {
     console.error(`Error matching pattern ${pattern} against ${path}:`, error);
     return false;
@@ -67,6 +54,7 @@ function compilePatterns(patterns) {
     // Check for syntax issues in pattern before considering it simple
     let hasWildcard = pattern.includes('*') || pattern.includes('?') || 
                      pattern.includes('[') || pattern.includes(']');
+    let hasTrailingSlash = pattern.endsWith('/');
     let hasInvalidSyntax = false;
     
     try {
@@ -76,26 +64,21 @@ function compilePatterns(patterns) {
       hasInvalidSyntax = true;
     }
     
-    // Simple patterns are valid patterns without wildcards
-    const isSimple = !hasWildcard && !hasInvalidSyntax;
+    // Simple patterns are valid patterns without wildcards or trailing slashes
+    const isSimple = !hasWildcard && !hasTrailingSlash && !hasInvalidSyntax;
     
-    if (isSimple) {
-      return { 
-        pattern,
-        isSimple: true,
-        // Store the minimatch instance for simple patterns too
-        matcher: new minimatch.Minimatch(pattern, MINIMATCH_OPTIONS)
-      };
-    }
-    
-    // For wildcard patterns, use minimatch.Minimatch to pre-compile
+    // Create a matcher for both simple and complex patterns
     try {
+      // Store the dirPattern flag for special handling of trailing slashes
+      const isDirectoryPattern = pattern.endsWith('/');
+      
       // Create a minimatch instance with our standard options
       const matcher = new minimatch.Minimatch(pattern, MINIMATCH_OPTIONS);
       
       return { 
         pattern,           // Original pattern string
-        isSimple: false,   // Not a simple pattern
+        isSimple,          // Simple pattern flag
+        isDirectoryPattern,// Directory pattern flag
         matcher            // Store the matcher instance
       };
     } catch (error) {
@@ -104,6 +87,7 @@ function compilePatterns(patterns) {
       return { 
         pattern, 
         isSimple: false, 
+        isDirectoryPattern: false,
         error: true 
       };
     }
@@ -127,35 +111,23 @@ function matchCompiledPattern(path, compiledPattern) {
     return true;
   }
   
-  const pattern = compiledPattern.pattern;
-  
-  // Handle directory patterns (ending with /)
-  if (pattern.endsWith('/')) {
-    // Create a pattern that properly handles directory contents
-    const dirContents = pattern.slice(0, -1) + '/**';
-    try {
-      return minimatch(path, dirContents, MINIMATCH_OPTIONS);
-    } catch (dirError) {
-      console.error(`Error matching directory pattern ${dirContents} against ${path}:`, dirError);
+  // Special handling for directory patterns
+  if (compiledPattern.isDirectoryPattern) {
+    const patternWithoutSlash = compiledPattern.pattern.slice(0, -1);
+    
+    // Check if path is inside the directory
+    if (path.startsWith(compiledPattern.pattern) || 
+        path.startsWith(patternWithoutSlash + '/')) {
+      return true;
     }
   }
   
-  // Handle patterns with leading slash (anchored to root)
-  if (pattern.startsWith('/') && !path.startsWith('/')) {
-    // Strip the leading slash for matching
-    try {
-      return minimatch(path, pattern.substring(1), MINIMATCH_OPTIONS);
-    } catch (slashError) {
-      console.error(`Error matching root pattern ${pattern} against ${path}:`, slashError);
-    }
-  }
-  
-  // Use the stored minimatch instance if available
+  // Use the stored minimatch instance
   if (compiledPattern.matcher) {
     return compiledPattern.matcher.match(path);
   }
   
-  // Fallback to standard minimatch if matcher isn't available
+  // Fallback to standard pattern matching
   return matchPattern(path, compiledPattern.pattern);
 }
 
@@ -170,14 +142,9 @@ function matchAnyPattern(path, patterns) {
     return false;
   }
   
-  // Loop through patterns manually to avoid unnecessary pattern compilations
-  for (const pattern of patterns) {
-    if (matchPattern(path, pattern)) {
-      return true;
-    }
-  }
-  
-  return false;
+  // Use the compiled matcher approach for consistency
+  const compiledPatterns = compilePatterns(patterns);
+  return matchAnyCompiledPattern(path, compiledPatterns);
 }
 
 /**
@@ -191,14 +158,9 @@ function matchAnyCompiledPattern(path, compiledPatterns) {
     return false;
   }
   
-  // Loop through patterns manually for better error handling and debugging
-  for (const compiledPattern of compiledPatterns) {
-    if (matchCompiledPattern(path, compiledPattern)) {
-      return true;
-    }
-  }
-  
-  return false;
+  return compiledPatterns.some(compiledPattern => 
+    matchCompiledPattern(path, compiledPattern)
+  );
 }
 
 module.exports = { 

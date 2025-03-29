@@ -193,36 +193,17 @@ class GitignoreParser {
 
         // Check if it's a directory pattern (ends with /)
         if (pattern.endsWith('/')) {
-          // Convert directory pattern to match both root and nested directories
-          const rootPattern = pattern;
-          const subdirPattern = `**/${pattern}`;
-          // Add patterns to match all contents within the directory
-          const contentsPattern = `${pattern}**`;
-          const subdirContentsPattern = `**/${pattern}**`;
-          
-          // Remove trailing slash for additional patterns
+          // Remove trailing slash for the main pattern that will match directory contents
           const dirWithoutSlash = pattern.slice(0, -1);
           
-          // Add more specific patterns for explicit directory content matching
-          // This is needed for cases like 'coverage/' -> 'src/coverage/report.js'
+          // This pattern will match all files inside the directory
           const dirContentPattern = `${dirWithoutSlash}/**`;  // logs/**
-          const anyDirContentPattern = `**/${dirWithoutSlash}/**`;  // **/logs/**
           
           // Add to appropriate arrays
           if (isNegated) {
-            result.includePatterns.push(rootPattern);
-            result.includePatterns.push(subdirPattern);
-            result.includePatterns.push(contentsPattern);
-            result.includePatterns.push(subdirContentsPattern);
             result.includePatterns.push(dirContentPattern);
-            result.includePatterns.push(anyDirContentPattern);
           } else {
-            result.excludePatterns.push(rootPattern);
-            result.excludePatterns.push(subdirPattern);
-            result.excludePatterns.push(contentsPattern);
-            result.excludePatterns.push(subdirContentsPattern);
             result.excludePatterns.push(dirContentPattern);
-            result.excludePatterns.push(anyDirContentPattern);
           }
 
           continue;
