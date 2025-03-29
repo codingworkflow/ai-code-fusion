@@ -25,6 +25,10 @@ module.exports = {
     filename: 'bundle.js',  // Output to bundle.js to avoid webpack processing its own output
     path: srcPath,          // Same directory for simplicity
   },
+  // Increase the node options to allow more stack space
+  node: {
+    global: true,
+  },
   module: {
     rules: [
       {

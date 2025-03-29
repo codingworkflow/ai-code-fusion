@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { isImageFile } = require('./file-analyzer');
+const { isBinaryFile } = require('./file-analyzer');
 
 class ContentProcessor {
   constructor(tokenCounter) {
@@ -9,37 +9,34 @@ class ContentProcessor {
 
   processFile(filePath, relativePath, options = {}) {
     try {
-      // Show token count if requested (default is true)
-      const showTokenCount = options.showTokenCount !== false;
-      
-      // Get file stats
-      const stats = fs.statSync(filePath);
-      const fileSizeInKB = (stats.size / 1024).toFixed(2);
-      
-      // Check if this is an image file
-      if (isImageFile(filePath)) {
-        // For image files, show metadata instead of content
-        // Calculate tokens based on file size (same calculation as in FileAnalyzer)
-        const tokenCount = Math.max(50, Math.ceil(stats.size / 4));
-        
-        const headerContent = showTokenCount
-          ? `${relativePath} (${tokenCount} tokens)`
-          : `${relativePath}`;
-          
+      // For binary files, show a note instead of content
+      if (isBinaryFile(filePath)) {
+        console.log(`Binary file detected during processing: ${filePath}`);
+
+        // Get file stats for size info
+        const stats = fs.statSync(filePath);
+        const fileSizeInKB = (stats.size / 1024).toFixed(2);
+
+        const headerContent = `${relativePath} (binary file)`;
+
         const formattedContent =
-          `######\n` +
-          `${headerContent}\n` +
-          `######\n\n` +
-          `[IMAGE FILE]\n` +
+          `######\n` + 
+          `${headerContent}\n` + 
+          `######\n\n` + 
+          `[BINARY FILE]\n` +
           `File Type: ${path.extname(filePath).replace('.', '').toUpperCase()}\n` +
-          `Size: ${fileSizeInKB} KB\n\n`;
-          
+          `Size: ${fileSizeInKB} KB\n\n` +
+          `Note: Binary files are included in the file tree but not processed for content.\n\n`;
+
         return formattedContent;
       }
-      
-      // For text files, process normally
+
+      // Process only text files
       const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
       const tokenCount = this.tokenCounter.countTokens(content);
+
+      // Show token count if requested (default is true)
+      const showTokenCount = options.showTokenCount !== false;
 
       const headerContent = showTokenCount
         ? `${relativePath} (${tokenCount} tokens)`

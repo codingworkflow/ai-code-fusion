@@ -1,10 +1,46 @@
 const fs = require('fs');
 const path = require('path');
 
-// Helper function to check if a file is an image based on extension
-const isImageFile = (filePath) => {
-  const ext = path.extname(filePath).toLowerCase();
-  return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.svg', '.ico'].includes(ext);
+// Helper function to check if a file is a binary file by examining content
+const isBinaryFile = (filePath) => {
+  try {
+    // Read the first 4KB of the file to check for binary content
+    const buffer = Buffer.alloc(4096);
+    const fd = fs.openSync(filePath, 'r');
+    const bytesRead = fs.readSync(fd, buffer, 0, 4096, 0);
+    fs.closeSync(fd);
+    
+    if (bytesRead === 0) {
+      // Empty file, consider it text
+      return false;
+    }
+    
+    // Check for NULL bytes and control characters (except common whitespace controls)
+    // This is a reliable indicator of binary content
+    let controlChars = 0;
+    const totalBytes = bytesRead;
+    
+    for (let i = 0; i < bytesRead; i++) {
+      // NULL byte check
+      if (buffer[i] === 0) {
+        return true; // Null bytes are a clear sign of binary content
+      }
+      
+      // Control character check (except tab, newline, carriage return)
+      if (buffer[i] < 32 && buffer[i] !== 9 && buffer[i] !== 10 && buffer[i] !== 13) {
+        controlChars++;
+      }
+    }
+    
+    // If more than 10% of the file consists of control characters, consider it binary
+    const ratio = controlChars / totalBytes;
+    return ratio > 0.1;
+    
+  } catch (error) {
+    console.error(`Error checking if file is binary: ${filePath}`, error);
+    // If we can't read the file, safer to consider it binary
+    return true;
+  }
 };
 
 // Define our own pattern matching function
@@ -44,9 +80,9 @@ class FileAnalyzer {
     this.config = config;
     this.tokenCounter = tokenCounter;
     this.useGitignore = options.useGitignore || false;
-    this.gitignorePatterns = options.gitignorePatterns || { 
-      excludePatterns: [], 
-      includePatterns: [] 
+    this.gitignorePatterns = options.gitignorePatterns || {
+      excludePatterns: [],
+      includePatterns: [],
     };
   }
 
@@ -61,7 +97,7 @@ class FileAnalyzer {
 
     // Check if custom excludes are enabled (default to true if not specified)
     const useCustomExcludes = this.config.use_custom_excludes !== false;
-    
+
     // Check custom exclude patterns if enabled
     if (useCustomExcludes) {
       // Check each part of the path against exclude patterns
@@ -82,11 +118,14 @@ class FileAnalyzer {
         }
       }
     }
-    
+
     // First check include patterns (negated gitignore patterns)
     // These have highest priority - if a file matches an include pattern, it should be processed
-    if (this.useGitignore && this.gitignorePatterns.includePatterns && 
-        this.gitignorePatterns.includePatterns.length > 0) {
+    if (
+      this.useGitignore &&
+      this.gitignorePatterns.includePatterns &&
+      this.gitignorePatterns.includePatterns.length > 0
+    ) {
       // Check each part of the path against include patterns
       const pathParts = normalizedPath.split('/');
       for (let i = 0; i < pathParts.length; i++) {
@@ -108,13 +147,16 @@ class FileAnalyzer {
         }
       }
     }
-    
+
     // Check gitignore exclude patterns if enabled
-    if (this.useGitignore && this.gitignorePatterns.excludePatterns && 
-        this.gitignorePatterns.excludePatterns.length > 0) {
+    if (
+      this.useGitignore &&
+      this.gitignorePatterns.excludePatterns &&
+      this.gitignorePatterns.excludePatterns.length > 0
+    ) {
       // Special handling for root-level files
       const isRootLevelFile = normalizedPath.indexOf('/') === -1;
-      
+
       // Check for direct match first (important for root-level files)
       if (isRootLevelFile) {
         for (const pattern of this.gitignorePatterns.excludePatterns) {
@@ -126,7 +168,7 @@ class FileAnalyzer {
           }
         }
       }
-      
+
       // Standard path part checking
       const pathParts = normalizedPath.split('/');
       for (let i = 0; i < pathParts.length; i++) {
@@ -153,7 +195,7 @@ class FileAnalyzer {
       // Check if extension is in included list
       return (this.config.include_extensions || []).includes(ext);
     }
-    
+
     // If custom excludes are disabled, include all files that passed gitignore filters
     return true;
   }
@@ -164,16 +206,13 @@ class FileAnalyzer {
 
   analyzeFile(filePath) {
     try {
-      // Handle image files differently
-      if (isImageFile(filePath)) {
-        // For images, estimate tokens based on file size
-        // This is a simple estimation - adjust as needed
-        const stats = fs.statSync(filePath);
-        // Very basic estimation: 1 token per 4 bytes with a minimum of 50 tokens
-        return Math.max(50, Math.ceil(stats.size / 4));
+      // Skip binary files completely
+      if (isBinaryFile(filePath)) {
+        console.log(`Skipping binary file: ${filePath}`);
+        return null;
       }
-      
-      // For text files, process normally
+
+      // Process text files only
       const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
       return this.tokenCounter.countTokens(content);
     } catch (error) {
@@ -194,6 +233,12 @@ class FileAnalyzer {
       totalTokens,
     };
   }
+
+  // Additional method to check if file should be processed before reading it
+  shouldReadFile(filePath) {
+    // Skip binary files completely
+    return !isBinaryFile(filePath);
+  }
 }
 
-module.exports = { FileAnalyzer, isImageFile };
+module.exports = { FileAnalyzer, isBinaryFile };

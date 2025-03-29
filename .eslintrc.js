@@ -1,34 +1,40 @@
 module.exports = {
+  root: true,
   env: {
     browser: true,
     node: true,
-    es2021: true,
+    es6: true,
+    jest: true,
   },
-  extends: [
-    'eslint:recommended',
-    'plugin:react/recommended',
-    'plugin:react-hooks/recommended',
-    'plugin:prettier/recommended',
-  ],
+  extends: ['eslint:recommended', 'plugin:react/recommended'],
   parserOptions: {
+    ecmaVersion: 2020,
+    sourceType: 'module',
     ecmaFeatures: {
       jsx: true,
     },
-    ecmaVersion: 'latest',
-    sourceType: 'module',
   },
-  plugins: ['react', 'react-hooks', 'prettier'],
-  rules: {
-    'no-unused-vars': 'warn',
-    'react/react-in-jsx-scope': 'off',
+  settings: {
+    react: {
+      version: 'detect',
+    },
   },
   ignorePatterns: [
-    'node_modules/**',
-    'build/**',
-    'dist/**',
+    'node_modules/**', 
+    'dist/**', 
+    'build/**', 
+    'coverage/**', 
+    'scripts/**',
     'src/renderer/bundle.js',
+    'src/renderer/bundle.js.map',
+    'src/renderer/bundle.js.LICENSE.txt',
     'src/renderer/index.js',
-    '**/*.map',
-    '**/*.LICENSE.txt',
+    'src/renderer/index.js.map',
+    'src/renderer/output.css'
   ],
+  rules: {
+    'react/react-in-jsx-scope': 'off',
+    'react/prop-types': 'warn',
+    'no-unused-vars': 'warn',
+  },
 };

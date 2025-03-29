@@ -7,7 +7,7 @@ import ProcessedTab from './ProcessedTab';
 
 const defaultConfig = `# Filtering options
 use_custom_excludes: true
-use_gitignore: false
+use_gitignore: true
 
 
 # File extensions to include (with dot)
@@ -15,22 +15,34 @@ include_extensions:
   - .py
   - .ts
   - .js
+  - .jsx
+  - .tsx
+  - .json
   - .md
+  - .txt
+  - .html
+  - .css
+  - .scss
+  - .less
   - .ini
   - .yaml
   - .yml
   - .kt
+  - .java
   - .go
   - .scm
   - .php
-  - .jpg
-  - .jpeg
-  - .png
-  - .gif
-  - .bmp
-  - .webp
-  - .svg
-  - .ico
+  - .rb
+  - .c
+  - .cpp
+  - .h
+  - .cs
+  - .sql
+  - .sh
+  - .bat
+  - .ps1
+  - .xml
+  - .config
 
 # Patterns to exclude (using fnmatch syntax)
 exclude_patterns:
@@ -53,10 +65,15 @@ exclude_patterns:
 
   # Build outputs
   - "**/test/**"
-  - "**/dist/**"
+  - "**/dist/**" 
   - "**/build/**"
   - "**/__pycache__/**"
   - "**/*.pyc"
+  - "**/bundle.js"
+  - "**/bundle.js.map"
+  - "**/bundle.js.LICENSE.txt"
+  - "**/index.js.map"
+  - "**/output.css"
 
   # Config files
   - "**/.DS_Store"

@@ -86,13 +86,84 @@ class GitignoreParser {
       // Convert gitignore pattern to glob pattern
       let pattern = isNegated ? trimmedLine.substring(1).trim() : trimmedLine;
       
-      // Handle patterns appropriately based on prefix
-      if (pattern.startsWith('/')) {
-        // Pattern with leading / is relative to repo root (remove the leading /)
-        pattern = pattern.substring(1);
+      // Skip pattern if still empty after trimming
+      if (!pattern) {
+        continue;
+      }
+      
+      // Special handling for direct file paths in gitignore
+      if (pattern.includes('/')) {
+        // Pattern refers to a specific path
+        
+        // Handle patterns appropriately based on prefix
+        if (pattern.startsWith('/')) {
+          // Pattern with leading / is relative to repo root (remove the leading /)
+          pattern = pattern.substring(1);
+          
+          // Create more specific patterns for files like /src/renderer/bundle.js
+          if (!pattern.includes('*')) {
+            // If it's a path without wildcards, we need to make it more specific
+            if (pattern.endsWith('/')) {
+              // Directory pattern - include everything in it
+              pattern = `${pattern}**`;
+            } else {
+              // File pattern - exact match
+              const exactPattern = pattern;
+              
+              // Add to the appropriate array
+              if (isNegated) {
+                result.includePatterns.push(exactPattern);
+              } else {
+                result.excludePatterns.push(exactPattern);
+              }
+              
+              continue;
+            }
+          }
+        } else {
+          // Pattern without leading / matches anywhere in the tree
+          // For patterns like src/renderer/bundle.js
+          
+          // For direct file paths, we need to create multiple patterns
+          if (!pattern.includes('*')) {
+            const rootPattern = pattern;
+            const subdirPattern = `**/${pattern}`;
+            
+            // Add to the appropriate arrays
+            if (isNegated) {
+              result.includePatterns.push(rootPattern);
+              result.includePatterns.push(subdirPattern);
+            } else {
+              result.excludePatterns.push(rootPattern);
+              result.excludePatterns.push(subdirPattern);
+            }
+            
+            continue;
+          }
+        }
       } else {
-        // Pattern without leading / matches both root and subdirectories
-        // Create two patterns - one for root and one for subdirectories
+        // Simple pattern like *.log or node_modules
+        
+        // Check if it's a directory pattern (ends with /)
+        if (pattern.endsWith('/')) {
+          // Convert directory pattern to match both root and nested directories
+          const rootPattern = pattern;
+          const subdirPattern = `**/${pattern}`;
+          
+          // Add to appropriate arrays
+          if (isNegated) {
+            result.includePatterns.push(rootPattern);
+            result.includePatterns.push(subdirPattern);
+          } else {
+            result.excludePatterns.push(rootPattern);
+            result.excludePatterns.push(subdirPattern);
+          }
+          
+          continue;
+        }
+        
+        // It's a simple file pattern like *.log
+        // Match both at root and in subdirectories
         const rootPattern = pattern;
         const subdirPattern = `**/${pattern}`;
         
@@ -105,13 +176,7 @@ class GitignoreParser {
           result.excludePatterns.push(subdirPattern);
         }
         
-        // Skip the rest of the loop since we've already added both patterns
         continue;
-      }
-      
-      // Add trailing /** if the pattern ends with /
-      if (pattern.endsWith('/')) {
-        pattern = `${pattern}**`;
       }
       
       // Add to the appropriate array
@@ -121,6 +186,13 @@ class GitignoreParser {
         result.excludePatterns.push(pattern);
       }
     }
+    
+    // Add specific patterns for common build artifacts that might not be caught
+    result.excludePatterns.push('**/bundle.js');
+    result.excludePatterns.push('**/bundle.js.map');
+    result.excludePatterns.push('**/bundle.js.LICENSE.txt');
+    result.excludePatterns.push('**/index.js.map');
+    result.excludePatterns.push('**/output.css');
     
     return result;
   }

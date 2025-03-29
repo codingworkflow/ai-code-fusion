@@ -229,7 +229,7 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
       try {
         const itemPath = path.join(dir, item);
 
-        // Skip excluded items
+        // Skip excluded items based on patterns, but don't exclude binary files from the tree
         if (shouldExclude(itemPath, item)) {
           continue;
         }
@@ -319,6 +319,7 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
     // If selectedFiles is provided, only analyze those files
     const filesInfo = [];
     let totalTokens = 0;
+    let skippedBinaryFiles = 0;
 
     for (const filePath of selectedFiles) {
       // Verify the file is within the current root path
@@ -330,7 +331,23 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
       // Use consistent path normalization
       const relativePath = getRelativePath(filePath, rootPath);
 
-      if (fileAnalyzer.shouldProcessFile(relativePath)) {
+      // For binary files, record them as skipped but don't prevent selection
+      let isBinary = false;
+      if (!fileAnalyzer.shouldReadFile(filePath)) {
+        console.log(`Binary file detected (will skip processing): ${relativePath}`);
+        isBinary = true;
+        skippedBinaryFiles++;
+      }
+
+      if (isBinary) {
+        // For binary files, add to filesInfo but with zero tokens and a flag
+        filesInfo.push({
+          path: relativePath,
+          tokens: 0,
+          isBinary: true
+        });
+      } 
+      else if (fileAnalyzer.shouldProcessFile(relativePath)) {
         const tokenCount = fileAnalyzer.analyzeFile(filePath);
 
         if (tokenCount !== null) {
@@ -347,9 +364,12 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
     // Sort by token count
     filesInfo.sort((a, b) => b.tokens - a.tokens);
 
+    console.log(`Skipped ${skippedBinaryFiles} binary files during analysis`);
+
     return {
       filesInfo,
       totalTokens,
+      skippedBinaryFiles
     };
   } catch (error) {
     console.error('Error analyzing repository:', error);
