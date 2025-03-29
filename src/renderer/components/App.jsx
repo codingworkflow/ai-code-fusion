@@ -5,22 +5,6 @@ import ConfigTab from './ConfigTab';
 import AnalyzeTab from './AnalyzeTab';
 import ProcessedTab from './ProcessedTab';
 
-// TODO: Path utilities should be imported from path-utils.js via preload.js
-// This would require updating the preload.js file to expose these functions:
-// 
-// In preload.js:
-// const { normalizePath, getRelativePath, isWithinRoot } = require('../utils/path-utils');
-// contextBridge.exposeInMainWorld('electronAPI', {
-//   ...existingAPIs,
-//   pathUtils: {
-//     normalizePath,
-//     getRelativePath,
-//     isWithinRoot
-//   }
-// });
-//
-// For now, we'll keep local implementation with appropriate documentation about the fix needed
-
 const defaultConfig = `# Filtering options
 use_custom_excludes: true
 use_gitignore: true
@@ -206,9 +190,9 @@ const App = () => {
     }
 
     try {
-      // Validate selected files before analysis
+      // Validate selected files before analysis using centralized path utility
       const validFiles = selectedFiles.filter((file) => {
-        const withinRoot = file.startsWith(rootPath);
+        const withinRoot = window.electronAPI.pathUtils.isWithinRoot(file, rootPath);
 
         if (!withinRoot) {
           console.warn(`Skipping file outside current root directory: ${file}`);
@@ -243,16 +227,12 @@ const App = () => {
     }
   };
 
-  // Helper function for consistent path normalization 
-  // TODO: This should use window.electronAPI.pathUtils.normalizePath and getRelativePath
-  // This duplicates functionality in path-utils.js
+  // Helper function for consistent path normalization using the centralized utility
   const normalizeAndGetRelativePath = (filePath) => {
     if (!filePath || !rootPath) return '';
-
-    // Get path relative to root
-    const relativePath = filePath.replace(rootPath, '').replace(/\\/g, '/').replace(/^\/+/, '');
-
-    return relativePath;
+    
+    // Use the getRelativePath utility from the electronAPI.pathUtils
+    return window.electronAPI.pathUtils.getRelativePath(filePath, rootPath);
   };
 
   // Helper function to generate tree view of selected files
@@ -388,15 +368,10 @@ const App = () => {
     }
   };
 
-  // Utility function for path validation
-  // TODO: This should use window.electronAPI.pathUtils.isWithinRoot
-  // This duplicates functionality in path-utils.js
+  // Utility function for path validation using the centralized utility
   const isValidFilePath = (filePath) => {
-    // Check if file path exists and is within the current root path
-    if (!filePath || !rootPath) return false;
-
-    // Ensure the file is within the current root path
-    return filePath.startsWith(rootPath);
+    // Use the isWithinRoot utility from the electronAPI.pathUtils
+    return window.electronAPI.pathUtils.isWithinRoot(filePath, rootPath);
   };
 
   const handleFileSelect = (filePath, isSelected) => {
@@ -420,8 +395,8 @@ const App = () => {
   const [selectedFolders, setSelectedFolders] = useState([]);
 
   const handleFolderSelect = (folderPath, isSelected) => {
-    // Validate folder path before selection
-    if (isSelected && (!folderPath || !rootPath || !folderPath.startsWith(rootPath))) {
+    // Validate folder path before selection using centralized path utility
+    if (isSelected && !window.electronAPI.pathUtils.isWithinRoot(folderPath, rootPath)) {
       console.warn(`Attempted to select an invalid folder: ${folderPath}`);
       return;
     }
@@ -452,8 +427,8 @@ const App = () => {
 
       for (const item of folder.children) {
         if (item.type === 'directory') {
-          // Validate each folder is within current root
-          if (item.path.startsWith(rootPath)) {
+          // Validate each folder is within current root using centralized path utility
+          if (window.electronAPI.pathUtils.isWithinRoot(item.path, rootPath)) {
             folders.push(item.path);
             folders = [...folders, ...getAllSubFolders(item)];
           }
@@ -471,8 +446,8 @@ const App = () => {
 
       for (const item of folder.children) {
         if (item.type === 'file') {
-          // Validate each file is within current root
-          if (item.path.startsWith(rootPath)) {
+          // Validate each file is within current root using centralized path utility
+          if (window.electronAPI.pathUtils.isWithinRoot(item.path, rootPath)) {
             files.push(item.path);
           }
         } else if (item.type === 'directory') {
