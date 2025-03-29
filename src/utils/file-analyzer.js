@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { matchAnyPattern } = require('./pattern-matcher');
+const { compilePatterns, matchAnyCompiledPattern } = require('./pattern-matcher');
 const { normalizePath } = require('./path-utils');
 
 // Helper function to check if a file is a binary file by examining content
@@ -55,6 +55,22 @@ class FileAnalyzer {
       excludePatterns: [],
       includePatterns: [],
     };
+    
+    // Pre-compile patterns for better performance
+    this.compiledCustomExcludePatterns = config.exclude_patterns ? 
+      compilePatterns(config.exclude_patterns) : [];
+      
+    this.compiledGitignoreExcludePatterns = this.useGitignore && 
+      this.gitignorePatterns.compiledExcludePatterns ? 
+      this.gitignorePatterns.compiledExcludePatterns : 
+      (this.gitignorePatterns.excludePatterns ? 
+        compilePatterns(this.gitignorePatterns.excludePatterns) : []);
+        
+    this.compiledGitignoreIncludePatterns = this.useGitignore && 
+      this.gitignorePatterns.compiledIncludePatterns ? 
+      this.gitignorePatterns.compiledIncludePatterns : 
+      (this.gitignorePatterns.includePatterns ? 
+        compilePatterns(this.gitignorePatterns.includePatterns) : []);
   }
 
   shouldProcessFile(filePath) {
@@ -71,21 +87,17 @@ class FileAnalyzer {
     const filterByExtension = this.config.filter_by_extension !== false;
 
     // Check custom exclude patterns if enabled
-    if (useCustomExcludes && this.config.exclude_patterns && this.config.exclude_patterns.length > 0) {
-      // Use enhanced pattern matching from our utility
-      if (matchAnyPattern(normalizedPath, this.config.exclude_patterns)) {
+    if (useCustomExcludes && this.compiledCustomExcludePatterns.length > 0) {
+      // Use pre-compiled patterns for better performance
+      if (matchAnyCompiledPattern(normalizedPath, this.compiledCustomExcludePatterns)) {
         return false;
       }
     }
 
     // First check include patterns (negated gitignore patterns)
     // These have highest priority as per gitignore standard behavior
-    if (
-      this.useGitignore &&
-      this.gitignorePatterns.includePatterns &&
-      this.gitignorePatterns.includePatterns.length > 0
-    ) {
-      if (matchAnyPattern(normalizedPath, this.gitignorePatterns.includePatterns)) {
+    if (this.useGitignore && this.compiledGitignoreIncludePatterns.length > 0) {
+      if (matchAnyCompiledPattern(normalizedPath, this.compiledGitignoreIncludePatterns)) {
         // File matches a gitignore include pattern
         // Still need to check extension filtering if enabled
         if (filterByExtension) {
@@ -97,12 +109,8 @@ class FileAnalyzer {
     }
 
     // Check gitignore exclude patterns if enabled
-    if (
-      this.useGitignore &&
-      this.gitignorePatterns.excludePatterns &&
-      this.gitignorePatterns.excludePatterns.length > 0
-    ) {
-      if (matchAnyPattern(normalizedPath, this.gitignorePatterns.excludePatterns)) {
+    if (this.useGitignore && this.compiledGitignoreExcludePatterns.length > 0) {
+      if (matchAnyCompiledPattern(normalizedPath, this.compiledGitignoreExcludePatterns)) {
         return false;
       }
     }

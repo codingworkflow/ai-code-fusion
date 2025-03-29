@@ -10,12 +10,6 @@ This document provides detailed information for developers working on the AI Cod
 - npm
 - Git
 
-### Development Container (Recommended)
-
-This project includes a development container configuration that provides a consistent, pre-configured development environment.
-
-For detailed instructions on using the dev container, see the [Dev Container Guide](DEV_CONTAINER.md).
-
 ### Platform-Specific Build Instructions
 
 #### Windows
@@ -52,11 +46,17 @@ make build-win
 # Build for Linux
 make build-linux
 
+# Build for macOS
+make build-mac
+
+# Build for macOS ARM64
+make build-mac-arm
+
+# Build for macOS Universal binary
+make build-mac-universal
+
 # Run tests
 make test
-
-# Run tests in watch mode
-make test-watch
 
 # Run linter
 make lint
@@ -64,8 +64,17 @@ make lint
 # Format code
 make format
 
-# Run all code quality checks
-make validate
+# Clean build artifacts
+make clean
+
+# Create a new release
+make release VERSION=x.y.z
+
+# Run SonarQube analysis
+make sonar
+
+# View all available commands
+make help
 ```
 
 ### Manual Setup

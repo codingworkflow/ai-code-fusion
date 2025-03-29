@@ -15,7 +15,67 @@ if exist ".git" (
   git update-index --chmod=+x scripts/lib/*.js >nul 2>&1
 )
 
-rem Special handling for release command to pass version
+rem Map commands to npm scripts or node scripts/index.js commands
+if /i "%1"=="setup" (
+  call npm install
+  exit /b %errorlevel%
+)
+
+if /i "%1"=="dev" (
+  call npm start
+  exit /b %errorlevel%
+)
+
+if /i "%1"=="build" (
+  call npm run build
+  exit /b %errorlevel%
+)
+
+if /i "%1"=="build-win" (
+  call npm run build:win
+  exit /b %errorlevel%
+)
+
+if /i "%1"=="build-mac" (
+  call npm run build:mac
+  exit /b %errorlevel%
+)
+
+if /i "%1"=="build-mac-arm" (
+  call npm run build:mac-arm
+  exit /b %errorlevel%
+)
+
+if /i "%1"=="build-mac-universal" (
+  call npm run build:mac-universal
+  exit /b %errorlevel%
+)
+
+if /i "%1"=="build-linux" (
+  call npm run build:linux
+  exit /b %errorlevel%
+)
+
+if /i "%1"=="test" (
+  call npm test
+  exit /b %errorlevel%
+)
+
+if /i "%1"=="lint" (
+  call npm run lint
+  exit /b %errorlevel%
+)
+
+if /i "%1"=="format" (
+  call npm run format
+  exit /b %errorlevel%
+)
+
+if /i "%1"=="clean" (
+  call npm run clean
+  exit /b %errorlevel%
+)
+
 if /i "%1"=="release" (
   if "%2"=="" (
     echo Error: Version argument is required for release command
@@ -23,34 +83,39 @@ if /i "%1"=="release" (
     echo Example: make release 1.0.0
     exit /b 1
   )
-  scripts\index.js release %2
+  call npm run release -- %2
   exit /b %errorlevel%
 )
 
-rem Special handling for dev command on Windows
-if /i "%1"=="dev" (
-  echo Starting development environment for Windows...
-
-  rem Set environment variables
-  set NODE_ENV=development
-
-  rem Build CSS if needed
-  if not exist "src\renderer\output.css" (
-    echo Building CSS...
-    call npm run build:css
-  )
-
-  rem Build webpack bundle if needed
-  if not exist "src\renderer\index.js" (
-    echo Building webpack bundle...
-    call npm run build:webpack
-  )
-
-  echo Starting development server...
-  npx concurrently --kill-others "npm:watch:css" "npm:watch:webpack" "npx electron ."
+if /i "%1"=="sonar" (
+  call npm run sonar
   exit /b %errorlevel%
 )
 
-rem Run the command through our unified Node.js script
-node scripts/index.js %*
-exit /b %errorlevel%
+if /i "%1"=="help" (
+  echo Available commands:
+  echo   setup              - Install dependencies
+  echo   dev                - Start development environment
+  echo   build              - Build for current platform
+  echo   build-win          - Build for Windows
+  echo   build-mac          - Build for macOS
+  echo   build-mac-arm      - Build for macOS ARM
+  echo   build-mac-universal - Build for macOS Universal
+  echo   build-linux        - Build for Linux
+  echo   test               - Run tests
+  echo   lint               - Run linting
+  echo   format             - Format code
+  echo   clean              - Clean build artifacts
+  echo   release ^<version^>  - Create a new release
+  echo   sonar              - Run SonarQube analysis
+  exit /b 0
+)
+
+if "%1"=="" (
+  call :help
+  exit /b 0
+)
+
+echo Unknown command: %1
+echo Type 'make help' for available commands
+exit /b 1

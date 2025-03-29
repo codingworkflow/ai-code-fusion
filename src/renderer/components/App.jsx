@@ -5,9 +5,21 @@ import ConfigTab from './ConfigTab';
 import AnalyzeTab from './AnalyzeTab';
 import ProcessedTab from './ProcessedTab';
 
-// Import the path utilities through the electron bridge
-// In a real implementation, we would need to expose these through preload.js
-// For now, we'll keep our local implementation but note it should be replaced
+// TODO: Path utilities should be imported from path-utils.js via preload.js
+// This would require updating the preload.js file to expose these functions:
+// 
+// In preload.js:
+// const { normalizePath, getRelativePath, isWithinRoot } = require('../utils/path-utils');
+// contextBridge.exposeInMainWorld('electronAPI', {
+//   ...existingAPIs,
+//   pathUtils: {
+//     normalizePath,
+//     getRelativePath,
+//     isWithinRoot
+//   }
+// });
+//
+// For now, we'll keep local implementation with appropriate documentation about the fix needed
 
 const defaultConfig = `# Filtering options
 use_custom_excludes: true
@@ -232,7 +244,8 @@ const App = () => {
   };
 
   // Helper function for consistent path normalization 
-  // Note: In a complete implementation, this would come from path-utils.js via preload
+  // TODO: This should use window.electronAPI.pathUtils.normalizePath and getRelativePath
+  // This duplicates functionality in path-utils.js
   const normalizeAndGetRelativePath = (filePath) => {
     if (!filePath || !rootPath) return '';
 
@@ -376,7 +389,8 @@ const App = () => {
   };
 
   // Utility function for path validation
-  // Note: In a complete implementation, this would come from path-utils.js via preload
+  // TODO: This should use window.electronAPI.pathUtils.isWithinRoot
+  // This duplicates functionality in path-utils.js
   const isValidFilePath = (filePath) => {
     // Check if file path exists and is within the current root path
     if (!filePath || !rootPath) return false;
