@@ -90,33 +90,32 @@ temp/
     });
 
     // Setup fs.openSync, fs.readSync, and fs.closeSync mocks for binary detection
-    fs.openSync.mockReturnValue(123); // Mock file descriptor
+    fs.openSync.mockImplementation(filePath => {
+      // Return a unique fd with a prefix indicating the file type for better tracking
+      if (filePath.endsWith('.png') || filePath.endsWith('.ico')) {
+        return `binary:${filePath}`;
+      }
+      return `text:${filePath}`;
+    });
     
-    fs.readSync.mockImplementation((fd, buffer, offset, length, position) => {
-      // Different binary/text patterns for different test files
+    fs.readSync.mockImplementation((fd, buffer) => {
+      const fdStr = String(fd);
       
       // Binary files
-      if (fd.toString().includes('image.png') || 
-          (fs.openSync.mock.calls.find(call => call[0] === 'image.png'))) {
+      if (fdStr.startsWith('binary:')) {
         // Simulate a NULL byte in a binary file
         buffer[0] = 0;
         return 100; // Bytes read
       }
       
-      // Text file
-      if (fd.toString().includes('file.js') || 
-          (fs.openSync.mock.calls.find(call => call[0] === 'file.js'))) {
-        // Fill buffer with text content
-        const textContent = Buffer.from('var x = 10; // text content');
-        textContent.copy(buffer);
-        return textContent.length;
-      }
-      
-      // Default for unknown files (assume text)
-      const defaultContent = Buffer.from('default text content');
-      defaultContent.copy(buffer);
-      return defaultContent.length;
+      // Text files
+      const textContent = Buffer.from('var x = 10; // text content');
+      textContent.copy(buffer);
+      return textContent.length;
     });
+    
+    // Mock closeSync to do nothing
+    fs.closeSync.mockImplementation(() => {});
 
     // Create FileAnalyzer instance
     fileAnalyzer = new FileAnalyzer(mockConfig, mockTokenCounter);
@@ -124,23 +123,32 @@ temp/
 
   describe('shouldProcessFile', () => {
     test('should exclude files that match custom exclude patterns', () => {
+      // Create a debugging helper function
+      const debugPath = (path) => {
+        const result = fileAnalyzer.shouldProcessFile(path);
+        if (result !== false) {
+          console.log(`UNEXPECTED: ${path} was allowed but should be excluded`);
+        }
+        return result;
+      };
+      
       // Node modules files
-      expect(fileAnalyzer.shouldProcessFile('src/node_modules/package/index.js')).toBe(false);
+      expect(debugPath('src/node_modules/package/index.js')).toBe(false);
 
       // Git files
-      expect(fileAnalyzer.shouldProcessFile('.git/index')).toBe(false);
+      expect(debugPath('.git/index')).toBe(false);
 
       // Dist files
-      expect(fileAnalyzer.shouldProcessFile('dist/bundle.js')).toBe(false);
+      expect(debugPath('dist/bundle.js')).toBe(false);
 
       // Build files
-      expect(fileAnalyzer.shouldProcessFile('build/output.js')).toBe(false);
+      expect(debugPath('build/output.js')).toBe(false);
 
       // Minified files
-      expect(fileAnalyzer.shouldProcessFile('public/lib.min.js')).toBe(false);
+      expect(debugPath('public/lib.min.js')).toBe(false);
 
       // Root-level config files
-      expect(fileAnalyzer.shouldProcessFile('.env')).toBe(false);
+      expect(debugPath('.env')).toBe(false);
     });
 
     test('should include files that match include extensions', () => {

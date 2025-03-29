@@ -4,6 +4,12 @@
 
 const minimatch = require('minimatch');
 
+// Common minimatch options
+const MINIMATCH_OPTIONS = { 
+  matchBase: true,  // Makes *.js match file.js in any directory
+  dot: true         // Include dotfiles
+};
+
 /**
  * Match a path against a pattern
  * @param {string} path - The path to check
@@ -17,12 +23,8 @@ function matchPattern(path, pattern) {
       return path === pattern || path.endsWith(`/${pattern}`);
     }
     
-    // Use minimatch for all wildcard patterns (handles **, *, ? correctly)
-    return minimatch(path, pattern, { 
-      matchBase: true, // Match basename of path if pattern has no slashes
-      dot: true,       // Include dotfiles in matches
-      nocase: false    // Case-sensitive matching
-    });
+    // Use minimatch for all wildcard patterns
+    return minimatch(path, pattern, MINIMATCH_OPTIONS);
   } catch (error) {
     console.error(`Error matching pattern ${pattern} against ${path}:`, error);
     return false;
@@ -40,35 +42,33 @@ function compilePatterns(patterns) {
   }
   
   return patterns.map(pattern => {
-    // Determine if it's a simple pattern (no wildcards)
     const isSimple = !pattern.includes('*') && !pattern.includes('?');
     
     if (isSimple) {
       // For simple patterns, just store the original
-      return { original: pattern, isSimple: true };
+      return { pattern, isSimple: true };
     }
     
-    // For wildcard patterns, use minimatch
+    // For wildcard patterns, use minimatch.makeRe to pre-compile
     try {
-      // Create minimatch instance for this pattern
-      const matcher = new minimatch.Minimatch(pattern, {
-        matchBase: true,
-        dot: true,
-        nocase: false
-      });
+      // Create a minimatch instance with our standard options
+      const matcher = new minimatch.Minimatch(pattern, MINIMATCH_OPTIONS);
+      
+      // Get the pre-compiled regex
+      const regex = matcher.makeRe();
       
       return { 
-        original: pattern, 
-        isSimple: false,
-        matcher: matcher
+        pattern,           // Original pattern string
+        isSimple: false,   // Not a simple pattern
+        regex              // Pre-compiled regex for faster matching
       };
     } catch (error) {
       console.error(`Error compiling pattern ${pattern}:`, error);
-      // Return a pattern that will never match if compilation fails
+      // Return a pattern object that won't match anything
       return { 
-        original: pattern, 
+        pattern, 
         isSimple: false, 
-        matcher: { match: () => false } 
+        error: true 
       };
     }
   });
@@ -81,13 +81,24 @@ function compilePatterns(patterns) {
  * @returns {boolean} - True if path matches the pattern
  */
 function matchCompiledPattern(path, compiledPattern) {
-  if (compiledPattern.isSimple) {
-    return path === compiledPattern.original || 
-           path.endsWith(`/${compiledPattern.original}`);
+  // Handle error case
+  if (compiledPattern.error) {
+    return false;
   }
   
-  // Use the minimatch matcher for wildcard patterns
-  return compiledPattern.matcher.match(path);
+  // Handle simple patterns
+  if (compiledPattern.isSimple) {
+    return path === compiledPattern.pattern || 
+           path.endsWith(`/${compiledPattern.pattern}`);
+  }
+  
+  // Use the pre-compiled regex for efficient matching
+  if (compiledPattern.regex) {
+    return compiledPattern.regex.test(path);
+  }
+  
+  // Fallback to standard minimatch if regex isn't available for some reason
+  return minimatch(path, compiledPattern.pattern, MINIMATCH_OPTIONS);
 }
 
 /**

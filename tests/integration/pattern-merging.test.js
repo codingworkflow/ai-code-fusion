@@ -81,11 +81,18 @@ describe('Pattern Merging Integration', () => {
     mockTokenCounter = new TokenCounter();
     mockTokenCounter.countTokens = jest.fn().mockReturnValue(100);
 
-    // Mock filesystem operations for gitignore files
+    // Mock filesystem operations for gitignore files and binary detection
     fs.existsSync.mockImplementation(path => {
       if (path.endsWith('.gitignore')) {
         return true;
       }
+      
+      // For the pattern-matching tests, assume all test files exist
+      const testFiles = createTestFiles();
+      if (testFiles.includes(path)) {
+        return true;
+      }
+      
       return false;
     });
     

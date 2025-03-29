@@ -59,18 +59,30 @@ class FileAnalyzer {
     // Pre-compile patterns for better performance
     this.compiledCustomExcludePatterns = config.exclude_patterns ? 
       compilePatterns(config.exclude_patterns) : [];
+    
+    // Handle gitignore patterns
+    if (this.useGitignore) {
+      // Use compiled patterns if available, otherwise compile them
+      if (this.gitignorePatterns.compiledExcludePatterns) {
+        this.compiledGitignoreExcludePatterns = this.gitignorePatterns.compiledExcludePatterns;
+      } else if (this.gitignorePatterns.excludePatterns) {
+        this.compiledGitignoreExcludePatterns = compilePatterns(this.gitignorePatterns.excludePatterns);
+      } else {
+        this.compiledGitignoreExcludePatterns = [];
+      }
       
-    this.compiledGitignoreExcludePatterns = this.useGitignore && 
-      this.gitignorePatterns.compiledExcludePatterns ? 
-      this.gitignorePatterns.compiledExcludePatterns : 
-      (this.gitignorePatterns.excludePatterns ? 
-        compilePatterns(this.gitignorePatterns.excludePatterns) : []);
-        
-    this.compiledGitignoreIncludePatterns = this.useGitignore && 
-      this.gitignorePatterns.compiledIncludePatterns ? 
-      this.gitignorePatterns.compiledIncludePatterns : 
-      (this.gitignorePatterns.includePatterns ? 
-        compilePatterns(this.gitignorePatterns.includePatterns) : []);
+      // Same for include patterns
+      if (this.gitignorePatterns.compiledIncludePatterns) {
+        this.compiledGitignoreIncludePatterns = this.gitignorePatterns.compiledIncludePatterns;
+      } else if (this.gitignorePatterns.includePatterns) {
+        this.compiledGitignoreIncludePatterns = compilePatterns(this.gitignorePatterns.includePatterns);
+      } else {
+        this.compiledGitignoreIncludePatterns = [];
+      }
+    } else {
+      this.compiledGitignoreExcludePatterns = [];
+      this.compiledGitignoreIncludePatterns = [];
+    }
   }
 
   shouldProcessFile(filePath) {
@@ -83,8 +95,10 @@ class FileAnalyzer {
 
     // Check custom exclude patterns if enabled
     if (useCustomExcludes && this.compiledCustomExcludePatterns.length > 0) {
-      // Use pre-compiled patterns for better performance
-      if (matchAnyCompiledPattern(normalizedPath, this.compiledCustomExcludePatterns)) {
+      // Check explicitly for excluded patterns
+      const isExcluded = matchAnyCompiledPattern(normalizedPath, this.compiledCustomExcludePatterns);
+      if (isExcluded) {
+        console.log(`Excluded by custom pattern: ${normalizedPath}`);
         return false;
       }
     }
