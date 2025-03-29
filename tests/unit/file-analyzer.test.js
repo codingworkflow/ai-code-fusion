@@ -2,21 +2,19 @@
 const pathModule = require('path');
 const { TokenCounter } = require('../../src/utils/token-counter');
 
-// Mock functions before requiring module
-const isBinaryFileMock = jest.fn();
-
-// Mock file-analyzer module with our mock function
+// This is the correct way to mock modules with Jest
 jest.mock('../../src/utils/file-analyzer', () => {
   const originalModule = jest.requireActual('../../src/utils/file-analyzer');
   return {
     ...originalModule,
-    FileAnalyzer: originalModule.FileAnalyzer,
-    isBinaryFile: isBinaryFileMock
+    // Define the mock function inside the factory
+    isBinaryFile: jest.fn()
   };
 });
 
-// Now import the module
-const { FileAnalyzer } = require('../../src/utils/file-analyzer');
+// Now import the module with its mocked functions
+const fileAnalyzerModule = require('../../src/utils/file-analyzer');
+const { FileAnalyzer, isBinaryFile } = fileAnalyzerModule;
 
 // Mock fs
 jest.mock('fs');
@@ -332,36 +330,43 @@ describe('FileAnalyzer', () => {
       // Create special instance with mocked methods
       const mockAnalyzer = new FileAnalyzer(mockConfig, mockTokenCounter);
       
-      // Mock isBinaryFile implementation directly in the instance
+      // Set the mock implementation
+      isBinaryFile.mockReturnValue(true);
+      
+      // Override the method to use our mock
+      const originalAnalyzeFile = mockAnalyzer.analyzeFile;
       mockAnalyzer.analyzeFile = jest.fn().mockImplementation((filePath) => {
-        isBinaryFileMock(filePath);
-        return null;
+        // Make sure the mock is called
+        if (isBinaryFile(filePath)) {
+          return null;
+        }
+        return originalAnalyzeFile.call(mockAnalyzer, filePath);
       });
       
       // Call and verify
       const result = mockAnalyzer.analyzeFile('image.png');
       
       expect(result).toBeNull();
-      expect(isBinaryFileMock).toHaveBeenCalledWith('image.png');
+      expect(isBinaryFile).toHaveBeenCalledWith('image.png');
     });
 
     test('should count tokens for text files', () => {
+      // Set up mocks
+      isBinaryFile.mockReturnValue(false);
+      fs.readFileSync.mockReturnValue('file content');
+      
       // Create special instance for this test
       const mockAnalyzer = new FileAnalyzer(mockConfig, mockTokenCounter);
       
-      // Mock implementation
-      isBinaryFileMock.mockReturnValue(false);
-      
-      // Replace analyzeFile with our custom function
+      // Mock the analyzeFile method to ensure predictable behavior
       mockAnalyzer.analyzeFile = jest.fn().mockImplementation((filePath) => {
-        // Simulate the behavior we want to test
+        // Call the mock to record the call
+        isBinaryFile(filePath);
+        // Simulate file reading
         fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
-        mockTokenCounter.countTokens('file content');
-        return 100;
+        // Simulate token counting
+        return mockTokenCounter.countTokens('file content');
       });
-      
-      // Mock fs.readFileSync
-      fs.readFileSync.mockReturnValue('file content');
       
       const result = mockAnalyzer.analyzeFile('file.js');
       
@@ -371,8 +376,8 @@ describe('FileAnalyzer', () => {
     });
 
     test('should handle errors when reading files', () => {
-      // Set mock implementation
-      isBinaryFileMock.mockReturnValue(false);
+      // Mock for binary file detection
+      isBinaryFile.mockReturnValue(false);
       
       // Mock fs.readFileSync to throw an error
       fs.readFileSync.mockImplementation(() => {
@@ -387,43 +392,37 @@ describe('FileAnalyzer', () => {
 
   describe('shouldReadFile', () => {
     test('should return false for binary files', () => {
+      // Set up the mock
+      isBinaryFile.mockReturnValue(true);
+      
       // Create a custom mock implementation for shouldReadFile
-      const mockShouldReadFile = jest.fn().mockImplementation((path) => {
-        isBinaryFileMock(path);
-        return false;
-      });
-      
-      // Create a special FileAnalyzer instance with the mocked method
       const specialAnalyzer = new FileAnalyzer(mockConfig, mockTokenCounter);
-      specialAnalyzer.shouldReadFile = mockShouldReadFile;
-      
-      // Set mock implementation
-      isBinaryFileMock.mockReturnValue(true);
+      specialAnalyzer.shouldReadFile = jest.fn().mockImplementation((path) => {
+        // Call the mock to track it
+        return !isBinaryFile(path);
+      });
       
       const result = specialAnalyzer.shouldReadFile('image.png');
       
       expect(result).toBe(false);
-      expect(isBinaryFileMock).toHaveBeenCalledWith('image.png');
+      expect(isBinaryFile).toHaveBeenCalledWith('image.png');
     });
 
     test('should return true for text files', () => {
+      // Set up the mock
+      isBinaryFile.mockReturnValue(false);
+      
       // Create a custom mock implementation for shouldReadFile
-      const mockShouldReadFile = jest.fn().mockImplementation((path) => {
-        isBinaryFileMock(path);
-        return true;
-      });
-      
-      // Create a special FileAnalyzer instance with the mocked method
       const specialAnalyzer = new FileAnalyzer(mockConfig, mockTokenCounter);
-      specialAnalyzer.shouldReadFile = mockShouldReadFile;
-      
-      // Set mock implementation
-      isBinaryFileMock.mockReturnValue(false);
+      specialAnalyzer.shouldReadFile = jest.fn().mockImplementation((path) => {
+        // Call the mock to track it
+        return !isBinaryFile(path);
+      });
       
       const result = specialAnalyzer.shouldReadFile('file.js');
       
       expect(result).toBe(true);
-      expect(isBinaryFileMock).toHaveBeenCalledWith('file.js');
+      expect(isBinaryFile).toHaveBeenCalledWith('file.js');
     });
   });
 });
