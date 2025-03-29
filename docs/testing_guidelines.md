@@ -10,6 +10,8 @@
 
 4. **Test at the Appropriate Level**: Match the test type to what's being tested - unit tests for focused functions, integration tests for component interactions.
 
+5. **Trust Libraries, Test Abstractions**: When using established libraries, focus testing on your abstractions around them, not the library functionality itself.
+
 ## When to Use Mocks
 
 ### DO Mock:
@@ -38,7 +40,7 @@ Pattern matching is at the core of our application. Testing it requires:
 2. **Edge Case Coverage**: Include complex patterns, edge cases, and special characters
 3. **Real Execution**: Always execute the real pattern matching logic
 4. **Integration Testing**: Test how file-analyzer uses pattern-matcher without mocking either
-5. **Library Validation**: If using external libraries like micromatch, test our wrapper functions to ensure correct behavior
+5. **Library Validation**: Test our wrapper functions around established libraries like minimatch to ensure they work as expected
 
 ### Test Cases Must Include:
 
@@ -46,6 +48,15 @@ Pattern matching is at the core of our application. Testing it requires:
 - **Nested Wildcards**: Test patterns like `**/*.js` that combine different wildcards
 - **Path Separators**: Test with and without trailing slashes
 - **Common Patterns**: Test with real-world patterns from .gitignore files
+- **Special Handling Cases**: Test cases requiring special handling (e.g., directory patterns with trailing slashes)
+- **Basename Matching**: Test that patterns like `*.js` match files like `some/path/file.js` when matchBase is enabled
+
+### Pattern Matching Implementation Best Practices:
+
+1. **Consistent Library Usage**: Use the same underlying method (e.g., compiled minimatch) for all pattern matching to ensure consistent behavior
+2. **Transform Patterns Consistently**: If patterns need transformation (e.g., `dir/` to `dir/**`), do it consistently in all code paths
+3. **Document Behavior**: Clearly document expected behavior for different pattern types, especially for non-obvious cases
+4. **Verify Expectations**: Ensure test expectations align with the intended behavior, not just the current implementation
 
 ## Test Quality Guidelines
 
@@ -88,3 +99,7 @@ Pattern matching is at the core of our application. Testing it requires:
 4. ❌ **False Positives**: Tests that would pass even if the real code was broken
 5. ❌ **Hard-coded Assumptions**: Tests that assume implementation details (like node_modules exclusion)
 6. ❌ **Complex Test Logic**: Tests should be clear and maintainable
+7. ❌ **Custom Pattern Handling Logic**: Avoid custom implementations of glob pattern matching logic when standard libraries exist
+8. ❌ **Inconsistent Pattern Transformations**: Don't handle patterns differently in different code paths
+9. ❌ **Test-Driven Hacks**: Don't add special-case handling just to make tests pass; revise the tests if they don't reflect desired behavior
+10. ❌ **Undocumented Behavior**: Don't rely on undocumented or unclear pattern matching behavior
