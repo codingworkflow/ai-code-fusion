@@ -77,11 +77,6 @@ class FileAnalyzer {
     // Convert path to forward slashes for consistent pattern matching
     const normalizedPath = normalizePath(filePath);
 
-    // Check if path contains node_modules - explicit check
-    if (normalizedPath.split('/').includes('node_modules')) {
-      return false;
-    }
-
     // Get configuration settings
     const useCustomExcludes = this.config.use_custom_excludes !== false;
     const filterByExtension = this.config.filter_by_extension !== false;

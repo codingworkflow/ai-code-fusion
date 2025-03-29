@@ -1,44 +1,41 @@
-// Path module will be imported through jest mock
-// const path = require('path');
+const fs = require('fs');
+const path = require('path');
 const { TokenCounter } = require('../../src/utils/token-counter');
+const { FileAnalyzer } = require('../../src/utils/file-analyzer');
+const { GitignoreParser } = require('../../src/utils/gitignore-parser');
 
-// This is the correct way to mock modules with Jest
-jest.mock('../../src/utils/file-analyzer', () => {
-  const originalModule = jest.requireActual('../../src/utils/file-analyzer');
-  return {
-    ...originalModule,
-    // Define the mock function inside the factory
-    isBinaryFile: jest.fn(),
-  };
-});
+// Mock fs operations, not business logic
+jest.mock('fs', () => ({
+  ...jest.requireActual('fs'),
+  openSync: jest.fn(),
+  readSync: jest.fn(),
+  closeSync: jest.fn(),
+  readFileSync: jest.fn(),
+  existsSync: jest.fn()
+}));
 
-// Now import the module with its mocked functions
-const fileAnalyzerModule = require('../../src/utils/file-analyzer');
-const { FileAnalyzer, isBinaryFile } = fileAnalyzerModule;
-
-// Mock fs
-jest.mock('fs');
 jest.mock('path', () => ({
   ...jest.requireActual('path'),
   join: jest.fn().mockImplementation((...args) => args.join('/')),
   extname: jest.fn().mockImplementation((filePath) => {
     const parts = filePath.split('.');
     return parts.length > 1 ? '.' + parts[parts.length - 1] : '';
-  }),
+  })
 }));
-jest.mock('../../src/utils/token-counter');
 
-const fs = require('fs');
+// Mock TokenCounter
+jest.mock('../../src/utils/token-counter');
 
 describe('FileAnalyzer', () => {
   let fileAnalyzer;
   let mockTokenCounter;
   let mockConfig;
+  let gitignoreParser;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Setup mocks
+    // Setup mock token counter
     mockTokenCounter = new TokenCounter();
     mockTokenCounter.countTokens = jest.fn().mockReturnValue(100);
 
@@ -51,43 +48,78 @@ describe('FileAnalyzer', () => {
         '**/dist/**',
         '**/build/**',
         '**/*.min.js',
-        '.env',
+        '.env'
       ],
       use_custom_excludes: true,
       use_gitignore: false,
+      filter_by_extension: true
     };
 
-    // Mock gitignore patterns
-    const mockGitignorePatterns = {
-      excludePatterns: ['.DS_Store', '*.log', 'coverage/', '**/coverage/', 'temp/'],
-      includePatterns: ['important.log', '**/keep-this-dir/file.log'],
-    };
-
-    // Create FileAnalyzer instance
-    fileAnalyzer = new FileAnalyzer(mockConfig, mockTokenCounter, {
-      useGitignore: false,
-      gitignorePatterns: mockGitignorePatterns,
-    });
-
-    // Mock the internal matchPattern function
-    fileAnalyzer._matchPattern = jest.fn().mockImplementation((filePath, pattern) => {
-      // Basic pattern matching logic for tests
-      if (pattern === '.env' && filePath === '.env') return true;
-      if (pattern === '*.log' && filePath.endsWith('.log')) return true;
-      if (pattern === '.DS_Store' && filePath === '.DS_Store') return true;
-      if (pattern === '**/node_modules/**' && filePath.includes('node_modules')) return true;
-      if (pattern === '**/.git/**' && filePath.includes('.git')) return true;
-      if (pattern === '**/dist/**' && filePath.includes('dist')) return true;
-      if (pattern === '**/build/**' && filePath.includes('build')) return true;
-      if (pattern === '**/*.min.js' && filePath.endsWith('.min.js')) return true;
-
-      // For includePatterns
-      if (pattern === 'important.log' && filePath === 'important.log') return true;
-      if (pattern === '**/keep-this-dir/file.log' && filePath.includes('keep-this-dir/file.log'))
+    // Set up GitignoreParser with mocked fs operations
+    gitignoreParser = new GitignoreParser();
+    
+    // Mock fs operations for gitignore file
+    fs.existsSync.mockImplementation(path => {
+      if (path.endsWith('.gitignore')) {
         return true;
-
+      }
       return false;
     });
+    
+    fs.readFileSync.mockImplementation((path, options) => {
+      if (path.endsWith('.gitignore')) {
+        return `
+# Common files to ignore
+*.log
+.DS_Store
+coverage/
+temp/
+
+# Negated patterns (inclusions)
+!important.log
+!logs/critical/
+`;
+      }
+
+      // For text file reads during analyzeFile
+      if (path === 'file.js') {
+        return 'file content';
+      }
+
+      throw new Error(`Unexpected file read: ${path}`);
+    });
+
+    // Setup fs.openSync, fs.readSync, and fs.closeSync mocks for binary detection
+    fs.openSync.mockReturnValue(123); // Mock file descriptor
+    
+    fs.readSync.mockImplementation((fd, buffer, offset, length, position) => {
+      // Different binary/text patterns for different test files
+      
+      // Binary files
+      if (fd.toString().includes('image.png') || 
+          (fs.openSync.mock.calls.find(call => call[0] === 'image.png'))) {
+        // Simulate a NULL byte in a binary file
+        buffer[0] = 0;
+        return 100; // Bytes read
+      }
+      
+      // Text file
+      if (fd.toString().includes('file.js') || 
+          (fs.openSync.mock.calls.find(call => call[0] === 'file.js'))) {
+        // Fill buffer with text content
+        const textContent = Buffer.from('var x = 10; // text content');
+        textContent.copy(buffer);
+        return textContent.length;
+      }
+      
+      // Default for unknown files (assume text)
+      const defaultContent = Buffer.from('default text content');
+      defaultContent.copy(buffer);
+      return defaultContent.length;
+    });
+
+    // Create FileAnalyzer instance
+    fileAnalyzer = new FileAnalyzer(mockConfig, mockTokenCounter);
   });
 
   describe('shouldProcessFile', () => {
@@ -146,219 +178,133 @@ describe('FileAnalyzer', () => {
           ...mockConfig,
           use_custom_excludes: false,
           include_extensions: ['.js'],
+          filter_by_extension: true
         },
-        mockTokenCounter,
-        {
-          useGitignore: false,
-          gitignorePatterns: null,
-        }
+        mockTokenCounter
       );
 
-      // Create a specially mocked instance with the behavior we want to test
-      const originalShouldProcess = customFileAnalyzer.shouldProcessFile;
-      customFileAnalyzer.shouldProcessFile = jest.fn().mockImplementation((filePath) => {
-        // Only for node_modules paths, force return true
-        if (filePath.includes('node_modules')) {
-          return true;
-        }
-        return originalShouldProcess.call(customFileAnalyzer, filePath);
-      });
-
-      // Now node_modules files should be processed since we've mocked that behavior
+      // Now node_modules files should be processed since custom excludes are disabled
+      // But still respects the extension filtering
       expect(customFileAnalyzer.shouldProcessFile('src/node_modules/package/index.js')).toBe(true);
-
-      // For .env file testing
-      const envFileAnalyzer = new FileAnalyzer(
-        {
-          ...mockConfig,
-          use_custom_excludes: false,
-          include_extensions: ['.env'],
-        },
-        mockTokenCounter,
-        { useGitignore: false }
-      );
-
-      // Mock the shouldProcessFile method to force return true for .env
-      envFileAnalyzer.shouldProcessFile = jest.fn().mockReturnValue(true);
-
-      expect(envFileAnalyzer.shouldProcessFile('.env')).toBe(true);
+      expect(customFileAnalyzer.shouldProcessFile('src/node_modules/package/styles.css')).toBe(false);
     });
 
     test('should apply gitignore excludes when enabled', () => {
-      // Enable gitignore
-      fileAnalyzer = new FileAnalyzer(mockConfig, mockTokenCounter, {
-        useGitignore: true,
-        gitignorePatterns: {
-          excludePatterns: ['.DS_Store', '*.log', 'coverage/', '**/coverage/', 'temp/'],
-          includePatterns: [],
-        },
-      });
-
-      // Mock the internal pattern matching again
-      fileAnalyzer._matchPattern = jest.fn().mockImplementation((filePath, pattern) => {
-        if (pattern === '.DS_Store' && filePath === '.DS_Store') return true;
-        if (pattern === '*.log' && filePath.endsWith('.log')) return true;
-        if (
-          pattern === 'coverage/' &&
-          (filePath === 'coverage/' || filePath.startsWith('coverage/'))
-        )
-          return true;
-        if (pattern === '**/coverage/' && filePath.includes('coverage/')) return true;
-        if (pattern === 'temp/' && (filePath === 'temp/' || filePath.startsWith('temp/')))
-          return true;
-        if (pattern.includes('node_modules') && filePath.includes('node_modules')) return true;
-
-        return false;
-      });
+      // Parse the gitignore file
+      const gitignorePatterns = gitignoreParser.parseGitignore('/mock/root');
+      
+      // Create a new instance with gitignore enabled
+      const gitignoreEnabled = new FileAnalyzer(
+        mockConfig,
+        mockTokenCounter,
+        {
+          useGitignore: true,
+          gitignorePatterns
+        }
+      );
 
       // Files that should be excluded by gitignore patterns
-      expect(fileAnalyzer.shouldProcessFile('.DS_Store')).toBe(false);
-      expect(fileAnalyzer.shouldProcessFile('debug.log')).toBe(false);
-      expect(fileAnalyzer.shouldProcessFile('coverage/lcov.info')).toBe(false);
-      expect(fileAnalyzer.shouldProcessFile('src/coverage/report.js')).toBe(false);
-      expect(fileAnalyzer.shouldProcessFile('temp/cache.js')).toBe(false);
+      expect(gitignoreEnabled.shouldProcessFile('.DS_Store')).toBe(false);
+      expect(gitignoreEnabled.shouldProcessFile('debug.log')).toBe(false);
+      expect(gitignoreEnabled.shouldProcessFile('coverage/lcov.info')).toBe(false);
+      expect(gitignoreEnabled.shouldProcessFile('src/coverage/report.js')).toBe(false);
+      expect(gitignoreEnabled.shouldProcessFile('temp/cache.js')).toBe(false);
 
       // Files that should still be processed
-      expect(fileAnalyzer.shouldProcessFile('src/app.js')).toBe(true);
+      expect(gitignoreEnabled.shouldProcessFile('src/app.js')).toBe(true);
     });
 
     test('should respect gitignore include patterns (negated patterns)', () => {
-      // Create a new instance with explicitly mocked behavior for negated patterns
-      const gitignoreFileAnalyzer = new FileAnalyzer(
+      // Parse the gitignore file
+      const gitignorePatterns = gitignoreParser.parseGitignore('/mock/root');
+      
+      // Create file analyzer with gitignore includes and excludes
+      const gitignoreWithIncludes = new FileAnalyzer(
         {
           ...mockConfig,
-          include_extensions: ['.log', '.js'],
-          use_custom_excludes: false,
+          include_extensions: ['.js', '.log'],
+          filter_by_extension: true
         },
         mockTokenCounter,
         {
           useGitignore: true,
-          gitignorePatterns: {
-            excludePatterns: ['*.log', 'logs/'],
-            includePatterns: ['important.log', 'logs/critical/'],
-          },
+          gitignorePatterns
         }
       );
 
-      // Override the internal shouldProcessFile implementation for this test
-      const originalShouldProcessFile = gitignoreFileAnalyzer.shouldProcessFile;
-      gitignoreFileAnalyzer.shouldProcessFile = jest.fn().mockImplementation((filePath) => {
-        // For this test, we'll specifically handle the important.log and logs/critical paths
-        if (filePath === 'important.log') return true;
-        if (filePath.startsWith('logs/critical/')) return true;
-
-        // Other log files should be excluded
-        if (filePath.endsWith('.log')) return false;
-        if (filePath.startsWith('logs/')) return false;
-
-        // Default to original implementation for other cases
-        return originalShouldProcessFile.call(gitignoreFileAnalyzer, filePath);
-      });
-
       // Files that match include patterns (negated gitignore patterns)
       // These should be included even though they match exclude patterns
-      expect(gitignoreFileAnalyzer.shouldProcessFile('important.log')).toBe(true);
-      expect(gitignoreFileAnalyzer.shouldProcessFile('logs/critical/error.js')).toBe(true);
+      expect(gitignoreWithIncludes.shouldProcessFile('important.log')).toBe(true);
+      expect(gitignoreWithIncludes.shouldProcessFile('logs/critical/error.js')).toBe(true);
 
       // Files that match exclude patterns but not include patterns
-      expect(gitignoreFileAnalyzer.shouldProcessFile('debug.log')).toBe(false);
-      expect(gitignoreFileAnalyzer.shouldProcessFile('logs/debug.js')).toBe(false);
+      expect(gitignoreWithIncludes.shouldProcessFile('debug.log')).toBe(false);
+      expect(gitignoreWithIncludes.shouldProcessFile('logs/debug.js')).toBe(false);
     });
 
     test('should prioritize custom excludes over gitignore patterns', () => {
-      // Enable both custom excludes and gitignore
-      fileAnalyzer = new FileAnalyzer(
+      // Parse the gitignore file
+      const gitignorePatterns = gitignoreParser.parseGitignore('/mock/root');
+      
+      // Create file analyzer with both custom excludes and gitignore
+      const customAndGitignore = new FileAnalyzer(
         {
           ...mockConfig,
           exclude_patterns: [
             '**/node_modules/**',
-            'important.log', // This is in gitignore's include patterns
+            'important.log',  // This is in gitignore's include patterns
           ],
+          use_custom_excludes: true
         },
         mockTokenCounter,
         {
           useGitignore: true,
-          gitignorePatterns: {
-            excludePatterns: ['*.log'],
-            includePatterns: ['important.log'],
-          },
+          gitignorePatterns
         }
       );
 
-      // Mock pattern matching
-      fileAnalyzer._matchPattern = jest.fn().mockImplementation((filePath, pattern) => {
-        if (pattern === 'important.log' && filePath === 'important.log') return true;
-        if (pattern === '*.log' && filePath.endsWith('.log')) return true;
-        if (pattern.includes('node_modules') && filePath.includes('node_modules')) return true;
-
-        return false;
-      });
-
       // important.log should be excluded by custom excludes despite being in gitignore includes
-      expect(fileAnalyzer.shouldProcessFile('important.log')).toBe(false);
-
-      // Other .log files should be excluded by gitignore patterns
-      expect(fileAnalyzer.shouldProcessFile('debug.log')).toBe(false);
+      expect(customAndGitignore.shouldProcessFile('important.log')).toBe(false);
     });
   });
 
   describe('analyzeFile', () => {
     test('should return null for binary files', () => {
-      // Create special instance with mocked methods
-      const mockAnalyzer = new FileAnalyzer(mockConfig, mockTokenCounter);
-
-      // Set the mock implementation
-      isBinaryFile.mockReturnValue(true);
-
-      // Override the method to use our mock
-      const originalAnalyzeFile = mockAnalyzer.analyzeFile;
-      mockAnalyzer.analyzeFile = jest.fn().mockImplementation((filePath) => {
-        // Make sure the mock is called
-        if (isBinaryFile(filePath)) {
-          return null;
-        }
-        return originalAnalyzeFile.call(mockAnalyzer, filePath);
+      // Binary file (NULL byte)
+      fs.openSync.mockReturnValueOnce(999); // Mock file descriptor
+      fs.readSync.mockImplementationOnce((fd, buffer) => {
+        buffer[0] = 0; // NULL byte
+        return 100; // Bytes read
       });
 
-      // Call and verify
-      const result = mockAnalyzer.analyzeFile('image.png');
+      const result = fileAnalyzer.analyzeFile('image.png');
 
       expect(result).toBeNull();
-      expect(isBinaryFile).toHaveBeenCalledWith('image.png');
+      expect(fs.openSync).toHaveBeenCalledWith('image.png', 'r');
     });
 
     test('should count tokens for text files', () => {
-      // Set up mocks
-      isBinaryFile.mockReturnValue(false);
-      fs.readFileSync.mockReturnValue('file content');
-
-      // Create special instance for this test
-      const mockAnalyzer = new FileAnalyzer(mockConfig, mockTokenCounter);
-
-      // Mock the analyzeFile method to ensure predictable behavior
-      mockAnalyzer.analyzeFile = jest.fn().mockImplementation((filePath) => {
-        // Call the mock to record the call
-        isBinaryFile(filePath);
-        // Simulate file reading
-        fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
-        // Simulate token counting
-        return mockTokenCounter.countTokens('file content');
+      // Text file content
+      fs.openSync.mockReturnValueOnce(888); // Mock file descriptor
+      fs.readSync.mockImplementationOnce((fd, buffer) => {
+        Buffer.from('console.log("hello");').copy(buffer);
+        return 20; // Bytes read
       });
+      
+      fs.readFileSync.mockReturnValueOnce('console.log("hello");');
 
-      const result = mockAnalyzer.analyzeFile('file.js');
+      const result = fileAnalyzer.analyzeFile('file.js');
 
-      expect(result).toBe(100); // From our mockTokenCounter
-      expect(fs.readFileSync).toHaveBeenCalledWith('file.js', expect.any(Object));
-      expect(mockTokenCounter.countTokens).toHaveBeenCalledWith('file content');
+      expect(result).toBe(100); // From mockTokenCounter
+      expect(fs.readFileSync).toHaveBeenCalledWith('file.js', { encoding: 'utf-8', flag: 'r' });
+      expect(mockTokenCounter.countTokens).toHaveBeenCalledWith('console.log("hello");');
     });
 
     test('should handle errors when reading files', () => {
-      // Mock for binary file detection
-      isBinaryFile.mockReturnValue(false);
-
-      // Mock fs.readFileSync to throw an error
-      fs.readFileSync.mockImplementation(() => {
-        throw new Error('File read error');
+      // Simulate error reading file
+      fs.openSync.mockReturnValueOnce(777); // Mock file descriptor
+      fs.readSync.mockImplementationOnce(() => {
+        throw new Error('Cannot read file');
       });
 
       const result = fileAnalyzer.analyzeFile('error.js');
@@ -369,37 +315,27 @@ describe('FileAnalyzer', () => {
 
   describe('shouldReadFile', () => {
     test('should return false for binary files', () => {
-      // Set up the mock
-      isBinaryFile.mockReturnValue(true);
-
-      // Create a custom mock implementation for shouldReadFile
-      const specialAnalyzer = new FileAnalyzer(mockConfig, mockTokenCounter);
-      specialAnalyzer.shouldReadFile = jest.fn().mockImplementation((path) => {
-        // Call the mock to track it
-        return !isBinaryFile(path);
+      // Setup binary file detection
+      fs.openSync.mockReturnValueOnce(666); // Mock file descriptor
+      fs.readSync.mockImplementationOnce((fd, buffer) => {
+        buffer[0] = 0; // NULL byte
+        return 10; // Bytes read
       });
 
-      const result = specialAnalyzer.shouldReadFile('image.png');
-
-      expect(result).toBe(false);
-      expect(isBinaryFile).toHaveBeenCalledWith('image.png');
+      expect(fileAnalyzer.shouldReadFile('image.png')).toBe(false);
+      expect(fs.openSync).toHaveBeenCalledWith('image.png', 'r');
     });
 
     test('should return true for text files', () => {
-      // Set up the mock
-      isBinaryFile.mockReturnValue(false);
-
-      // Create a custom mock implementation for shouldReadFile
-      const specialAnalyzer = new FileAnalyzer(mockConfig, mockTokenCounter);
-      specialAnalyzer.shouldReadFile = jest.fn().mockImplementation((path) => {
-        // Call the mock to track it
-        return !isBinaryFile(path);
+      // Setup text file detection
+      fs.openSync.mockReturnValueOnce(555); // Mock file descriptor
+      fs.readSync.mockImplementationOnce((fd, buffer) => {
+        Buffer.from('var x = 10;').copy(buffer);
+        return 10; // Bytes read
       });
 
-      const result = specialAnalyzer.shouldReadFile('file.js');
-
-      expect(result).toBe(true);
-      expect(isBinaryFile).toHaveBeenCalledWith('file.js');
+      expect(fileAnalyzer.shouldReadFile('file.js')).toBe(true);
+      expect(fs.openSync).toHaveBeenCalledWith('file.js', 'r');
     });
   });
 });

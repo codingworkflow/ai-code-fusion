@@ -1,6 +1,8 @@
 /**
- * Unified pattern matching utility to be used consistently across the application
+ * Unified pattern matching utility using minimatch for robust glob pattern handling
  */
+
+const minimatch = require('minimatch');
 
 /**
  * Match a path against a pattern
@@ -10,19 +12,17 @@
  */
 function matchPattern(path, pattern) {
   try {
-    // For simple patterns without wildcards
+    // For simple patterns without wildcards, also check with trailing slash
     if (!pattern.includes('*') && !pattern.includes('?')) {
       return path === pattern || path.endsWith(`/${pattern}`);
     }
     
-    // For patterns with wildcards
-    const regexPattern = pattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*\*/g, '.*')
-      .replace(/\*/g, '[^/]*')
-      .replace(/\?/g, '[^/]');
-    
-    return new RegExp(`^${regexPattern}$`).test(path);
+    // Use minimatch for all wildcard patterns (handles **, *, ? correctly)
+    return minimatch(path, pattern, { 
+      matchBase: true, // Match basename of path if pattern has no slashes
+      dot: true,       // Include dotfiles in matches
+      nocase: false    // Case-sensitive matching
+    });
   } catch (error) {
     console.error(`Error matching pattern ${pattern} against ${path}:`, error);
     return false;
@@ -40,28 +40,36 @@ function compilePatterns(patterns) {
   }
   
   return patterns.map(pattern => {
-    if (!pattern.includes('*') && !pattern.includes('?')) {
-      // For simple patterns, store the original
+    // Determine if it's a simple pattern (no wildcards)
+    const isSimple = !pattern.includes('*') && !pattern.includes('?');
+    
+    if (isSimple) {
+      // For simple patterns, just store the original
       return { original: pattern, isSimple: true };
     }
     
-    // For patterns with wildcards, compile regex
+    // For wildcard patterns, use minimatch
     try {
-      const regexPattern = pattern
-        .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-        .replace(/\*\*/g, '.*')
-        .replace(/\*/g, '[^/]*')
-        .replace(/\?/g, '[^/]');
+      // Create minimatch instance for this pattern
+      const matcher = new minimatch.Minimatch(pattern, {
+        matchBase: true,
+        dot: true,
+        nocase: false
+      });
       
       return { 
         original: pattern, 
         isSimple: false,
-        regex: new RegExp(`^${regexPattern}$`)
+        matcher: matcher
       };
     } catch (error) {
       console.error(`Error compiling pattern ${pattern}:`, error);
       // Return a pattern that will never match if compilation fails
-      return { original: pattern, isSimple: false, regex: /a^/ };
+      return { 
+        original: pattern, 
+        isSimple: false, 
+        matcher: { match: () => false } 
+      };
     }
   });
 }
@@ -77,7 +85,9 @@ function matchCompiledPattern(path, compiledPattern) {
     return path === compiledPattern.original || 
            path.endsWith(`/${compiledPattern.original}`);
   }
-  return compiledPattern.regex.test(path);
+  
+  // Use the minimatch matcher for wildcard patterns
+  return compiledPattern.matcher.match(path);
 }
 
 /**

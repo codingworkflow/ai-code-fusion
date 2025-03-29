@@ -40,6 +40,8 @@ describe('GitignoreParser', () => {
       expect(result).toEqual({
         excludePatterns: [],
         includePatterns: [],
+        compiledExcludePatterns: [],
+        compiledIncludePatterns: []
       });
       expect(fs.existsSync).toHaveBeenCalledWith(mockGitignorePath);
     });
@@ -55,6 +57,8 @@ describe('GitignoreParser', () => {
       expect(secondCall).toEqual({
         excludePatterns: [],
         includePatterns: [],
+        compiledExcludePatterns: [],
+        compiledIncludePatterns: []
       });
       // Should only check existence once due to caching
       expect(fs.existsSync).toHaveBeenCalledTimes(1);
@@ -195,6 +199,8 @@ describe('GitignoreParser', () => {
       expect(result).toEqual({
         excludePatterns: [],
         includePatterns: [],
+        compiledExcludePatterns: [],
+        compiledIncludePatterns: []
       });
 
       // Error should be logged

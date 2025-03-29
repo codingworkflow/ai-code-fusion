@@ -1,10 +1,19 @@
 const path = require('path');
+const fs = require('fs');
 const { FileAnalyzer } = require('../../src/utils/file-analyzer');
 const { GitignoreParser } = require('../../src/utils/gitignore-parser');
 const { TokenCounter } = require('../../src/utils/token-counter');
 
-// Mock dependencies
-jest.mock('fs');
+// Mock only external dependencies, not business logic
+jest.mock('fs', () => ({
+  ...jest.requireActual('fs'),
+  existsSync: jest.fn(),
+  readFileSync: jest.fn(),
+  openSync: jest.fn(),
+  readSync: jest.fn(),
+  closeSync: jest.fn()
+}));
+
 jest.mock('path', () => ({
   ...jest.requireActual('path'),
   join: jest.fn().mockImplementation((...args) => args.join('/')),
@@ -13,6 +22,7 @@ jest.mock('path', () => ({
     return parts.length > 1 ? '.' + parts[parts.length - 1] : '';
   }),
 }));
+
 jest.mock('../../src/utils/token-counter');
 
 // Helper to create test files
@@ -46,6 +56,7 @@ const createTestFiles = () => {
     // Log files
     'logs/debug.log',
     'logs/important.log',
+    'important.log', // Root level important.log (for gitignore negation)
 
     // Test files
     'src/__tests__/app.test.js',
@@ -53,12 +64,13 @@ const createTestFiles = () => {
     // Documentation
     'README.md',
     'docs/guide.md',
+    
+    // Additional directory for critical logs (gitignore negation)
+    'logs/critical/error.js'
   ];
 };
 
 describe('Pattern Merging Integration', () => {
-  let fileAnalyzer;
-  let gitignoreParser;
   let mockTokenCounter;
   const mockRootPath = '/mock/repo';
 
@@ -69,79 +81,43 @@ describe('Pattern Merging Integration', () => {
     mockTokenCounter = new TokenCounter();
     mockTokenCounter.countTokens = jest.fn().mockReturnValue(100);
 
-    // Create mock gitignore parser
-    gitignoreParser = new GitignoreParser();
-
-    // Override the shouldProcessFile method for testing
-    // This version doesn't depend on _matchPattern but directly checks the path
-    FileAnalyzer.prototype.shouldProcessFile = jest.fn().mockImplementation(function (filePath) {
-      // First handle the use_custom_excludes=false cases
-      if (this.config.use_custom_excludes === false) {
-        // Check if the extension is in the include list
-        const ext = path.extname(filePath).toLowerCase();
-        if (!this.config.include_extensions.includes(ext)) {
-          return false;
-        }
-
-        // If gitignore is disabled, then everything with a matching extension is included
-        if (!this.useGitignore) {
-          return true;
-        }
-
-        // For gitignore-only testing, handle special cases
-        if (filePath.includes('logs/important.log') || filePath === 'important.log') {
-          return true; // This is in the includePatterns
-        }
-
-        if (filePath.endsWith('.log') || filePath.startsWith('logs/')) {
-          return false; // These are excluded by gitignore
-        }
-
-        return true; // All other files with matching extensions are included
+    // Mock filesystem operations for gitignore files
+    fs.existsSync.mockImplementation(path => {
+      if (path.endsWith('.gitignore')) {
+        return true;
       }
-
-      // For tests with custom excludes enabled
-      if (this.config.use_custom_excludes === true) {
-        // Check exclusion patterns first
-        if (
-          filePath.includes('node_modules') ||
-          filePath.includes('.git') ||
-          filePath.includes('dist') ||
-          filePath.includes('build') ||
-          filePath.includes('__tests__') ||
-          filePath === '.env' ||
-          filePath === 'important.log' // Special case to test precedence
-        ) {
-          return false;
-        }
-
-        // For gitignore testing when custom excludes are also enabled
-        if (this.useGitignore && (filePath.endsWith('.log') || filePath.startsWith('logs/'))) {
-          // Check for include pattern exception
-          if (filePath === 'important.log' || filePath.includes('logs/critical/')) {
-            // But if it's also in custom excludes, it stays excluded
-            return !this.config.exclude_patterns.includes(filePath);
-          }
-          return false;
-        }
-
-        // Check if extension is included
-        const ext = path.extname(filePath).toLowerCase();
-        return this.config.include_extensions.includes(ext);
-      }
-
-      // Default case, shouldn't be reached in our tests
       return false;
     });
+    
+    fs.readFileSync.mockImplementation(path => {
+      if (path.endsWith('.gitignore')) {
+        return `
+# Common files to ignore
+*.log
+logs/
+.DS_Store
+temp/
 
-    // Mock gitignore parser to return specific patterns
-    gitignoreParser.parseGitignore = jest.fn().mockReturnValue({
-      excludePatterns: ['*.log', 'logs/'],
-      includePatterns: ['important.log', 'logs/important.log'],
+# Negated patterns (inclusions)
+!important.log
+!logs/important.log
+!logs/critical/
+`;
+      }
+      throw new Error(`Unexpected file read: ${path}`);
+    });
+    
+    // Setup mock fs functions for binary detection
+    fs.openSync.mockReturnValue(123); // Mock file descriptor
+    fs.readSync.mockImplementation(() => {
+      // Just return some text content by default for this test
+      return 10;
     });
   });
 
   describe('Config with only custom excludes enabled', () => {
+    let fileAnalyzer;
+    
     beforeEach(() => {
       const config = {
         include_extensions: ['.js', '.jsx', '.json', '.md'],
@@ -155,12 +131,10 @@ describe('Pattern Merging Integration', () => {
         ],
         use_custom_excludes: true,
         use_gitignore: false,
+        filter_by_extension: true
       };
 
-      fileAnalyzer = new FileAnalyzer(config, mockTokenCounter, {
-        useGitignore: false,
-        gitignorePatterns: null,
-      });
+      fileAnalyzer = new FileAnalyzer(config, mockTokenCounter);
     });
 
     test('should only apply custom excludes and ignore gitignore patterns', () => {
@@ -179,15 +153,15 @@ describe('Pattern Merging Integration', () => {
       expect(results.find((r) => r.file === 'README.md').shouldProcess).toBe(true);
       expect(results.find((r) => r.file === 'docs/guide.md').shouldProcess).toBe(true);
 
-      // Log files should be processed (gitignore disabled)
-      expect(results.find((r) => r.file === 'logs/debug.log').shouldProcess).toBe(false); // No .log extension in include list
-      expect(results.find((r) => r.file === 'logs/important.log').shouldProcess).toBe(false); // No .log extension in include list
+      // Log files should be processed if they have the right extension
+      // But they're .log files which are not in our include_extensions
+      expect(results.find((r) => r.file === 'logs/debug.log').shouldProcess).toBe(false);
+      expect(results.find((r) => r.file === 'logs/important.log').shouldProcess).toBe(false);
+      expect(results.find((r) => r.file === 'important.log').shouldProcess).toBe(false);
 
       // Files that should be excluded by custom excludes
       expect(results.find((r) => r.file === '.env').shouldProcess).toBe(false);
-      expect(results.find((r) => r.file === 'node_modules/react/index.js').shouldProcess).toBe(
-        false
-      );
+      expect(results.find((r) => r.file === 'node_modules/react/index.js').shouldProcess).toBe(false);
       expect(results.find((r) => r.file === '.git/index').shouldProcess).toBe(false);
       expect(results.find((r) => r.file === 'dist/bundle.js').shouldProcess).toBe(false);
       expect(results.find((r) => r.file === 'build/output.css').shouldProcess).toBe(false);
@@ -201,17 +175,24 @@ describe('Pattern Merging Integration', () => {
   });
 
   describe('Config with only gitignore enabled', () => {
+    let fileAnalyzer;
+    
     beforeEach(() => {
       const config = {
         include_extensions: ['.js', '.jsx', '.json', '.md', '.log'],
         exclude_patterns: [],
         use_custom_excludes: false,
         use_gitignore: true,
+        filter_by_extension: true
       };
+
+      // Parse gitignore patterns
+      const gitignoreParser = new GitignoreParser();
+      const gitignorePatterns = gitignoreParser.parseGitignore(mockRootPath);
 
       fileAnalyzer = new FileAnalyzer(config, mockTokenCounter, {
         useGitignore: true,
-        gitignorePatterns: gitignoreParser.parseGitignore(mockRootPath),
+        gitignorePatterns
       });
     });
 
@@ -232,21 +213,23 @@ describe('Pattern Merging Integration', () => {
       expect(results.find((r) => r.file === 'docs/guide.md').shouldProcess).toBe(true);
 
       // Node modules files should be processed (custom excludes disabled)
-      expect(results.find((r) => r.file === 'node_modules/react/index.js').shouldProcess).toBe(
-        true
-      );
+      expect(results.find((r) => r.file === 'node_modules/react/index.js').shouldProcess).toBe(true);
 
       // Test files should be processed (custom excludes disabled)
       expect(results.find((r) => r.file === 'src/__tests__/app.test.js').shouldProcess).toBe(true);
 
-      // Config files should be processed (custom excludes disabled)
+      // Config files should be processed if they have the right extension
       expect(results.find((r) => r.file === '.env').shouldProcess).toBe(false); // Not in include extensions
 
       // Log files should be affected by gitignore
       expect(results.find((r) => r.file === 'logs/debug.log').shouldProcess).toBe(false); // Excluded by gitignore
 
-      // Important.log should be included due to gitignore negation
+      // important.log should be included due to gitignore negation (it's in the include patterns)
       expect(results.find((r) => r.file === 'logs/important.log').shouldProcess).toBe(true);
+      expect(results.find((r) => r.file === 'important.log').shouldProcess).toBe(true);
+      
+      // logs/critical/* should be included due to gitignore negation
+      expect(results.find((r) => r.file === 'logs/critical/error.js').shouldProcess).toBe(true);
 
       // Not in include extensions
       expect(results.find((r) => r.file === 'images/logo.png').shouldProcess).toBe(false);
@@ -255,6 +238,8 @@ describe('Pattern Merging Integration', () => {
   });
 
   describe('Config with both custom excludes and gitignore enabled', () => {
+    let fileAnalyzer;
+    
     beforeEach(() => {
       const config = {
         include_extensions: ['.js', '.jsx', '.json', '.md', '.log'],
@@ -263,15 +248,20 @@ describe('Pattern Merging Integration', () => {
           '**/.git/**',
           '**/dist/**',
           '**/build/**',
-          'logs/important.log', // Conflicts with gitignore include
+          'important.log', // Conflicts with gitignore include
         ],
         use_custom_excludes: true,
         use_gitignore: true,
+        filter_by_extension: true
       };
+
+      // Parse gitignore patterns
+      const gitignoreParser = new GitignoreParser();
+      const gitignorePatterns = gitignoreParser.parseGitignore(mockRootPath);
 
       fileAnalyzer = new FileAnalyzer(config, mockTokenCounter, {
         useGitignore: true,
-        gitignorePatterns: gitignoreParser.parseGitignore(mockRootPath),
+        gitignorePatterns
       });
     });
 
@@ -292,9 +282,7 @@ describe('Pattern Merging Integration', () => {
       expect(results.find((r) => r.file === 'docs/guide.md').shouldProcess).toBe(true);
 
       // Files excluded by custom excludes
-      expect(results.find((r) => r.file === 'node_modules/react/index.js').shouldProcess).toBe(
-        false
-      );
+      expect(results.find((r) => r.file === 'node_modules/react/index.js').shouldProcess).toBe(false);
       expect(results.find((r) => r.file === '.git/index').shouldProcess).toBe(false);
       expect(results.find((r) => r.file === 'dist/bundle.js').shouldProcess).toBe(false);
       expect(results.find((r) => r.file === 'build/output.css').shouldProcess).toBe(false);
@@ -303,7 +291,13 @@ describe('Pattern Merging Integration', () => {
       expect(results.find((r) => r.file === 'logs/debug.log').shouldProcess).toBe(false);
 
       // Important.log should be excluded by custom excludes despite gitignore negation
-      expect(results.find((r) => r.file === 'logs/important.log').shouldProcess).toBe(false);
+      expect(results.find((r) => r.file === 'important.log').shouldProcess).toBe(false);
+      
+      // logs/important.log is not specifically in custom excludes, so comes from gitignore negation
+      expect(results.find((r) => r.file === 'logs/important.log').shouldProcess).toBe(true);
+
+      // logs/critical/* should be included due to gitignore negation
+      expect(results.find((r) => r.file === 'logs/critical/error.js').shouldProcess).toBe(true);
 
       // Not in include extensions
       expect(results.find((r) => r.file === 'images/logo.png').shouldProcess).toBe(false);
@@ -312,18 +306,18 @@ describe('Pattern Merging Integration', () => {
   });
 
   describe('Config with neither custom excludes nor gitignore enabled', () => {
+    let fileAnalyzer;
+    
     beforeEach(() => {
       const config = {
         include_extensions: ['.js', '.jsx', '.json', '.md', '.log'],
         exclude_patterns: [],
         use_custom_excludes: false,
         use_gitignore: false,
+        filter_by_extension: true
       };
 
-      fileAnalyzer = new FileAnalyzer(config, mockTokenCounter, {
-        useGitignore: false,
-        gitignorePatterns: null,
-      });
+      fileAnalyzer = new FileAnalyzer(config, mockTokenCounter);
     });
 
     test('should only filter based on extensions', () => {
@@ -341,13 +335,13 @@ describe('Pattern Merging Integration', () => {
       expect(results.find((r) => r.file === 'package.json').shouldProcess).toBe(true);
       expect(results.find((r) => r.file === 'README.md').shouldProcess).toBe(true);
       expect(results.find((r) => r.file === 'docs/guide.md').shouldProcess).toBe(true);
-      expect(results.find((r) => r.file === 'node_modules/react/index.js').shouldProcess).toBe(
-        true
-      );
+      expect(results.find((r) => r.file === 'node_modules/react/index.js').shouldProcess).toBe(true);
       expect(results.find((r) => r.file === 'src/__tests__/app.test.js').shouldProcess).toBe(true);
       expect(results.find((r) => r.file === 'logs/debug.log').shouldProcess).toBe(true);
       expect(results.find((r) => r.file === 'logs/important.log').shouldProcess).toBe(true);
+      expect(results.find((r) => r.file === 'important.log').shouldProcess).toBe(true);
       expect(results.find((r) => r.file === 'dist/bundle.js').shouldProcess).toBe(true);
+      expect(results.find((r) => r.file === 'logs/critical/error.js').shouldProcess).toBe(true);
 
       // Files with non-matching extensions should be excluded
       expect(results.find((r) => r.file === '.env').shouldProcess).toBe(false);
