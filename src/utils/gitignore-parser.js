@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { compilePatterns } = require('./pattern-matcher');
 
 /**
  * A utility class for parsing and applying gitignore rules.
@@ -33,6 +34,8 @@ class GitignoreParser {
     const defaultResult = {
       excludePatterns: [],
       includePatterns: [],
+      compiledExcludePatterns: [],
+      compiledIncludePatterns: []
     };
 
     // Check if .gitignore exists
@@ -193,6 +196,10 @@ class GitignoreParser {
     result.excludePatterns.push('**/bundle.js.LICENSE.txt');
     result.excludePatterns.push('**/index.js.map');
     result.excludePatterns.push('**/output.css');
+
+    // Pre-compile patterns for better performance
+    result.compiledExcludePatterns = compilePatterns(result.excludePatterns);
+    result.compiledIncludePatterns = compilePatterns(result.includePatterns);
 
     return result;
   }

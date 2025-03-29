@@ -7,6 +7,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [useCustomExcludes, setUseCustomExcludes] = useState(true);
   const [useGitignore, setUseGitignore] = useState(false);
+  const [filterByExtension, setFilterByExtension] = useState(true);
 
   // Parse config when component mounts or configContent changes
   useEffect(() => {
@@ -16,6 +17,8 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
       setUseCustomExcludes(config.use_custom_excludes !== false);
       // Default to false for useGitignore if not specified
       setUseGitignore(config.use_gitignore === true);
+      // Default to true for filterByExtension if not specified
+      setFilterByExtension(config.filter_by_extension !== false);
     } catch (error) {
       console.error('Error parsing config:', error);
     }
@@ -29,6 +32,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
       // Update the config with filter options
       config.use_custom_excludes = useCustomExcludes;
       config.use_gitignore = useGitignore;
+      config.filter_by_extension = filterByExtension;
 
       // Convert back to YAML and save
       const updatedConfig = yaml.stringify(config);
@@ -100,6 +104,19 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
             />
             <label htmlFor='use-gitignore' className='ml-2 block text-sm text-gray-700'>
               Use .gitignore rules if found
+            </label>
+          </div>
+          
+          <div className='mt-2 flex items-center'>
+            <input
+              type='checkbox'
+              id='filter-by-extension'
+              checked={filterByExtension}
+              onChange={(e) => setFilterByExtension(e.target.checked)}
+              className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
+            />
+            <label htmlFor='filter-by-extension' className='ml-2 block text-sm text-gray-700'>
+              Filter files by extension type (using include_extensions list)
             </label>
           </div>
 

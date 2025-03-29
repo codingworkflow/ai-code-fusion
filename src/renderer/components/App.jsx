@@ -149,7 +149,11 @@ const App = () => {
       // Get fresh directory tree
       const tree = await window.electronAPI.getDirectoryTree(rootPath, configContent);
       setDirectoryTree(tree);
+      
+      // Return true to indicate successful refresh
+      return true;
     }
+    return false;
   };
 
   const handleDirectorySelect = async () => {
@@ -515,6 +519,7 @@ const App = () => {
             onFileSelect={handleFileSelect}
             onFolderSelect={handleFolderSelect}
             onAnalyze={handleAnalyze}
+            onRefreshDirectory={refreshDirectoryTree}
           />
         )}
 

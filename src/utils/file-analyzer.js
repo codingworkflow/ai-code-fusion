@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { matchPattern, matchAnyPattern } = require('./pattern-matcher');
 
 // Helper function to check if a file is a binary file by examining content
 const isBinaryFile = (filePath) => {
@@ -42,37 +43,7 @@ const isBinaryFile = (filePath) => {
   }
 };
 
-// Define our own pattern matching function
-// Don't try to require minimatch as it causes issues
-const matchPattern = (filepath, pattern) => {
-  try {
-    // Simple implementation of glob pattern matching
-    if (pattern.includes('*')) {
-      // Escape special regex characters except * and ?
-      const regexPattern = pattern
-        .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-        // Replace ** with a unique placeholder
-        .replace(/\*\*/g, '__DOUBLE_STAR__')
-        // Replace * with regex for any character except /
-        .replace(/\*/g, '[^/]*')
-        // Replace ? with regex for a single character
-        .replace(/\?/g, '[^/]')
-        // Replace the double star placeholder with regex for any character
-        .replace(/__DOUBLE_STAR__/g, '.*');
-
-      // Add start and end anchors
-      const regex = new RegExp(`^${regexPattern}$`);
-      return regex.test(filepath);
-    }
-
-    // For simple patterns, just check if filepath ends with pattern
-    return filepath === pattern || filepath.endsWith(`/${pattern}`);
-  } catch (error) {
-    console.error(`Error in pattern matching ${pattern} against ${filepath}:`, error);
-    // Super simple fallback
-    return filepath.includes(pattern.replace('*', ''));
-  }
-};
+// We're now using the shared pattern-matcher.js utility instead of this local function
 
 class FileAnalyzer {
   constructor(config, tokenCounter, options = {}) {
@@ -94,56 +65,33 @@ class FileAnalyzer {
       return false;
     }
 
-    // Check if custom excludes are enabled (default to true if not specified)
+    // Get configuration settings
     const useCustomExcludes = this.config.use_custom_excludes !== false;
+    const filterByExtension = this.config.filter_by_extension !== false;
 
     // Check custom exclude patterns if enabled
-    if (useCustomExcludes) {
-      // Check each part of the path against exclude patterns
-      const pathParts = normalizedPath.split('/');
-      for (let i = 0; i < pathParts.length; i++) {
-        const currentPath = pathParts.slice(i).join('/');
-
-        for (const pattern of this.config.exclude_patterns || []) {
-          // Remove leading **/ from pattern for direct matching
-          const cleanPattern = pattern.replace('**/', '');
-
-          if (
-            this._matchPattern(currentPath, cleanPattern) ||
-            this._matchPattern(currentPath, pattern)
-          ) {
-            return false;
-          }
-        }
+    if (useCustomExcludes && this.config.exclude_patterns && this.config.exclude_patterns.length > 0) {
+      // Use enhanced pattern matching from our utility
+      if (matchAnyPattern(normalizedPath, this.config.exclude_patterns)) {
+        return false;
       }
     }
 
     // First check include patterns (negated gitignore patterns)
-    // These have highest priority - if a file matches an include pattern, it should be processed
+    // These have highest priority as per gitignore standard behavior
     if (
       this.useGitignore &&
       this.gitignorePatterns.includePatterns &&
       this.gitignorePatterns.includePatterns.length > 0
     ) {
-      // Check each part of the path against include patterns
-      const pathParts = normalizedPath.split('/');
-      for (let i = 0; i < pathParts.length; i++) {
-        const currentPath = pathParts.slice(i).join('/');
-
-        for (const pattern of this.gitignorePatterns.includePatterns) {
-          // Remove leading **/ from pattern for direct matching
-          const cleanPattern = pattern.replace('**/', '');
-
-          if (
-            this._matchPattern(currentPath, cleanPattern) ||
-            this._matchPattern(currentPath, pattern)
-          ) {
-            // If matches an include pattern, we should process this file
-            // Skip the exclude checks and go straight to extension check
-            const ext = path.extname(filePath).toLowerCase();
-            return !useCustomExcludes || (this.config.include_extensions || []).includes(ext);
-          }
+      if (matchAnyPattern(normalizedPath, this.gitignorePatterns.includePatterns)) {
+        // File matches a gitignore include pattern
+        // Still need to check extension filtering if enabled
+        if (filterByExtension) {
+          const ext = path.extname(filePath).toLowerCase();
+          return (this.config.include_extensions || []).includes(ext);
         }
+        return true;
       }
     }
 
@@ -153,54 +101,19 @@ class FileAnalyzer {
       this.gitignorePatterns.excludePatterns &&
       this.gitignorePatterns.excludePatterns.length > 0
     ) {
-      // Special handling for root-level files
-      const isRootLevelFile = normalizedPath.indexOf('/') === -1;
-
-      // Check for direct match first (important for root-level files)
-      if (isRootLevelFile) {
-        for (const pattern of this.gitignorePatterns.excludePatterns) {
-          // Check if this is a simple pattern without wildcards or directory separators
-          if (!pattern.includes('/') && !pattern.includes('*')) {
-            if (normalizedPath === pattern) {
-              return false; // Skip processing this file
-            }
-          }
-        }
-      }
-
-      // Standard path part checking
-      const pathParts = normalizedPath.split('/');
-      for (let i = 0; i < pathParts.length; i++) {
-        const currentPath = pathParts.slice(i).join('/');
-
-        for (const pattern of this.gitignorePatterns.excludePatterns) {
-          // Remove leading **/ from pattern for direct matching
-          const cleanPattern = pattern.replace('**/', '');
-
-          if (
-            this._matchPattern(currentPath, cleanPattern) ||
-            this._matchPattern(currentPath, pattern)
-          ) {
-            return false;
-          }
-        }
+      if (matchAnyPattern(normalizedPath, this.gitignorePatterns.excludePatterns)) {
+        return false;
       }
     }
 
-    // If custom excludes are enabled, check file extension
-    if (useCustomExcludes) {
-      // Get file extension
+    // Check file extension independently from custom excludes
+    if (filterByExtension) {
       const ext = path.extname(filePath).toLowerCase();
-      // Check if extension is in included list
       return (this.config.include_extensions || []).includes(ext);
     }
 
-    // If custom excludes are disabled, include all files that passed gitignore filters
+    // If we reach here and none of the filters applied, include the file
     return true;
-  }
-
-  _matchPattern(filepath, pattern) {
-    return matchPattern(filepath, pattern);
   }
 
   analyzeFile(filePath) {

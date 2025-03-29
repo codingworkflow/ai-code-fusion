@@ -11,6 +11,7 @@ const SourceTab = ({
   onFileSelect,
   onFolderSelect,
   onAnalyze,
+  onRefreshDirectory,
 }) => {
   const [supportingText, setSupportingText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -45,11 +46,13 @@ const SourceTab = ({
           </button>
           {rootPath && (
             <button
-              onClick={() => {
-                // We're reusing the directory select function, which now properly resets state
-                onDirectorySelect();
-                // Update supporting text to indicate refresh
-                setSupportingText('Directory refreshed. Select files or folders to analyze.');
+              onClick={async () => {
+                // Use dedicated refresh function instead of directory select
+                const refreshed = await onRefreshDirectory();
+                if (refreshed) {
+                  // Update supporting text to indicate refresh
+                  setSupportingText('Directory refreshed. Select files or folders to analyze.');
+                }
               }}
               className='ml-2 inline-flex items-center rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
               title='Refresh the directory tree with current exclude patterns'
@@ -285,6 +288,7 @@ SourceTab.propTypes = {
   onFileSelect: PropTypes.func.isRequired,
   onFolderSelect: PropTypes.func.isRequired,
   onAnalyze: PropTypes.func.isRequired,
+  onRefreshDirectory: PropTypes.func.isRequired,
 };
 
 export default SourceTab;
