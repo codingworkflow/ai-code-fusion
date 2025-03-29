@@ -166,13 +166,6 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
     // Use our consistent path normalization function
     const normalizedPath = getRelativePath(itemPath, dirPath);
 
-    // Check for common directories to exclude
-    if (['node_modules', '.git', 'dist', 'build'].includes(itemName)) {
-      return true;
-    }
-
-    // We don't need the isRootLevelFile check with our new pattern matcher
-
     // First check if path is in gitignore include patterns (negated patterns)
     // These have highest priority as per gitignore standard behavior
     if (patternSets.useGitignore && patternSets.gitignoreIncludePatterns.length > 0) {

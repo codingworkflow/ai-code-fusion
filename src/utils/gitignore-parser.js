@@ -108,7 +108,25 @@ class GitignoreParser {
             // If it's a path without wildcards, we need to make it more specific
             if (pattern.endsWith('/')) {
               // Directory pattern - include everything in it
-              pattern = `${pattern}**`;
+              const dirWithoutSlash = pattern.slice(0, -1);
+              
+              // Create multiple patterns to ensure directory contents are matched
+              const dirPattern = pattern;
+              const dirWithStarPattern = `${pattern}**`;
+              const dirContentsPattern = `${dirWithoutSlash}/**`;
+              
+              // Add the patterns
+              if (isNegated) {
+                result.includePatterns.push(dirPattern);
+                result.includePatterns.push(dirWithStarPattern);
+                result.includePatterns.push(dirContentsPattern);
+              } else {
+                result.excludePatterns.push(dirPattern);
+                result.excludePatterns.push(dirWithStarPattern);
+                result.excludePatterns.push(dirContentsPattern);
+              }
+              
+              continue;
             } else {
               // File pattern - exact match
               const exactPattern = pattern;
@@ -129,16 +147,42 @@ class GitignoreParser {
 
           // For direct file paths, we need to create multiple patterns
           if (!pattern.includes('*')) {
-            const rootPattern = pattern;
-            const subdirPattern = `**/${pattern}`;
-
-            // Add to the appropriate arrays
-            if (isNegated) {
-              result.includePatterns.push(rootPattern);
-              result.includePatterns.push(subdirPattern);
+            // Check if this is a directory pattern
+            if (pattern.endsWith('/')) {
+              // Directory pattern
+              const rootPattern = pattern;
+              const subdirPattern = `**/${pattern}`;
+              
+              // Remove trailing slash for more patterns
+              const dirWithoutSlash = pattern.slice(0, -1);
+              const dirContentsPattern = `${dirWithoutSlash}/**`;
+              const anyDirContentsPattern = `**/${dirWithoutSlash}/**`;
+              
+              // Add to the appropriate arrays
+              if (isNegated) {
+                result.includePatterns.push(rootPattern);
+                result.includePatterns.push(subdirPattern);
+                result.includePatterns.push(dirContentsPattern);
+                result.includePatterns.push(anyDirContentsPattern);
+              } else {
+                result.excludePatterns.push(rootPattern);
+                result.excludePatterns.push(subdirPattern);
+                result.excludePatterns.push(dirContentsPattern);
+                result.excludePatterns.push(anyDirContentsPattern);
+              }
             } else {
-              result.excludePatterns.push(rootPattern);
-              result.excludePatterns.push(subdirPattern);
+              // Regular file pattern
+              const rootPattern = pattern;
+              const subdirPattern = `**/${pattern}`;
+  
+              // Add to the appropriate arrays
+              if (isNegated) {
+                result.includePatterns.push(rootPattern);
+                result.includePatterns.push(subdirPattern);
+              } else {
+                result.excludePatterns.push(rootPattern);
+                result.excludePatterns.push(subdirPattern);
+              }
             }
 
             continue;
@@ -152,14 +196,33 @@ class GitignoreParser {
           // Convert directory pattern to match both root and nested directories
           const rootPattern = pattern;
           const subdirPattern = `**/${pattern}`;
-
+          // Add patterns to match all contents within the directory
+          const contentsPattern = `${pattern}**`;
+          const subdirContentsPattern = `**/${pattern}**`;
+          
+          // Remove trailing slash for additional patterns
+          const dirWithoutSlash = pattern.slice(0, -1);
+          
+          // Add more specific patterns for explicit directory content matching
+          // This is needed for cases like 'coverage/' -> 'src/coverage/report.js'
+          const dirContentPattern = `${dirWithoutSlash}/**`;  // logs/**
+          const anyDirContentPattern = `**/${dirWithoutSlash}/**`;  // **/logs/**
+          
           // Add to appropriate arrays
           if (isNegated) {
             result.includePatterns.push(rootPattern);
             result.includePatterns.push(subdirPattern);
+            result.includePatterns.push(contentsPattern);
+            result.includePatterns.push(subdirContentsPattern);
+            result.includePatterns.push(dirContentPattern);
+            result.includePatterns.push(anyDirContentPattern);
           } else {
             result.excludePatterns.push(rootPattern);
             result.excludePatterns.push(subdirPattern);
+            result.excludePatterns.push(contentsPattern);
+            result.excludePatterns.push(subdirContentsPattern);
+            result.excludePatterns.push(dirContentPattern);
+            result.excludePatterns.push(anyDirContentPattern);
           }
 
           continue;

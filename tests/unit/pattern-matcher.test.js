@@ -223,7 +223,7 @@ describe('Pattern Matcher Utility', () => {
         'node_modules/',
         '*.log',
         '!important.log',
-        '/specific-file.js'
+        'specific-file.js' // Removed the leading slash to match gitignore-parser behavior
       ];
       
       // Non-compiled matching

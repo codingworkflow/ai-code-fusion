@@ -18,12 +18,34 @@ const MINIMATCH_OPTIONS = {
  */
 function matchPattern(path, pattern) {
   try {
-    // For simple patterns without wildcards, also check with trailing slash
-    if (!pattern.includes('*') && !pattern.includes('?')) {
-      return path === pattern || path.endsWith(`/${pattern}`);
+    // Simple exact string match first for performance
+    if (path === pattern) {
+      return true;
     }
     
-    // Use minimatch for all wildcard patterns
+    // Handle gitignore directory patterns (ending with /)
+    // When a pattern ends with /, it should match all contents in that directory
+    if (pattern.endsWith('/')) {
+      // Create a pattern that properly handles directory contents
+      const dirContents = pattern.slice(0, -1) + '/**';
+      try {
+        return minimatch(path, dirContents, MINIMATCH_OPTIONS);
+      } catch (dirError) {
+        console.error(`Error matching directory pattern ${dirContents} against ${path}:`, dirError);
+      }
+    }
+    
+    // Handle patterns with leading slash (anchored to root)
+    if (pattern.startsWith('/') && !path.startsWith('/')) {
+      // Strip the leading slash for matching, similar to gitignore-parser's behavior
+      try {
+        return minimatch(path, pattern.substring(1), MINIMATCH_OPTIONS);
+      } catch (slashError) {
+        console.error(`Error matching root pattern ${pattern} against ${path}:`, slashError);
+      }
+    }
+    
+    // Use minimatch for all patterns
     return minimatch(path, pattern, MINIMATCH_OPTIONS);
   } catch (error) {
     console.error(`Error matching pattern ${pattern} against ${path}:`, error);
@@ -42,25 +64,39 @@ function compilePatterns(patterns) {
   }
   
   return patterns.map(pattern => {
-    const isSimple = !pattern.includes('*') && !pattern.includes('?');
+    // Check for syntax issues in pattern before considering it simple
+    let hasWildcard = pattern.includes('*') || pattern.includes('?') || 
+                     pattern.includes('[') || pattern.includes(']');
+    let hasInvalidSyntax = false;
     
-    if (isSimple) {
-      // For simple patterns, just store the original
-      return { pattern, isSimple: true };
+    try {
+      // Try creating a minimatch instance to detect syntax errors
+      new minimatch.Minimatch(pattern, MINIMATCH_OPTIONS);
+    } catch (error) {
+      hasInvalidSyntax = true;
     }
     
-    // For wildcard patterns, use minimatch.makeRe to pre-compile
+    // Simple patterns are valid patterns without wildcards
+    const isSimple = !hasWildcard && !hasInvalidSyntax;
+    
+    if (isSimple) {
+      return { 
+        pattern,
+        isSimple: true,
+        // Store the minimatch instance for simple patterns too
+        matcher: new minimatch.Minimatch(pattern, MINIMATCH_OPTIONS)
+      };
+    }
+    
+    // For wildcard patterns, use minimatch.Minimatch to pre-compile
     try {
       // Create a minimatch instance with our standard options
       const matcher = new minimatch.Minimatch(pattern, MINIMATCH_OPTIONS);
       
-      // Get the pre-compiled regex
-      const regex = matcher.makeRe();
-      
       return { 
         pattern,           // Original pattern string
         isSimple: false,   // Not a simple pattern
-        regex              // Pre-compiled regex for faster matching
+        matcher            // Store the matcher instance
       };
     } catch (error) {
       console.error(`Error compiling pattern ${pattern}:`, error);
@@ -86,19 +122,41 @@ function matchCompiledPattern(path, compiledPattern) {
     return false;
   }
   
-  // Handle simple patterns
-  if (compiledPattern.isSimple) {
-    return path === compiledPattern.pattern || 
-           path.endsWith(`/${compiledPattern.pattern}`);
+  // Handle simple patterns with exact match first for performance
+  if (compiledPattern.isSimple && path === compiledPattern.pattern) {
+    return true;
   }
   
-  // Use the pre-compiled regex for efficient matching
-  if (compiledPattern.regex) {
-    return compiledPattern.regex.test(path);
+  const pattern = compiledPattern.pattern;
+  
+  // Handle directory patterns (ending with /)
+  if (pattern.endsWith('/')) {
+    // Create a pattern that properly handles directory contents
+    const dirContents = pattern.slice(0, -1) + '/**';
+    try {
+      return minimatch(path, dirContents, MINIMATCH_OPTIONS);
+    } catch (dirError) {
+      console.error(`Error matching directory pattern ${dirContents} against ${path}:`, dirError);
+    }
   }
   
-  // Fallback to standard minimatch if regex isn't available for some reason
-  return minimatch(path, compiledPattern.pattern, MINIMATCH_OPTIONS);
+  // Handle patterns with leading slash (anchored to root)
+  if (pattern.startsWith('/') && !path.startsWith('/')) {
+    // Strip the leading slash for matching
+    try {
+      return minimatch(path, pattern.substring(1), MINIMATCH_OPTIONS);
+    } catch (slashError) {
+      console.error(`Error matching root pattern ${pattern} against ${path}:`, slashError);
+    }
+  }
+  
+  // Use the stored minimatch instance if available
+  if (compiledPattern.matcher) {
+    return compiledPattern.matcher.match(path);
+  }
+  
+  // Fallback to standard minimatch if matcher isn't available
+  return matchPattern(path, compiledPattern.pattern);
 }
 
 /**
@@ -112,7 +170,14 @@ function matchAnyPattern(path, patterns) {
     return false;
   }
   
-  return patterns.some(pattern => matchPattern(path, pattern));
+  // Loop through patterns manually to avoid unnecessary pattern compilations
+  for (const pattern of patterns) {
+    if (matchPattern(path, pattern)) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 /**
@@ -126,9 +191,14 @@ function matchAnyCompiledPattern(path, compiledPatterns) {
     return false;
   }
   
-  return compiledPatterns.some(compiledPattern => 
-    matchCompiledPattern(path, compiledPattern)
-  );
+  // Loop through patterns manually for better error handling and debugging
+  for (const compiledPattern of compiledPatterns) {
+    if (matchCompiledPattern(path, compiledPattern)) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 module.exports = { 
