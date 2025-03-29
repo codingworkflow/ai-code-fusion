@@ -93,33 +93,28 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
   let excludePatterns;
   try {
     const config = configContent ? yaml.parse(configContent) : { exclude_patterns: [] };
-    
+
     // Check if we should use custom excludes (default to true if not specified)
     const useCustomExcludes = config.use_custom_excludes !== false;
-    
+
     // Check if we should use gitignore (default to false if not specified)
     const useGitignore = config.use_gitignore === true;
-    
+
     // Start with default critical patterns
-    excludePatterns = [
-      '**/node_modules/**',
-      '**/.git/**',
-      '**/dist/**',
-      '**/build/**',
-    ];
-    
+    excludePatterns = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'];
+
     // Add custom exclude patterns if enabled
     if (useCustomExcludes && config.exclude_patterns && Array.isArray(config.exclude_patterns)) {
       excludePatterns = [...excludePatterns, ...config.exclude_patterns];
     }
-    
+
     // Add gitignore patterns if enabled
     if (useGitignore) {
       const gitignoreResult = gitignoreParser.parseGitignore(dirPath);
       if (gitignoreResult.excludePatterns && gitignoreResult.excludePatterns.length > 0) {
         excludePatterns = [...excludePatterns, ...gitignoreResult.excludePatterns];
       }
-      
+
       // Handle negated patterns (these will be processed later to override excludes)
       if (gitignoreResult.includePatterns && gitignoreResult.includePatterns.length > 0) {
         // We'll store includePatterns separately to process later
@@ -129,12 +124,7 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
   } catch (error) {
     console.error('Error parsing config:', error);
     // Fall back to default exclude patterns
-    excludePatterns = [
-      '**/node_modules/**',
-      '**/.git/**',
-      '**/dist/**',
-      '**/build/**',
-    ];
+    excludePatterns = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'];
   }
 
   // Helper function to check if a path should be excluded
@@ -162,7 +152,7 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
               return false; // Include this file
             }
           }
-          
+
           // Simple pattern matching
           if (pattern.includes('*')) {
             // Replace ** with wildcard
@@ -196,7 +186,7 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
             return true; // Exclude this file
           }
         }
-        
+
         // Simple pattern matching
         if (pattern.includes('*')) {
           // Replace ** with wildcard
@@ -299,22 +289,18 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
   try {
     const config = yaml.parse(configContent);
     const tokenCounter = new TokenCounter();
-    
+
     // Process gitignore if enabled
     let gitignorePatterns = { excludePatterns: [], includePatterns: [] };
     if (config.use_gitignore === true) {
       gitignorePatterns = gitignoreParser.parseGitignore(rootPath);
     }
-    
+
     // Create a file analyzer instance with the appropriate settings
-    const fileAnalyzer = new FileAnalyzer(
-      config, 
-      tokenCounter,
-      {
-        useGitignore: config.use_gitignore === true,
-        gitignorePatterns: gitignorePatterns
-      }
-    );
+    const fileAnalyzer = new FileAnalyzer(config, tokenCounter, {
+      useGitignore: config.use_gitignore === true,
+      gitignorePatterns: gitignorePatterns,
+    });
 
     // If selectedFiles is provided, only analyze those files
     const filesInfo = [];
@@ -344,10 +330,9 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
         filesInfo.push({
           path: relativePath,
           tokens: 0,
-          isBinary: true
+          isBinary: true,
         });
-      } 
-      else if (fileAnalyzer.shouldProcessFile(relativePath)) {
+      } else if (fileAnalyzer.shouldProcessFile(relativePath)) {
         const tokenCount = fileAnalyzer.analyzeFile(filePath);
 
         if (tokenCount !== null) {
@@ -369,7 +354,7 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
     return {
       filesInfo,
       totalTokens,
-      skippedBinaryFiles
+      skippedBinaryFiles,
     };
   } catch (error) {
     console.error('Error analyzing repository:', error);

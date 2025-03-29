@@ -7,7 +7,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [useCustomExcludes, setUseCustomExcludes] = useState(true);
   const [useGitignore, setUseGitignore] = useState(false);
-  
+
   // Parse config when component mounts or configContent changes
   useEffect(() => {
     try {
@@ -21,20 +21,19 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
     }
   }, [configContent]);
 
-
   const handleSave = () => {
     try {
       // Parse the current config
       const config = yaml.parse(configContent);
-      
+
       // Update the config with filter options
       config.use_custom_excludes = useCustomExcludes;
       config.use_gitignore = useGitignore;
-      
+
       // Convert back to YAML and save
       const updatedConfig = yaml.stringify(config);
       onConfigChange(updatedConfig);
-      
+
       setIsSaved(true);
       setTimeout(() => {
         setIsSaved(false);
@@ -73,11 +72,11 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
           }}
         />
       </div>
-      
+
       <div className='mb-4'>
         <div className='rounded-md border border-gray-200 bg-gray-50 p-4'>
           <h3 className='mb-2 text-sm font-medium text-gray-700'>Filter Options</h3>
-          
+
           <div className='mb-2 flex items-center'>
             <input
               type='checkbox'
@@ -90,7 +89,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
               Use custom exclude/include configuration
             </label>
           </div>
-          
+
           <div className='flex items-center'>
             <input
               type='checkbox'
@@ -103,15 +102,13 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
               Use .gitignore rules if found
             </label>
           </div>
-          
+
           <p className='mt-2 text-xs text-gray-500'>
-            Select which filtering methods to apply when building the file tree. 
-            Changes will apply after saving and switching to the Source tab.
+            Select which filtering methods to apply when building the file tree. Changes will apply
+            after saving and switching to the Source tab.
           </p>
         </div>
       </div>
-      
-
 
       <div className='mb-6 flex justify-end space-x-2'>
         <button

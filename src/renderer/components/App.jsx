@@ -65,7 +65,7 @@ exclude_patterns:
 
   # Build outputs
   - "**/test/**"
-  - "**/dist/**" 
+  - "**/dist/**"
   - "**/build/**"
   - "**/__pycache__/**"
   - "**/*.pyc"
@@ -136,7 +136,7 @@ const App = () => {
       // Reset selection states completely
       setSelectedFiles([]);
       setSelectedFolders([]);
-      
+
       // Reset analysis results to prevent stale data
       setAnalysisResult(null);
       setProcessedResult(null);
@@ -161,15 +161,15 @@ const App = () => {
       setSelectedFolders([]);
       setAnalysisResult(null);
       setProcessedResult(null);
-      
+
       // Update rootPath
       setRootPath(dirPath);
-      
+
       // Reset gitignore cache to ensure fresh parsing
       if (window.electronAPI.resetGitignoreCache) {
         await window.electronAPI.resetGitignoreCache();
       }
-      
+
       // Get fresh directory tree
       const tree = await window.electronAPI.getDirectoryTree(dirPath, configContent);
       setDirectoryTree(tree);
@@ -226,13 +226,10 @@ const App = () => {
   // Helper function for consistent path normalization
   const normalizeAndGetRelativePath = (filePath) => {
     if (!filePath || !rootPath) return '';
-    
+
     // Get path relative to root
-    const relativePath = filePath
-      .replace(rootPath, '')
-      .replace(/\\/g, '/')
-      .replace(/^\/+/, '');
-      
+    const relativePath = filePath.replace(rootPath, '').replace(/\\/g, '/').replace(/^\/+/, '');
+
     return relativePath;
   };
 
@@ -247,12 +244,12 @@ const App = () => {
     selectedFiles.forEach((filePath) => {
       // Get relative path using the consistent normalization function
       const relativePath = normalizeAndGetRelativePath(filePath);
-      
+
       if (!relativePath) {
         console.warn(`Skipping invalid path: ${filePath}`);
         return;
       }
-      
+
       const parts = relativePath.split('/');
 
       // Build tree structure

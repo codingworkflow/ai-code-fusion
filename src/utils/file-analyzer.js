@@ -9,33 +9,32 @@ const isBinaryFile = (filePath) => {
     const fd = fs.openSync(filePath, 'r');
     const bytesRead = fs.readSync(fd, buffer, 0, 4096, 0);
     fs.closeSync(fd);
-    
+
     if (bytesRead === 0) {
       // Empty file, consider it text
       return false;
     }
-    
+
     // Check for NULL bytes and control characters (except common whitespace controls)
     // This is a reliable indicator of binary content
     let controlChars = 0;
     const totalBytes = bytesRead;
-    
+
     for (let i = 0; i < bytesRead; i++) {
       // NULL byte check
       if (buffer[i] === 0) {
         return true; // Null bytes are a clear sign of binary content
       }
-      
+
       // Control character check (except tab, newline, carriage return)
       if (buffer[i] < 32 && buffer[i] !== 9 && buffer[i] !== 10 && buffer[i] !== 13) {
         controlChars++;
       }
     }
-    
+
     // If more than 10% of the file consists of control characters, consider it binary
     const ratio = controlChars / totalBytes;
     return ratio > 0.1;
-    
   } catch (error) {
     console.error(`Error checking if file is binary: ${filePath}`, error);
     // If we can't read the file, safer to consider it binary

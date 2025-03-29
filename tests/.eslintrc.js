@@ -3,9 +3,7 @@ module.exports = {
     jest: true,
     node: true,
   },
-  extends: [
-    '../.eslintrc.js',
-  ],
+  extends: ['../.eslintrc.js'],
   // Add specific rules for test files
   rules: {
     // Allow console statements in tests for debugging

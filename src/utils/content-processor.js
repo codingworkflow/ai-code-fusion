@@ -20,9 +20,9 @@ class ContentProcessor {
         const headerContent = `${relativePath} (binary file)`;
 
         const formattedContent =
-          `######\n` + 
-          `${headerContent}\n` + 
-          `######\n\n` + 
+          `######\n` +
+          `${headerContent}\n` +
+          `######\n\n` +
           `[BINARY FILE]\n` +
           `File Type: ${path.extname(filePath).replace('.', '').toUpperCase()}\n` +
           `Size: ${fileSizeInKB} KB\n\n` +

@@ -22,8 +22,8 @@ root.render(<App />);
 module.exports = {
   entry: entryFile,
   output: {
-    filename: 'bundle.js',  // Output to bundle.js to avoid webpack processing its own output
-    path: srcPath,          // Same directory for simplicity
+    filename: 'bundle.js', // Output to bundle.js to avoid webpack processing its own output
+    path: srcPath, // Same directory for simplicity
   },
   // Increase the node options to allow more stack space
   node: {

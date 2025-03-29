@@ -9,9 +9,7 @@ module.exports = {
     '^.+\\.(js|jsx)$': 'babel-jest',
   },
   // Test match patterns
-  testMatch: [
-    '<rootDir>/tests/**/*.{js,jsx,ts,tsx}',
-  ],
+  testMatch: ['<rootDir>/tests/**/*.{js,jsx,ts,tsx}'],
   // Set verbose mode for more information during test runs
   verbose: true,
   // Add test coverage reports

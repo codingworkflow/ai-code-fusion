@@ -20,17 +20,17 @@ module.exports = {
     },
   },
   ignorePatterns: [
-    'node_modules/**', 
-    'dist/**', 
-    'build/**', 
-    'coverage/**', 
+    'node_modules/**',
+    'dist/**',
+    'build/**',
+    'coverage/**',
     'scripts/**',
     'src/renderer/bundle.js',
     'src/renderer/bundle.js.map',
     'src/renderer/bundle.js.LICENSE.txt',
     'src/renderer/index.js',
     'src/renderer/index.js.map',
-    'src/renderer/output.css'
+    'src/renderer/output.css',
   ],
   rules: {
     'react/react-in-jsx-scope': 'off',
