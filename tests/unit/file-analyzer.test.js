@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 const { TokenCounter } = require('../../src/utils/token-counter');
 const { FileAnalyzer } = require('../../src/utils/file-analyzer');
 const { GitignoreParser } = require('../../src/utils/gitignore-parser');
@@ -66,7 +65,7 @@ describe('FileAnalyzer', () => {
       return false;
     });
     
-    fs.readFileSync.mockImplementation((path, options) => {
+    fs.readFileSync.mockImplementation((path) => {
       if (path.endsWith('.gitignore')) {
         return `
 # Common files to ignore

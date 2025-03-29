@@ -18,20 +18,22 @@ const MINIMATCH_OPTIONS = {
  */
 function matchPattern(path, pattern) {
   try {
-    // Simple exact string match first for performance
+    // Direct equality check for exact matches (optimization)
     if (path === pattern) {
       return true;
     }
     
-    // Special handling for directory patterns with trailing slashes
-    if (pattern.endsWith('/') && !path.endsWith('/')) {
-      // For patterns like 'dist/', treat as 'dist/**' to match contents
-      if (path.startsWith(pattern) || path.startsWith(pattern.slice(0, -1) + '/')) {
-        return true;
-      }
+    // Convert directory patterns (ending with /) to globstar patterns
+    // This makes 'dist/' effectively the same as 'dist/**'
+    if (pattern.endsWith('/')) {
+      const dirPattern = pattern.slice(0, -1) + '/**';
+      // Use the minimatch compiled matcher for consistency with other code paths
+      const matcher = new minimatch.Minimatch(dirPattern, MINIMATCH_OPTIONS);
+      return matcher.match(path);
     }
     
-    // For all patterns, create a new matcher to ensure consistent behavior
+    // For all other patterns, use the compiled matcher approach
+    // This ensures consistency between matchPattern and matchCompiledPattern
     const matcher = new minimatch.Minimatch(pattern, MINIMATCH_OPTIONS);
     return matcher.match(path);
   } catch (error) {
@@ -51,43 +53,33 @@ function compilePatterns(patterns) {
   }
   
   return patterns.map(pattern => {
-    // Check for syntax issues in pattern before considering it simple
-    let hasWildcard = pattern.includes('*') || pattern.includes('?') || 
-                     pattern.includes('[') || pattern.includes(']');
-    let hasTrailingSlash = pattern.endsWith('/');
-    let hasInvalidSyntax = false;
-    
     try {
-      // Try creating a minimatch instance to detect syntax errors
-      new minimatch.Minimatch(pattern, MINIMATCH_OPTIONS);
-    } catch (error) {
-      hasInvalidSyntax = true;
-    }
-    
-    // Simple patterns are valid patterns without wildcards or trailing slashes
-    const isSimple = !hasWildcard && !hasTrailingSlash && !hasInvalidSyntax;
-    
-    // Create a matcher for both simple and complex patterns
-    try {
-      // Store the dirPattern flag for special handling of trailing slashes
-      const isDirectoryPattern = pattern.endsWith('/');
+      // Handle directory patterns consistently
+      const actualPattern = pattern.endsWith('/') 
+        ? pattern.slice(0, -1) + '/**' 
+        : pattern;
       
-      // Create a minimatch instance with our standard options
-      const matcher = new minimatch.Minimatch(pattern, MINIMATCH_OPTIONS);
+      // Determine if this is a simple pattern (for optimization)
+      const isSimple = !actualPattern.includes('*') && 
+                       !actualPattern.includes('?') && 
+                       !actualPattern.includes('[') && 
+                       !actualPattern.includes(']');
+      
+      // Create a matcher with the transformed pattern
+      const matcher = new minimatch.Minimatch(actualPattern, MINIMATCH_OPTIONS);
       
       return { 
-        pattern,           // Original pattern string
-        isSimple,          // Simple pattern flag
-        isDirectoryPattern,// Directory pattern flag
-        matcher            // Store the matcher instance
+        pattern,        // Original pattern string
+        actualPattern,  // Transformed pattern (if needed)
+        isSimple,       // Flag for optimization
+        matcher         // Compiled minimatch instance
       };
     } catch (error) {
       console.error(`Error compiling pattern ${pattern}:`, error);
-      // Return a pattern object that won't match anything
       return { 
         pattern, 
-        isSimple: false, 
-        isDirectoryPattern: false,
+        actualPattern: pattern,
+        isSimple: false,
         error: true 
       };
     }
@@ -101,34 +93,18 @@ function compilePatterns(patterns) {
  * @returns {boolean} - True if path matches the pattern
  */
 function matchCompiledPattern(path, compiledPattern) {
-  // Handle error case
+  // Error case - pattern couldn't be compiled
   if (compiledPattern.error) {
     return false;
   }
   
-  // Handle simple patterns with exact match first for performance
+  // Direct equality optimization for simple patterns
   if (compiledPattern.isSimple && path === compiledPattern.pattern) {
     return true;
   }
   
-  // Special handling for directory patterns
-  if (compiledPattern.isDirectoryPattern) {
-    const patternWithoutSlash = compiledPattern.pattern.slice(0, -1);
-    
-    // Check if path is inside the directory
-    if (path.startsWith(compiledPattern.pattern) || 
-        path.startsWith(patternWithoutSlash + '/')) {
-      return true;
-    }
-  }
-  
-  // Use the stored minimatch instance
-  if (compiledPattern.matcher) {
-    return compiledPattern.matcher.match(path);
-  }
-  
-  // Fallback to standard pattern matching
-  return matchPattern(path, compiledPattern.pattern);
+  // Use the pre-compiled matcher for all other cases
+  return compiledPattern.matcher.match(path);
 }
 
 /**
@@ -142,7 +118,7 @@ function matchAnyPattern(path, patterns) {
     return false;
   }
   
-  // Use the compiled matcher approach for consistency
+  // Use the compiled matcher approach for consistency and efficiency
   const compiledPatterns = compilePatterns(patterns);
   return matchAnyCompiledPattern(path, compiledPatterns);
 }

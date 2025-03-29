@@ -1,4 +1,4 @@
-const path = require('path');
+
 const fs = require('fs');
 const { FileAnalyzer } = require('../../src/utils/file-analyzer');
 const { GitignoreParser } = require('../../src/utils/gitignore-parser');
