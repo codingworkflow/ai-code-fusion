@@ -1,6 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
+// Helper function to check if a file is an image based on extension
+const isImageFile = (filePath) => {
+  const ext = path.extname(filePath).toLowerCase();
+  return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.svg', '.ico'].includes(ext);
+};
+
 // Define our own pattern matching function
 // Don't try to require minimatch as it causes issues
 const matchPattern = (filepath, pattern) => {
@@ -38,7 +44,10 @@ class FileAnalyzer {
     this.config = config;
     this.tokenCounter = tokenCounter;
     this.useGitignore = options.useGitignore || false;
-    this.gitignorePatterns = options.gitignorePatterns || [];
+    this.gitignorePatterns = options.gitignorePatterns || { 
+      excludePatterns: [], 
+      includePatterns: [] 
+    };
   }
 
   shouldProcessFile(filePath) {
@@ -74,14 +83,56 @@ class FileAnalyzer {
       }
     }
     
-    // Check gitignore patterns if enabled
-    if (this.useGitignore && this.gitignorePatterns.length > 0) {
-      // Check each part of the path against gitignore patterns
+    // First check include patterns (negated gitignore patterns)
+    // These have highest priority - if a file matches an include pattern, it should be processed
+    if (this.useGitignore && this.gitignorePatterns.includePatterns && 
+        this.gitignorePatterns.includePatterns.length > 0) {
+      // Check each part of the path against include patterns
       const pathParts = normalizedPath.split('/');
       for (let i = 0; i < pathParts.length; i++) {
         const currentPath = pathParts.slice(i).join('/');
 
-        for (const pattern of this.gitignorePatterns) {
+        for (const pattern of this.gitignorePatterns.includePatterns) {
+          // Remove leading **/ from pattern for direct matching
+          const cleanPattern = pattern.replace('**/', '');
+
+          if (
+            this._matchPattern(currentPath, cleanPattern) ||
+            this._matchPattern(currentPath, pattern)
+          ) {
+            // If matches an include pattern, we should process this file
+            // Skip the exclude checks and go straight to extension check
+            const ext = path.extname(filePath).toLowerCase();
+            return !useCustomExcludes || (this.config.include_extensions || []).includes(ext);
+          }
+        }
+      }
+    }
+    
+    // Check gitignore exclude patterns if enabled
+    if (this.useGitignore && this.gitignorePatterns.excludePatterns && 
+        this.gitignorePatterns.excludePatterns.length > 0) {
+      // Special handling for root-level files
+      const isRootLevelFile = normalizedPath.indexOf('/') === -1;
+      
+      // Check for direct match first (important for root-level files)
+      if (isRootLevelFile) {
+        for (const pattern of this.gitignorePatterns.excludePatterns) {
+          // Check if this is a simple pattern without wildcards or directory separators
+          if (!pattern.includes('/') && !pattern.includes('*')) {
+            if (normalizedPath === pattern) {
+              return false; // Skip processing this file
+            }
+          }
+        }
+      }
+      
+      // Standard path part checking
+      const pathParts = normalizedPath.split('/');
+      for (let i = 0; i < pathParts.length; i++) {
+        const currentPath = pathParts.slice(i).join('/');
+
+        for (const pattern of this.gitignorePatterns.excludePatterns) {
           // Remove leading **/ from pattern for direct matching
           const cleanPattern = pattern.replace('**/', '');
 
@@ -113,6 +164,16 @@ class FileAnalyzer {
 
   analyzeFile(filePath) {
     try {
+      // Handle image files differently
+      if (isImageFile(filePath)) {
+        // For images, estimate tokens based on file size
+        // This is a simple estimation - adjust as needed
+        const stats = fs.statSync(filePath);
+        // Very basic estimation: 1 token per 4 bytes with a minimum of 50 tokens
+        return Math.max(50, Math.ceil(stats.size / 4));
+      }
+      
+      // For text files, process normally
       const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
       return this.tokenCounter.countTokens(content);
     } catch (error) {
@@ -135,4 +196,4 @@ class FileAnalyzer {
   }
 }
 
-module.exports = { FileAnalyzer };
+module.exports = { FileAnalyzer, isImageFile };

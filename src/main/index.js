@@ -115,9 +115,15 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
     
     // Add gitignore patterns if enabled
     if (useGitignore) {
-      const gitignorePatterns = gitignoreParser.parseGitignore(dirPath);
-      if (gitignorePatterns.length > 0) {
-        excludePatterns = [...excludePatterns, ...gitignorePatterns];
+      const gitignoreResult = gitignoreParser.parseGitignore(dirPath);
+      if (gitignoreResult.excludePatterns && gitignoreResult.excludePatterns.length > 0) {
+        excludePatterns = [...excludePatterns, ...gitignoreResult.excludePatterns];
+      }
+      
+      // Handle negated patterns (these will be processed later to override excludes)
+      if (gitignoreResult.includePatterns && gitignoreResult.includePatterns.length > 0) {
+        // We'll store includePatterns separately to process later
+        excludePatterns.includePatterns = gitignoreResult.includePatterns;
       }
     }
   } catch (error) {
@@ -141,9 +147,56 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
       return true;
     }
 
-    // Check against exclude patterns
-    for (const pattern of excludePatterns) {
+    // Special case for root-level files - check if the file name directly matches a pattern
+    // This ensures patterns like ".env" will match files at the root level
+    const isRootLevelFile = normalizedPath.indexOf('/') === -1;
+
+    // First check if path is in include patterns (negated gitignore patterns)
+    // includePatterns take highest priority
+    if (excludePatterns.includePatterns) {
+      for (const pattern of excludePatterns.includePatterns) {
+        try {
+          // Direct match for simple patterns (especially for root-level files)
+          if (isRootLevelFile && !pattern.includes('/') && !pattern.includes('*')) {
+            if (normalizedPath === pattern) {
+              return false; // Include this file
+            }
+          }
+          
+          // Simple pattern matching
+          if (pattern.includes('*')) {
+            // Replace ** with wildcard
+            const regexPattern = pattern
+              .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+              .replace(/\*\*/g, '.*')
+              .replace(/\*/g, '[^/]*')
+              .replace(/\?/g, '[^/]');
+
+            // Match against the pattern
+            const regex = new RegExp(`^${regexPattern}$`);
+            if (regex.test(normalizedPath) || regex.test(itemName)) {
+              // This path explicitly matches an include pattern, so don't exclude it
+              return false;
+            }
+          } else if (normalizedPath === pattern || itemName === pattern) {
+            return false;
+          }
+        } catch (error) {
+          console.error(`Error matching include pattern ${pattern}:`, error);
+        }
+      }
+    }
+
+    // Then check exclude patterns
+    for (const pattern of Array.isArray(excludePatterns) ? excludePatterns : []) {
       try {
+        // Direct match for simple patterns (especially for root-level files)
+        if (isRootLevelFile && !pattern.includes('/') && !pattern.includes('*')) {
+          if (normalizedPath === pattern) {
+            return true; // Exclude this file
+          }
+        }
+        
         // Simple pattern matching
         if (pattern.includes('*')) {
           // Replace ** with wildcard
@@ -248,7 +301,7 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
     const tokenCounter = new TokenCounter();
     
     // Process gitignore if enabled
-    let gitignorePatterns = [];
+    let gitignorePatterns = { excludePatterns: [], includePatterns: [] };
     if (config.use_gitignore === true) {
       gitignorePatterns = gitignoreParser.parseGitignore(rootPath);
     }

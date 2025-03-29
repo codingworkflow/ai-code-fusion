@@ -38,7 +38,7 @@ async function start() {
         log('Running tailwindcss directly...', colors.blue);
         execSync('npx tailwindcss -i ./src/renderer/styles.css -o ./src/renderer/output.css', {
           stdio: 'inherit',
-          cwd: utils.ROOT_DIR
+          cwd: utils.ROOT_DIR,
         });
       } catch (err) {
         log(`Error running tailwindcss: ${err.message}`, colors.red);

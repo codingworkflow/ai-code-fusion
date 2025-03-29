@@ -23,6 +23,14 @@ include_extensions:
   - .go
   - .scm
   - .php
+  - .jpg
+  - .jpeg
+  - .png
+  - .gif
+  - .bmp
+  - .webp
+  - .svg
+  - .ico
 
 # Patterns to exclude (using fnmatch syntax)
 exclude_patterns:

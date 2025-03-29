@@ -17,9 +17,9 @@ class GitignoreParser {
   }
 
   /**
-   * Parse a .gitignore file and return an array of patterns.
+   * Parse a .gitignore file and return patterns organized by type.
    * @param {string} rootPath - The root path of the repository
-   * @returns {string[]} - Array of patterns from gitignore
+   * @returns {Object} - Object with include and exclude patterns
    */
   parseGitignore(rootPath) {
     // Check if we have a cached result for this root path
@@ -29,11 +29,17 @@ class GitignoreParser {
 
     const gitignorePath = path.join(rootPath, '.gitignore');
     
+    // Default result with empty pattern arrays
+    const defaultResult = {
+      excludePatterns: [],
+      includePatterns: []
+    };
+    
     // Check if .gitignore exists
     if (!fs.existsSync(gitignorePath)) {
-      // No gitignore file, cache an empty array
-      this.cache.set(rootPath, []);
-      return [];
+      // No gitignore file, cache default result
+      this.cache.set(rootPath, defaultResult);
+      return defaultResult;
     }
 
     try {
@@ -46,19 +52,22 @@ class GitignoreParser {
       return patterns;
     } catch (error) {
       console.error('Error parsing .gitignore:', error);
-      // Cache an empty array on error
-      this.cache.set(rootPath, []);
-      return [];
+      // Cache default result on error
+      this.cache.set(rootPath, defaultResult);
+      return defaultResult;
     }
   }
 
   /**
    * Parse gitignore content and extract valid patterns
    * @param {string} content - The content of the .gitignore file
-   * @returns {string[]} - Array of processed patterns
+   * @returns {Object} - Object with include and exclude patterns
    */
   _parseGitignoreContent(content) {
-    const patterns = [];
+    const result = {
+      excludePatterns: [],
+      includePatterns: [] // For negated patterns
+    };
     
     // Split by line and process each line
     const lines = content.split('\n');
@@ -71,20 +80,33 @@ class GitignoreParser {
         continue;
       }
       
-      // Handle negated patterns (for now we're not supporting them)
-      if (trimmedLine.startsWith('!')) {
-        continue;
-      }
+      // Handle negated patterns (patterns starting with !)
+      const isNegated = trimmedLine.startsWith('!');
       
       // Convert gitignore pattern to glob pattern
-      let pattern = trimmedLine;
+      let pattern = isNegated ? trimmedLine.substring(1).trim() : trimmedLine;
       
-      // Add ** to the beginning of the pattern if it doesn't start with /
-      if (!pattern.startsWith('/')) {
-        pattern = `**/${pattern}`;
-      } else {
-        // Remove leading / to match our pattern format
+      // Handle patterns appropriately based on prefix
+      if (pattern.startsWith('/')) {
+        // Pattern with leading / is relative to repo root (remove the leading /)
         pattern = pattern.substring(1);
+      } else {
+        // Pattern without leading / matches both root and subdirectories
+        // Create two patterns - one for root and one for subdirectories
+        const rootPattern = pattern;
+        const subdirPattern = `**/${pattern}`;
+        
+        // Add to the appropriate arrays
+        if (isNegated) {
+          result.includePatterns.push(rootPattern);
+          result.includePatterns.push(subdirPattern);
+        } else {
+          result.excludePatterns.push(rootPattern);
+          result.excludePatterns.push(subdirPattern);
+        }
+        
+        // Skip the rest of the loop since we've already added both patterns
+        continue;
       }
       
       // Add trailing /** if the pattern ends with /
@@ -92,10 +114,15 @@ class GitignoreParser {
         pattern = `${pattern}**`;
       }
       
-      patterns.push(pattern);
+      // Add to the appropriate array
+      if (isNegated) {
+        result.includePatterns.push(pattern);
+      } else {
+        result.excludePatterns.push(pattern);
+      }
     }
     
-    return patterns;
+    return result;
   }
 }
 

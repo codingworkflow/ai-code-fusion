@@ -22,7 +22,7 @@ root.render(<App />);
 module.exports = {
   entry: entryFile,
   output: {
-    filename: 'index.js',  // Different name to avoid webpack processing its own output
+    filename: 'bundle.js',  // Output to bundle.js to avoid webpack processing its own output
     path: srcPath,          // Same directory for simplicity
   },
   module: {
