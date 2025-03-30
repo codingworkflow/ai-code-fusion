@@ -5,7 +5,6 @@ const TabBar = ({ activeTab, onTabChange }) => {
   const tabs = [
     { id: 'config', label: 'Configuration' },
     { id: 'source', label: 'Select Files' },
-    { id: 'analyze', label: 'Analysis Results' },
     { id: 'processed', label: 'Processed Output' },
   ];
 

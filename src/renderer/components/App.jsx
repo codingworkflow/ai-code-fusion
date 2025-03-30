@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import TabBar from './TabBar';
 import SourceTab from './SourceTab';
 import ConfigTab from './ConfigTab';
-import AnalyzeTab from './AnalyzeTab';
 import ProcessedTab from './ProcessedTab';
 import yaml from 'yaml';
 
@@ -11,19 +10,21 @@ const App = () => {
   const [rootPath, setRootPath] = useState('');
   const [directoryTree, setDirectoryTree] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [configContent, setConfigContent] = useState(() => {
-    // Try to load from localStorage first
+  // Load config from localStorage or via API, no fallbacks
+  const [configContent, setConfigContent] = useState('# Loading configuration...');
+  
+  // Use effect to load config properly without fallbacks
+  useEffect(() => {
+    // First try to load from localStorage
     const savedConfig = localStorage.getItem('configContent');
-
     if (savedConfig) {
-      return savedConfig;
+      setConfigContent(savedConfig);
+      return;
     }
-
+    
     // If not in localStorage, load from the main process
     if (window.electronAPI && window.electronAPI.getDefaultConfig) {
-      // Use the main process to load the default config
-      window.electronAPI
-        .getDefaultConfig()
+      window.electronAPI.getDefaultConfig()
         .then((defaultConfig) => {
           if (defaultConfig) {
             setConfigContent(defaultConfig);
@@ -33,30 +34,8 @@ const App = () => {
         .catch((err) => {
           console.error('Error loading default config:', err);
         });
-
-      // Return an empty placeholder until the async operation completes
-      return '# Loading configuration...';
     }
-
-    // Fallback to a minimal default config
-    return `# Filtering options
-use_custom_excludes: true
-use_custom_includes: true
-use_gitignore: true
-include_tree_view: false
-show_token_count: false
-
-# File extensions to include (with dot)
-include_extensions:
-  - .js
-  - .jsx
-  - .json
-
-# Patterns to exclude
-exclude_patterns:
-  - "**/node_modules/**"
-  - "**/.git/**"`;
-  });
+  }, []);
 
   // Whenever configContent changes, save to localStorage
   useEffect(() => {
@@ -158,6 +137,7 @@ exclude_patterns:
     includeTreeView: false,
   });
 
+  // Process files directly from Source to Processed Output
   const handleAnalyze = async () => {
     if (!rootPath || selectedFiles.length === 0) {
       alert('Please select a root directory and at least one file.');
@@ -185,19 +165,41 @@ exclude_patterns:
       }
 
       // Apply current config before analyzing
-      const result = await window.electronAPI.analyzeRepository({
+      const analysisResult = await window.electronAPI.analyzeRepository({
         rootPath,
         configContent,
         selectedFiles: validFiles, // Use validated files only
       });
 
-      setAnalysisResult(result);
-      // Switch to analyze tab to show results
-      setActiveTab('analyze');
-      return Promise.resolve(result);
+      // Store analysis result
+      setAnalysisResult(analysisResult);
+      
+      // Read options from config
+      let options = {};
+      try {
+        const config = yaml.parse(configContent);
+        options.showTokenCount = config.show_token_count === true;
+        options.includeTreeView = config.include_tree_view === true;
+      } catch (error) {
+        console.error('Error parsing config for processing:', error);
+      }
+      
+      // Process directly without going to analyze tab
+      const result = await window.electronAPI.processRepository({
+        rootPath,
+        filesInfo: analysisResult.filesInfo,
+        treeView: null, // Let the main process handle tree generation
+        options,
+      });
+      
+      // Set processed result and go directly to processed tab
+      setProcessedResult(result);
+      setActiveTab('processed');
+      
+      return Promise.resolve(analysisResult);
     } catch (error) {
-      console.error('Error analyzing repository:', error);
-      alert(`Error analyzing repository: ${error.message}`);
+      console.error('Error processing repository:', error);
+      alert(`Error processing repository: ${error.message}`);
       return Promise.reject(error);
     }
   };
@@ -565,10 +567,6 @@ exclude_patterns:
             onFolderSelect={handleFolderSelect}
             onAnalyze={handleAnalyze}
           />
-        )}
-
-        {activeTab === 'analyze' && (
-          <AnalyzeTab analysisResult={analysisResult} onProcess={handleProcessDirect} />
         )}
 
         {activeTab === 'processed' && (

@@ -82,7 +82,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
             <div className='flex space-x-2'>
               <button
                 onClick={handleCopy}
-                className='inline-flex items-center rounded-md border border-gray-300 bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-purple-700 focus:outline-none'
+                className='inline-flex items-center rounded-md border border-gray-300 bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
               >
                 {isCopied ? '✓ Copied' : 'Copy Content'}
               </button>
@@ -104,6 +104,35 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
             </div>
             <div className='max-h-96 overflow-auto rounded-md border border-gray-300 bg-white p-4 shadow-sm'>
               <pre className='whitespace-pre-wrap font-mono text-sm'>{processedResult.content}</pre>
+            </div>
+          </div>
+          
+          {/* Files by Token Count section added to ProcessedTab */}
+          <div className='mt-6'>
+            <h3 className='mb-2 text-base font-medium text-gray-900'>Files by Token Count</h3>
+            <div className='rounded-md border border-gray-200 shadow-sm'>
+              <div className='max-h-60 overflow-y-auto'>
+                <table className='min-w-full divide-y divide-gray-200'>
+                  <thead className='sticky top-0 bg-gray-50'>
+                    <tr>
+                      <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                        File Path
+                      </th>
+                      <th className='px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-gray-500'>
+                        Tokens
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className='divide-y divide-gray-200 bg-white'>
+                    {processedResult.filesInfo && processedResult.filesInfo.map((file, index) => (
+                      <tr key={`${file.path}-${index}`} className='hover:bg-gray-50'>
+                        <td className='max-w-md truncate px-3 py-2 font-mono text-sm'>{file.path}</td>
+                        <td className='px-3 py-2 text-right text-sm'>{file.tokens.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </>
