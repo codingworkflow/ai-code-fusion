@@ -96,22 +96,46 @@ const shouldExclude = (itemPath, rootPath, excludePatterns, config) => {
     const itemName = path.basename(itemPath);
     const normalizedPath = getRelativePath(itemPath, rootPath);
 
-    // Check extension exclusion first
+    // 1. Check extension exclusion first
     if (shouldExcludeByExtension(itemPath, config)) {
-      return true;
+      return true; // Excluded by extension
+    }
+    
+    // 2. Process custom exclude patterns (highest priority)
+    if (config?.use_custom_excludes !== false && config?.exclude_patterns) {
+      const customExcludes = Array.isArray(config.exclude_patterns) ? config.exclude_patterns : [];
+      
+      if (customExcludes.length > 0 && 
+          matchesExcludePatterns(normalizedPath, itemName, customExcludes)) {
+        return true; // Excluded by custom pattern
+      }
+    }
+    
+    // 3. Process gitignore patterns if enabled
+    if (config?.use_gitignore !== false) {
+      // First check gitignore include patterns (negated patterns with ! prefix)
+      const gitignoreIncludes = excludePatterns?.includePatterns || [];
+      
+      if (gitignoreIncludes.length > 0 && 
+          matchesIncludePatterns(normalizedPath, itemName, gitignoreIncludes)) {
+        return false; // Explicitly included by gitignore negated pattern
+      }
+      
+      // Then check regular gitignore exclude patterns
+      const gitignoreExcludes = Array.isArray(excludePatterns) 
+        ? excludePatterns.filter(pattern => 
+            // Filter out patterns that are already in custom excludes
+            !(config?.exclude_patterns || []).includes(pattern)
+          )
+        : [];
+      
+      if (gitignoreExcludes.length > 0 && 
+          matchesExcludePatterns(normalizedPath, itemName, gitignoreExcludes)) {
+        return true; // Excluded by gitignore pattern
+      }
     }
 
-    // Check include patterns (negated gitignore) - these take priority
-    if (matchesIncludePatterns(normalizedPath, itemName, excludePatterns?.includePatterns)) {
-      return false;
-    }
-
-    // Check exclude patterns
-    if (matchesExcludePatterns(normalizedPath, itemName, excludePatterns)) {
-      return true;
-    }
-
-    // Default: not excluded
+    // 4. Default: not excluded
     return false;
   } catch (error) {
     console.error(`Error in shouldExclude for ${itemPath}:`, error);

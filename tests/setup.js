@@ -7,11 +7,8 @@ describe('Setup validation', () => {
   });
 });
 
-// Mock the minimatch module
-jest.mock('minimatch', () => ({
-  __esModule: true,
-  default: jest.fn().mockImplementation(() => true),
-}));
+// Note: We need to be careful with mocking pattern matching utilities
+// as it can affect test reliability
 
 // Mock the tiktoken module
 jest.mock('tiktoken', () => ({

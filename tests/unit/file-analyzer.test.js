@@ -129,14 +129,28 @@ describe('FileAnalyzer', () => {
     });
 
     test('should exclude files with extensions not in include list', () => {
+      // Create a specific analyzer instance for this test with the correct config
+      const extensionTestAnalyzer = new FileAnalyzer(
+        {
+          ...mockConfig,
+          // Include extensions is already set in mockConfig
+          // But we'll explicitly set use_custom_includes to true
+          use_custom_includes: true
+        },
+        mockTokenCounter
+      );
+      
       // CSS file (not in include list)
-      expect(fileAnalyzer.shouldProcessFile('src/styles.css')).toBe(false);
+      expect(extensionTestAnalyzer.shouldProcessFile('src/styles.css')).toBe(false);
 
       // HTML file (not in include list)
-      expect(fileAnalyzer.shouldProcessFile('public/index.html')).toBe(false);
+      expect(extensionTestAnalyzer.shouldProcessFile('public/index.html')).toBe(false);
 
       // Image file (not in include list)
-      expect(fileAnalyzer.shouldProcessFile('assets/logo.png')).toBe(false);
+      expect(extensionTestAnalyzer.shouldProcessFile('assets/logo.png')).toBe(false);
+      
+      // Verify that included extensions do work
+      expect(extensionTestAnalyzer.shouldProcessFile('src/app.js')).toBe(true);
     });
 
     test('should respect custom excludes setting', () => {
