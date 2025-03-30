@@ -1,7 +1,7 @@
 const fs = require('fs');
 // eslint-disable-next-line no-unused-vars
 const path = require('path');
-const { shouldExclude } = require('./filter-utils');
+const filterUtils = require('./filter-utils');
 
 // Helper function to check if a file is a binary file by examining content
 const isBinaryFile = (filePath) => {
@@ -75,66 +75,29 @@ class FileAnalyzer {
       }
     }
     
-    // Check if we're in test mode with _matchPattern mocked
-    if (typeof this._matchPattern === 'function') {
-      // Special case for test environment with mocked _matchPattern
-      
-      // 2. Check custom exclude patterns (highest priority)
-      if (this.config.use_custom_excludes !== false && 
-          this.config.exclude_patterns && 
-          Array.isArray(this.config.exclude_patterns)) {
-        for (const pattern of this.config.exclude_patterns) {
-          if (this._matchPattern(filePath, pattern)) {
-            return false; // Excluded by custom pattern
-          }
-        }
-      }
-      
-      // 3. Check gitignore patterns if enabled
-      if (this.useGitignore && this.gitignorePatterns) {
-        // First check gitignore include patterns (negated patterns)
-        const includePatterns = this.gitignorePatterns.includePatterns || [];
-        for (const pattern of includePatterns) {
-          if (this._matchPattern(filePath, pattern)) {
-            return true; // Explicitly included by gitignore negated pattern
-          }
-        }
-        
-        // Then check exclude patterns
-        const excludePatterns = this.gitignorePatterns.excludePatterns || [];
-        for (const pattern of excludePatterns) {
-          if (this._matchPattern(filePath, pattern)) {
-            return false; // Excluded by gitignore pattern
-          }
-        }
-      }
-    } else {
-      // Normal production path using shouldExclude utility
-      
-      // Create combined patterns array with proper structure
-      const combinedPatterns = [];
-      
-      // Add custom exclude patterns (highest priority)
-      if (this.config.use_custom_excludes !== false && 
-          this.config.exclude_patterns && 
-          Array.isArray(this.config.exclude_patterns)) {
-        combinedPatterns.push(...this.config.exclude_patterns);
-      }
-      
-      // Add gitignore exclude patterns
-      if (this.useGitignore && this.gitignorePatterns && this.gitignorePatterns.excludePatterns) {
-        combinedPatterns.push(...this.gitignorePatterns.excludePatterns);
-      }
-      
-      // Add include patterns property if gitignore is enabled
-      if (this.useGitignore && this.gitignorePatterns && this.gitignorePatterns.includePatterns) {
-        combinedPatterns.includePatterns = this.gitignorePatterns.includePatterns;
-      }
-      
-      // Use the shouldExclude utility for all pattern matching
-      if (shouldExclude(filePath, '', combinedPatterns, this.config)) {
-        return false; // File should be excluded based on pattern matching
-      }
+    // 2. Build patterns array with proper structure and priority
+    const patterns = [];
+    
+    // Add custom exclude patterns (highest priority)
+    if (this.config.use_custom_excludes !== false && 
+        this.config.exclude_patterns && 
+        Array.isArray(this.config.exclude_patterns)) {
+      patterns.push(...this.config.exclude_patterns);
+    }
+    
+    // Add gitignore exclude patterns
+    if (this.useGitignore && this.gitignorePatterns && this.gitignorePatterns.excludePatterns) {
+      patterns.push(...this.gitignorePatterns.excludePatterns);
+    }
+    
+    // Add include patterns property for gitignore negated patterns
+    if (this.useGitignore && this.gitignorePatterns && this.gitignorePatterns.includePatterns) {
+      patterns.includePatterns = this.gitignorePatterns.includePatterns;
+    }
+    
+    // 3. Use the shouldExclude utility for consistent pattern matching
+    if (filterUtils.shouldExclude(filePath, '', patterns, this.config)) {
+      return false; // File should be excluded based on pattern matching
     }
     
     // If we reach this point, the file should be processed
