@@ -3,8 +3,25 @@ import PropTypes from 'prop-types';
 import yaml from 'yaml';
 import { yamlArrayToPlainText } from '../../utils/formatters/list-formatter';
 
+// Helper functions for extension and pattern handling to reduce complexity
+const processExtensions = (config, setFileExtensions) => {
+  setFileExtensions(
+    config?.include_extensions && Array.isArray(config.include_extensions)
+      ? yamlArrayToPlainText(config.include_extensions)
+      : ''
+  );
+};
+
+const processPatterns = (config, setExcludePatterns) => {
+  setExcludePatterns(
+    config?.exclude_patterns && Array.isArray(config.exclude_patterns)
+      ? yamlArrayToPlainText(config.exclude_patterns)
+      : ''
+  );
+};
+
 // Helper function to update config-related states
-const updateConfigStates = (config, stateSetters, currentStates) => {
+const updateConfigStates = (config, stateSetters) => {
   const {
     setFileExtensions,
     setExcludePatterns,
@@ -12,64 +29,31 @@ const updateConfigStates = (config, stateSetters, currentStates) => {
     setUseCustomIncludes,
     setUseGitignore,
     setIncludeTreeView,
-    setShowTokenCount
+    setShowTokenCount,
   } = stateSetters;
-  
-  const {
-    useCustomExcludes,
-    useCustomIncludes,
-    useGitignore,
-    includeTreeView,
-    showTokenCount
-  } = currentStates;
 
-  // Convert arrays to plain text format for easier editing
-  if (config?.include_extensions && Array.isArray(config.include_extensions)) {
-    setFileExtensions(yamlArrayToPlainText(config.include_extensions));
-  } else {
-    setFileExtensions('');
-  }
+  // Process extensions and patterns
+  processExtensions(config, setFileExtensions);
+  processPatterns(config, setExcludePatterns);
 
-  // Convert exclude patterns to plain text
-  if (config?.exclude_patterns && Array.isArray(config.exclude_patterns)) {
-    setExcludePatterns(yamlArrayToPlainText(config.exclude_patterns));
-  } else {
-    setExcludePatterns('');
-  }
-
-  // Set checkbox states only if they're different
-  if (
-    config?.use_custom_excludes !== undefined &&
-    useCustomExcludes !== (config.use_custom_excludes !== false)
-  ) {
+  // Set checkbox states
+  if (config?.use_custom_excludes !== undefined) {
     setUseCustomExcludes(config.use_custom_excludes !== false);
   }
 
-  if (
-    config?.use_custom_includes !== undefined &&
-    useCustomIncludes !== (config.use_custom_includes !== false)
-  ) {
+  if (config?.use_custom_includes !== undefined) {
     setUseCustomIncludes(config.use_custom_includes !== false);
   }
 
-  if (
-    config?.use_gitignore !== undefined &&
-    useGitignore !== (config.use_gitignore !== false)
-  ) {
+  if (config?.use_gitignore !== undefined) {
     setUseGitignore(config.use_gitignore !== false);
   }
 
-  if (
-    config?.include_tree_view !== undefined &&
-    includeTreeView !== (config.include_tree_view === true)
-  ) {
+  if (config?.include_tree_view !== undefined) {
     setIncludeTreeView(config.include_tree_view === true);
   }
 
-  if (
-    config?.show_token_count !== undefined &&
-    showTokenCount !== (config.show_token_count === true)
-  ) {
+  if (config?.show_token_count !== undefined) {
     setShowTokenCount(config.show_token_count === true);
   }
 };
@@ -89,27 +73,17 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
     try {
       // Parse the YAML config
       const config = yaml.parse(configContent) || {};
-      
+
       // Use helper function to update states
-      updateConfigStates(
-        config,
-        {
-          setFileExtensions,
-          setExcludePatterns,
-          setUseCustomExcludes,
-          setUseCustomIncludes,
-          setUseGitignore,
-          setIncludeTreeView,
-          setShowTokenCount
-        },
-        {
-          useCustomExcludes,
-          useCustomIncludes,
-          useGitignore,
-          includeTreeView,
-          showTokenCount
-        }
-      );
+      updateConfigStates(config, {
+        setFileExtensions,
+        setExcludePatterns,
+        setUseCustomExcludes,
+        setUseCustomIncludes,
+        setUseGitignore,
+        setIncludeTreeView,
+        setShowTokenCount,
+      });
     } catch (error) {
       console.error('Error parsing config:', error);
     }

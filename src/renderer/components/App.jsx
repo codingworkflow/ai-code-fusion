@@ -92,8 +92,9 @@ const App = () => {
   }, [configContent]);
   /* This state is used indirectly via setAnalysisResult to track analysis results.
      Although the variable is not directly read, the state updates are important
-     for component lifecycle and data flow. SonarQube flags this as unused, but
-     removing it would break application functionality. */
+     for component lifecycle and data flow (e.g., used in handleRefreshProcessed).
+     SonarQube flags this as unused, but removing it would break functionality.
+     SONARQUBE-IGNORE: Necessary React state with side effects */
   // eslint-disable-next-line no-unused-vars
   const [analysisResult, setAnalysisResult] = useState(null);
   const [processedResult, setProcessedResult] = useState(null);

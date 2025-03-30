@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 
 // Define item prop shape for reuse
@@ -12,18 +12,18 @@ const ItemPropType = PropTypes.shape({
 // Helper function to check if item is selected
 const getSelectionStatus = (item, selectedFiles, selectedFolders) => {
   if (!item) return false;
-  
+
   const isFile = item.type === 'file';
   const isFolder = item.type === 'directory';
-  
+
   if (isFile) {
     return selectedFiles.includes(item.path);
-  } 
-  
+  }
+
   if (isFolder && selectedFolders) {
     return selectedFolders.includes(item.path);
   }
-  
+
   return false;
 };
 
@@ -119,18 +119,13 @@ const FileTreeItemComponent = (props) => {
         <div className='flex grow items-center overflow-hidden'>
           {isFile ? (
             <>
-              <span className='mr-1 shrink-0 text-gray-500' aria-hidden="true">📄</span>
-              <span
-                id={`label-${item.path}`}
-                className="truncate"
-                title={item.path}
-              >
+              <span className='mr-1 shrink-0 text-gray-500' aria-hidden='true'>
+                📄
+              </span>
+              <span id={`label-${item.path}`} className='truncate' title={item.path}>
                 {item.name}
               </span>
-              <label
-                htmlFor={`checkbox-${item.path}`}
-                className="sr-only"
-              >
+              <label htmlFor={`checkbox-${item.path}`} className='sr-only'>
                 {item.name}
               </label>
             </>
@@ -150,7 +145,9 @@ const FileTreeItemComponent = (props) => {
                 aria-expanded={isOpen}
                 aria-label={`${isOpen ? 'Collapse' : 'Expand'} folder ${item.name}`}
               >
-                <span className='shrink-0 text-yellow-500' aria-hidden="true">{isOpen ? '📂' : '📁'}</span>
+                <span className='shrink-0 text-yellow-500' aria-hidden='true'>
+                  {isOpen ? '📂' : '📁'}
+                </span>
                 <span
                   id={`label-${item.path}`}
                   className='ml-1 truncate font-semibold hover:underline'
@@ -159,10 +156,7 @@ const FileTreeItemComponent = (props) => {
                   {item.name}
                 </span>
               </button>
-              <label
-                htmlFor={`checkbox-${item.path}`}
-                className="sr-only"
-              >
+              <label htmlFor={`checkbox-${item.path}`} className='sr-only'>
                 {item.name}
               </label>
             </>

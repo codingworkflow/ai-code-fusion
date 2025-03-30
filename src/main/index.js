@@ -317,7 +317,7 @@ function generateTreeView(filesInfo) {
   if (!filesInfo || !Array.isArray(filesInfo)) {
     return '';
   }
-  
+
   // Generate a more structured tree view from filesInfo
   const sortedFiles = [...filesInfo].sort((a, b) => a.path.localeCompare(b.path));
 
@@ -325,7 +325,7 @@ function generateTreeView(filesInfo) {
   const pathTree = {};
   sortedFiles.forEach((file) => {
     if (!file || !file.path) return;
-    
+
     const parts = file.path.split('/');
     let currentLevel = pathTree;
 
@@ -402,9 +402,9 @@ ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, option
           skippedFiles++;
           continue;
         }
-        
+
         const { path: filePath, tokens = 0 } = fileInfo;
-        
+
         // Use consistent path joining
         const fullPath = path.join(rootPath, filePath);
 

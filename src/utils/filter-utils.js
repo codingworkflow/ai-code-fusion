@@ -26,6 +26,63 @@ const getRelativePath = (filePath, rootPath) => {
 };
 
 /**
+ * Check if a file should be excluded by extension
+ * @param {string} itemPath - File path to check
+ * @param {Object} config - Configuration object
+ * @returns {boolean} - True if file should be excluded by extension
+ */
+const shouldExcludeByExtension = (itemPath, config) => {
+  if (
+    config?.use_custom_includes &&
+    config?.include_extensions &&
+    Array.isArray(config.include_extensions) &&
+    path.extname(itemPath)
+  ) {
+    const ext = path.extname(itemPath).toLowerCase();
+    // If extension is not in the include list, exclude it
+    return !config.include_extensions.includes(ext);
+  }
+  return false;
+};
+
+/**
+ * Check if a file matches include patterns
+ * @param {string} normalizedPath - Normalized file path
+ * @param {string} itemName - File name
+ * @param {Array} includePatterns - Include patterns to check
+ * @returns {boolean} - True if file matches any include pattern
+ */
+const matchesIncludePatterns = (normalizedPath, itemName, includePatterns) => {
+  if (Array.isArray(includePatterns) && includePatterns.length > 0) {
+    for (const pattern of includePatterns) {
+      // Check both the full path and just the filename for simple patterns
+      if (
+        fnmatch.fnmatch(normalizedPath, pattern) ||
+        (!pattern.includes('/') && fnmatch.fnmatch(itemName, pattern))
+      ) {
+        // Matches an include pattern
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
+/**
+ * Check if a file matches exclude patterns
+ * @param {string} normalizedPath - Normalized file path
+ * @param {string} itemName - File name
+ * @param {Array} excludePatterns - Exclude patterns to check
+ * @returns {boolean} - True if file matches any exclude pattern
+ */
+const matchesExcludePatterns = (normalizedPath, itemName, excludePatterns) => 
+  Array.isArray(excludePatterns) && excludePatterns.length > 0 && excludePatterns.some(
+    (pattern) =>
+      fnmatch.fnmatch(normalizedPath, pattern) ||
+      (!pattern.includes('/') && fnmatch.fnmatch(itemName, pattern))
+  );
+
+/**
  * Check if a file should be excluded based on patterns and configuration
  * This is the shared implementation used by both main process and file analyzer
  * @param {string} itemPath - The file path to check
@@ -39,54 +96,22 @@ const shouldExclude = (itemPath, rootPath, excludePatterns, config) => {
     const itemName = path.basename(itemPath);
     const normalizedPath = getRelativePath(itemPath, rootPath);
 
-    // Check if we should filter by file extension
-    if (
-      config &&
-      config.use_custom_includes &&
-      config.include_extensions &&
-      Array.isArray(config.include_extensions) &&
-      path.extname(itemPath)
-    ) {
-      const ext = path.extname(itemPath).toLowerCase();
-      // If we have include extensions defined and this file's extension isn't in the list
-      if (!config.include_extensions.includes(ext)) {
-        return true; // Exclude because extension is not in the include list
-      }
+    // Check extension exclusion first
+    if (shouldExcludeByExtension(itemPath, config)) {
+      return true;
     }
 
-    // First check if path is in include patterns (negated gitignore patterns)
-    // includePatterns take highest priority
-    if (
-      excludePatterns &&
-      excludePatterns.includePatterns &&
-      Array.isArray(excludePatterns.includePatterns) &&
-      excludePatterns.includePatterns.length > 0
-    ) {
-      for (const pattern of excludePatterns.includePatterns) {
-        // Check both the full path and just the filename for simple patterns
-        if (
-          fnmatch.fnmatch(normalizedPath, pattern) ||
-          (!pattern.includes('/') && fnmatch.fnmatch(itemName, pattern))
-        ) {
-          // This path explicitly matches an include pattern, so don't exclude it
-          return false;
-        }
-      }
+    // Check include patterns (negated gitignore) - these take priority
+    if (matchesIncludePatterns(normalizedPath, itemName, excludePatterns?.includePatterns)) {
+      return false;
     }
 
-    // Then check exclude patterns
-    if (Array.isArray(excludePatterns)) {
-      for (const pattern of excludePatterns) {
-        // Check both the full path and just the filename for simple patterns
-        if (
-          fnmatch.fnmatch(normalizedPath, pattern) ||
-          (!pattern.includes('/') && fnmatch.fnmatch(itemName, pattern))
-        ) {
-          return true; // Exclude this item
-        }
-      }
+    // Check exclude patterns
+    if (matchesExcludePatterns(normalizedPath, itemName, excludePatterns)) {
+      return true;
     }
 
+    // Default: not excluded
     return false;
   } catch (error) {
     console.error(`Error in shouldExclude for ${itemPath}:`, error);
