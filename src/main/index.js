@@ -107,7 +107,7 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
     const useGitignore = config.use_gitignore !== false;
 
     // Start with empty excludePatterns array (no hardcoded patterns)
-    excludePatterns = ['**/.git/**'];
+    excludePatterns = [''];
 
     // Add custom exclude patterns if enabled
     if (useCustomExcludes && config.exclude_patterns && Array.isArray(config.exclude_patterns)) {

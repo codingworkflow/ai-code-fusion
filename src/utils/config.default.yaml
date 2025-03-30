@@ -1,6 +1,6 @@
 # Filtering options
 use_custom_excludes: true
-use_custom_includes: true
+use_custom_includes: false
 use_gitignore: true
 include_tree_view: true
 show_token_count: true

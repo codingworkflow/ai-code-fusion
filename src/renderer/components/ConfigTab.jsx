@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import yaml from 'yaml';
+import { yamlArrayToPlainText, plainTextToYamlArray } from '../../utils/formatters/list-formatter';
 
 const ConfigTab = ({ configContent, onConfigChange }) => {
   const [isSaved, setIsSaved] = useState(false);
@@ -18,23 +19,19 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
       // Parse the YAML config
       const config = yaml.parse(configContent) || {};
       
-      // Construct the file extensions display
-      let fileExtText = "# File extensions to include (with dot)\ninclude_extensions:";
+      // Convert arrays to plain text format for easier editing
       if (config && config.include_extensions && Array.isArray(config.include_extensions)) {
-        config.include_extensions.forEach(ext => {
-          fileExtText += `\n  - ${ext}`;
-        });
+        setFileExtensions(yamlArrayToPlainText(config.include_extensions));
+      } else {
+        setFileExtensions('');
       }
-      setFileExtensions(fileExtText);
       
-      // Construct the exclude patterns display
-      let patternsText = "# Patterns to exclude (using fnmatch syntax)\nexclude_patterns:";
+      // Convert exclude patterns to plain text
       if (config && config.exclude_patterns && Array.isArray(config.exclude_patterns)) {
-        config.exclude_patterns.forEach(pattern => {
-          patternsText += `\n  - ${pattern}`;
-        });
+        setExcludePatterns(yamlArrayToPlainText(config.exclude_patterns));
+      } else {
+        setExcludePatterns('');
       }
-      setExcludePatterns(patternsText);
       
       // Set checkbox states from the same config object only if they're different
       // This prevents unnecessary re-renders and blinking checkboxes
@@ -360,17 +357,22 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
           <div>
             <h4 className='mb-2 text-xs font-medium text-gray-700'>Only process files with these extensions</h4>
+            <p className='text-xs text-gray-500 mb-1'>One extension per line (include the dot)</p>
             <textarea
               className='h-44 w-full rounded-md border border-gray-300 p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
               value={fileExtensions}
+              placeholder='.py
+.js
+.jsx
+.ts
+.tsx'
               onChange={(e) => {
-                // Extract the extensions from the textarea
-                const lines = e.target.value.split('\n');
-                const extensionLines = lines.filter(line => line.trim().startsWith('-'));
-                const extensions = extensionLines.map(line => line.replace('-', '').trim());
+                const newText = e.target.value;
+                setFileExtensions(newText);
                 
-                // Parse and update the config
+                // Convert to array and update config
                 try {
+                  const extensions = plainTextToYamlArray(newText);
                   const config = yaml.parse(configContent) || {};
                   config.include_extensions = extensions;
                   const updatedConfig = yaml.stringify(config);
@@ -379,25 +381,26 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                 } catch (error) {
                   console.error('Error updating extensions:', error);
                 }
-                
-                // Update the local state
-                setFileExtensions(e.target.value);
               }}
             />
           </div>
           <div>
             <h4 className='mb-2 text-xs font-medium text-gray-700'>Exclude Patterns</h4>
+            <p className='text-xs text-gray-500 mb-1'>One pattern per line (using glob pattern)</p>
             <textarea
               className='h-44 w-full rounded-md border border-gray-300 p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
               value={excludePatterns}
+              placeholder='**/.git/**
+**/node_modules/**
+**/dist/**
+**/build/**'
               onChange={(e) => {
-                // Extract the patterns from the textarea
-                const lines = e.target.value.split('\n');
-                const patternLines = lines.filter(line => line.trim().startsWith('-'));
-                const patterns = patternLines.map(line => line.replace('-', '').trim());
+                const newText = e.target.value;
+                setExcludePatterns(newText);
                 
-                // Parse and update the config
+                // Convert to array and update config
                 try {
+                  const patterns = plainTextToYamlArray(newText);
                   const config = yaml.parse(configContent) || {};
                   config.exclude_patterns = patterns;
                   const updatedConfig = yaml.stringify(config);
@@ -406,9 +409,6 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                 } catch (error) {
                   console.error('Error updating patterns:', error);
                 }
-                
-                // Update the local state
-                setExcludePatterns(e.target.value);
               }}
             />
           </div>

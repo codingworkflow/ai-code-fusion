@@ -68,13 +68,20 @@ const App = () => {
 
     // When switching tabs, try to do so with consistent state
     try {
-      const config = yaml.parse(configContent);
+      const config = yaml.parse(configContent) || {};
+
+      // Make sure arrays are initialized to avoid issues
+      if (!config.include_extensions) config.include_extensions = [];
+      if (!config.exclude_patterns) config.exclude_patterns = [];
 
       // Update processing options from config to maintain consistency
       setProcessingOptions({
         showTokenCount: config.show_token_count === true,
         includeTreeView: config.include_tree_view === true,
       });
+      
+      // Ensure we've saved any config changes before switching tabs
+      localStorage.setItem('configContent', configContent);
     } catch (error) {
       console.error('Error parsing config when changing tabs:', error);
     }
@@ -431,12 +438,20 @@ const App = () => {
 
   return (
     <div className='container mx-auto p-4'>
-      <div className='flex justify-between items-center'>
-        <TabBar activeTab={activeTab} onTabChange={handleTabChange} />
+      {/* Header with app title */}
+      <div className='flex justify-end items-center mb-2'>
         <h1 className='text-2xl font-bold'>AI Code Fusion</h1>
       </div>
-
-      <div className='tab-content rounded-b rounded-r rounded-l border-b border-r border-l border-gray-300 bg-white p-4'>
+      
+      {/* Tab navigation and content container */}
+      <div className='w-full border border-gray-300 rounded-md'>
+        {/* Tab Bar in its own row */}
+        <div className='w-full border-b border-gray-300'>
+          <TabBar activeTab={activeTab} onTabChange={handleTabChange} />
+        </div>
+        
+        {/* Tab content */}
+        <div className='tab-content bg-white p-4'>
         {activeTab === 'config' && (
           <ConfigTab configContent={configContent} onConfigChange={setConfigContent} />
         )}
@@ -461,6 +476,7 @@ const App = () => {
             onRefresh={handleRefreshProcessed}
           />
         )}
+        </div>
       </div>
     </div>
   );

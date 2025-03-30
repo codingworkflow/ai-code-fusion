@@ -43,8 +43,9 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
             <div>
               <button
                 onClick={handleRefresh}
-                className='inline-flex items-center rounded-md border border-transparent bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                className='inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
                 disabled={isRefreshing}
+                title="Reload selected files and regenerate output with latest content"
               >
                 {isRefreshing ? (
                   <>
@@ -86,18 +87,20 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
                         d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
                       />
                     </svg>
-                    Reprocess Code
+                    Refresh Code
                   </>
                 )}
               </button>
             </div>
             
             {/* Stats in the center */}
-            <div className='flex items-center space-x-6'>
+            <div className='flex items-center'>
               <div className='flex items-center'>
                 <span className='text-sm text-gray-500 mr-2'>Files</span>
                 <span className='text-lg font-bold text-blue-600'>{processedResult.processedFiles}</span>
               </div>
+              
+              <div className='text-gray-400 mx-3'>|</div>
               
               <div className='flex items-center'>
                 <span className='text-sm text-gray-500 mr-2'>Tokens</span>
@@ -105,10 +108,13 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
               </div>
               
               {processedResult.skippedFiles > 0 && (
-                <div className='flex items-center'>
-                  <span className='text-sm text-gray-500 mr-2'>Skipped</span>
-                  <span className='text-lg font-bold text-amber-600'>{processedResult.skippedFiles}</span>
-                </div>
+                <>
+                  <div className='text-gray-400 mx-3'>|</div>
+                  <div className='flex items-center'>
+                    <span className='text-sm text-gray-500 mr-2'>Skipped</span>
+                    <span className='text-lg font-bold text-amber-600'>{processedResult.skippedFiles}</span>
+                  </div>
+                </>
               )}
             </div>
             
@@ -167,7 +173,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
               <div className='text-xs text-gray-500'>Content is ready to be saved</div>
             </div>
             <div className='max-h-96 overflow-auto rounded-md border border-gray-300 bg-white p-4 shadow-sm'>
-              <pre className='whitespace-pre-wrap font-mono text-sm'>{processedResult.content}</pre>
+              <pre className='whitespace-pre-wrap font-mono text-xs leading-5'>{processedResult.content}</pre>
             </div>
           </div>
           
@@ -179,10 +185,10 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
                 <table className='min-w-full divide-y divide-gray-200'>
                   <thead className='sticky top-0 bg-gray-50'>
                     <tr>
-                      <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                      <th className='px-3 py-1 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
                         File Path
                       </th>
-                      <th className='px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-gray-500'>
+                      <th className='px-3 py-1 text-right text-xs font-medium uppercase tracking-wider text-gray-500'>
                         Tokens
                       </th>
                     </tr>
@@ -191,8 +197,8 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
                     {processedResult.filesInfo && processedResult.filesInfo.length > 0 ? (
                       processedResult.filesInfo.map((file, index) => (
                         <tr key={`${file.path}-${index}`} className='hover:bg-gray-50'>
-                          <td className='max-w-md truncate px-3 py-2 font-mono text-sm'>{file.path}</td>
-                          <td className='px-3 py-2 text-right text-sm'>{file.tokens.toLocaleString()}</td>
+                          <td className='max-w-md truncate px-3 py-1 font-mono text-xs'>{file.path}</td>
+                          <td className='px-3 py-1 text-right text-xs'>{file.tokens.toLocaleString()}</td>
                         </tr>
                       ))
                     ) : (

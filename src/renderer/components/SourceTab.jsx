@@ -70,24 +70,6 @@ const SourceTab = ({
       
       {/* Processing Summary and Process Button on same line */}
       <div className='mb-4 flex justify-between items-center'>
-        <div className='flex space-x-4'>
-          <div className='rounded bg-white p-3 shadow-sm border border-gray-200'>
-            <div className='text-xs text-gray-500'>Selected Files</div>
-            <div className='text-xl font-bold text-blue-600'>
-              {selectedFiles.length}
-            </div>
-          </div>
-
-          {showTokenCount && (
-            <div className='rounded bg-white p-3 shadow-sm border border-gray-200'>
-              <div className='text-xs text-gray-500'>Total Tokens (estimated)</div>
-              <div className='text-xl font-bold text-green-600'>
-                {estimatedTokens.toLocaleString()}
-              </div>
-            </div>
-          )}
-        </div>
-        
         {rootPath && (
           <div className="flex space-x-2">
             <button
@@ -143,6 +125,25 @@ const SourceTab = ({
             </button>
           </div>
         )}
+        
+        <div className='flex items-center space-x-4'>
+          <div className='flex items-center'>
+            <span className='text-sm text-gray-500 mr-2'>Files</span>
+            <span className='text-lg font-bold text-blue-600'>{selectedFiles.length}</span>
+          </div>
+          
+          {showTokenCount && (
+            <>
+              <div className='text-gray-400 mx-1'>|</div>
+              <div className='flex items-center'>
+                <span className='text-sm text-gray-500 mr-2'>Tokens</span>
+                <span className='text-lg font-bold text-green-600'>
+                  {estimatedTokens.toLocaleString()} <span className='text-xs text-gray-500 ml-1'>(estimate)</span>
+                </span>
+              </div>
+            </>
+          )}
+        </div>
         
         <button
           onClick={() => {
