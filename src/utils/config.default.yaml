@@ -1,0 +1,94 @@
+# Filtering options
+use_custom_excludes: true
+use_custom_includes: true
+use_gitignore: true
+include_tree_view: false
+show_token_count: false
+
+# File extensions to include (with dot)
+include_extensions:
+  - .py
+  - .ts
+  - .js
+  - .jsx
+  - .tsx
+  - .json
+  - .md
+  - .txt
+  - .html
+  - .css
+  - .scss
+  - .less
+  - .ini
+  - .yaml
+  - .yml
+  - .kt
+  - .java
+  - .go
+  - .scm
+  - .php
+  - .rb
+  - .c
+  - .cpp
+  - .h
+  - .cs
+  - .sql
+  - .sh
+  - .bat
+  - .ps1
+  - .xml
+  - .config
+
+# Patterns to exclude (using fnmatch syntax)
+exclude_patterns:
+  # Version Control
+  - "**/.git/**"
+  - "**/.svn/**"
+  - "**/.hg/**"
+  - "**/vocab.txt"
+  - "**.onnx"
+  - "**/test*.py"
+
+  # Dependencies
+  - "**/node_modules/**"
+  - "**/venv/**"
+  - "**/env/**"
+  - "**/.venv/**"
+  - "**/.github/**"
+  - "**/vendor/**"
+  - "**/website/**"
+
+  # Build outputs
+  - "**/test/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/__pycache__/**"
+  - "**/*.pyc"
+  - "**/bundle.js"
+  - "**/bundle.js.map"
+  - "**/bundle.js.LICENSE.txt"
+  - "**/index.js.map"
+  - "**/output.css"
+
+  # Config files
+  - "**/.DS_Store"
+  - "**/.env"
+  - "**/package-lock.json"
+  - "**/yarn.lock"
+  - "**/.prettierrc"
+  - "**/.prettierignore"
+  - "**/.gitignore"
+  - "**/.gitattributes"
+  - "**/.npmrc"
+
+  # Documentation
+  - "**/LICENSE*"
+  - "**/LICENSE.*"
+  - "**/COPYING"
+  - "**/CODE_OF**"
+  - "**/CONTRIBUTING**"
+
+  # Test files
+  - "**/tests/**"
+  - "**/test/**"
+  - "**/__tests__/**"

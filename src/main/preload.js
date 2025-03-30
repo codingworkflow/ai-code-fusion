@@ -15,4 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Repository operations
   analyzeRepository: (options) => ipcRenderer.invoke('repo:analyze', options),
   processRepository: (options) => ipcRenderer.invoke('repo:process', options),
+  
+  // Configuration operations
+  getDefaultConfig: () => ipcRenderer.invoke('config:getDefault'),
 });

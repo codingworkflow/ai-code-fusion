@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 
-const ProcessedTab = ({ processedResult, onSave }) => {
+const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -11,6 +12,16 @@ const ProcessedTab = ({ processedResult, onSave }) => {
     setTimeout(() => {
       setIsSaving(false);
     }, 1000);
+  };
+  
+  const handleRefresh = async () => {
+    if (onRefresh) {
+      setIsRefreshing(true);
+      await onRefresh();
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 1000);
+    }
   };
 
   const handleCopy = () => {
@@ -56,6 +67,35 @@ const ProcessedTab = ({ processedResult, onSave }) => {
               </div>
             </div>
           </div>
+          
+          {/* Action buttons moved above the processed content */}
+          <div className='mb-4 flex justify-between'>
+            <div>
+              <button
+                onClick={handleRefresh}
+                className='inline-flex items-center rounded-md border border-gray-300 bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none'
+                disabled={isRefreshing}
+              >
+                {isRefreshing ? '⟳ Reloading...' : '⟳ Reload and Reprocess'}
+              </button>
+            </div>
+            <div className='flex space-x-2'>
+              <button
+                onClick={handleCopy}
+                className='inline-flex items-center rounded-md border border-gray-300 bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-purple-700 focus:outline-none'
+              >
+                {isCopied ? '✓ Copied' : 'Copy Content'}
+              </button>
+              <button
+                onClick={handleSave}
+                className={`inline-flex items-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm ${
+                  isSaving ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'
+                } focus:outline-none`}
+              >
+                {isSaving ? '✓ Saving...' : 'Save to File'}
+              </button>
+            </div>
+          </div>
 
           <div className='mb-4'>
             <div className='mb-1 flex items-center justify-between'>
@@ -65,23 +105,6 @@ const ProcessedTab = ({ processedResult, onSave }) => {
             <div className='max-h-96 overflow-auto rounded-md border border-gray-300 bg-white p-4 shadow-sm'>
               <pre className='whitespace-pre-wrap font-mono text-sm'>{processedResult.content}</pre>
             </div>
-          </div>
-
-          <div className='flex justify-end space-x-2'>
-            <button
-              onClick={handleCopy}
-              className='inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-            >
-              {isCopied ? '✓ Copied' : 'Copy Content'}
-            </button>
-            <button
-              onClick={handleSave}
-              className={`inline-flex items-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm ${
-                isSaving ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'
-              } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
-            >
-              {isSaving ? '✓ Saving...' : 'Save to File'}
-            </button>
           </div>
         </>
       ) : (
@@ -113,6 +136,7 @@ const ProcessedTab = ({ processedResult, onSave }) => {
 ProcessedTab.propTypes = {
   processedResult: PropTypes.object,
   onSave: PropTypes.func.isRequired,
+  onRefresh: PropTypes.func,
 };
 
 export default ProcessedTab;

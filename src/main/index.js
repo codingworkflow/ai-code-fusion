@@ -6,6 +6,7 @@ const { TokenCounter } = require('../utils/token-counter');
 const { FileAnalyzer } = require('../utils/file-analyzer');
 const { ContentProcessor } = require('../utils/content-processor');
 const { GitignoreParser } = require('../utils/gitignore-parser');
+const { loadDefaultConfig } = require('../utils/config-manager');
 
 // Initialize the gitignore parser
 const gitignoreParser = new GitignoreParser();
@@ -96,9 +97,12 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
 
     // Check if we should use custom excludes (default to true if not specified)
     const useCustomExcludes = config.use_custom_excludes !== false;
+    
+    // Check if we should use custom includes (default to true if not specified)
+    const useCustomIncludes = config.use_custom_includes !== false;
 
-    // Check if we should use gitignore (default to false if not specified)
-    const useGitignore = config.use_gitignore === true;
+    // Check if we should use gitignore (default to true if not specified)
+    const useGitignore = config.use_gitignore !== false;
 
     // Start with default critical patterns
     excludePatterns = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'];
@@ -106,6 +110,11 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
     // Add custom exclude patterns if enabled
     if (useCustomExcludes && config.exclude_patterns && Array.isArray(config.exclude_patterns)) {
       excludePatterns = [...excludePatterns, ...config.exclude_patterns];
+    }
+    
+    // Store include extensions for filtering later (if enabled)
+    if (useCustomIncludes && config.include_extensions && Array.isArray(config.include_extensions)) {
+      excludePatterns.includeExtensions = config.include_extensions;
     }
 
     // Add gitignore patterns if enabled
@@ -135,6 +144,15 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
     // Check for common directories to exclude
     if (['node_modules', '.git', 'dist', 'build'].includes(itemName)) {
       return true;
+    }
+    
+    // Check if we should filter by file extension
+    if (excludePatterns.includeExtensions && path.extname(itemPath)) {
+      const ext = path.extname(itemPath).toLowerCase();
+      // If we have include extensions defined and this file's extension isn't in the list
+      if (!excludePatterns.includeExtensions.includes(ext)) {
+        return true; // Exclude because extension is not in the include list
+      }
     }
 
     // Special case for root-level files - check if the file name directly matches a pattern
@@ -377,11 +395,59 @@ ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, option
 
     let processedContent = '# Repository Content\n\n';
 
-    // Add tree view if provided
-    if (treeView) {
+    // Add tree view if requested in options, whether provided or not
+    if (options.includeTreeView) {
       processedContent += '## File Structure\n\n';
       processedContent += '```\n';
-      processedContent += treeView;
+      
+      // If treeView was provided, use it, otherwise generate a more complete one
+      if (treeView) {
+        processedContent += treeView;
+      } else {
+        // Generate a more structured tree view from filesInfo
+        const sortedFiles = [...filesInfo].sort((a, b) => a.path.localeCompare(b.path));
+        
+        // Build a path tree
+        const pathTree = {};
+        sortedFiles.forEach(file => {
+          const parts = file.path.split('/');
+          let currentLevel = pathTree;
+          
+          parts.forEach((part, index) => {
+            if (!currentLevel[part]) {
+              currentLevel[part] = index === parts.length - 1 ? null : {};
+            }
+            
+            if (index < parts.length - 1) {
+              currentLevel = currentLevel[part];
+            }
+          });
+        });
+        
+        // Recursive function to print the tree
+        const printTree = (tree, prefix = '', isLast = true) => {
+          const entries = Object.entries(tree);
+          let result = '';
+          
+          entries.forEach(([key, value], index) => {
+            const isLastItem = index === entries.length - 1;
+            
+            // Print current level
+            result += `${prefix}${isLast ? '└── ' : '├── '}${key}\n`;
+            
+            // Print children
+            if (value !== null) {
+              const newPrefix = `${prefix}${isLast ? '    ' : '│   '}`;
+              result += printTree(value, newPrefix, isLastItem);
+            }
+          });
+          
+          return result;
+        };
+        
+        processedContent += printTree(pathTree);
+      }
+      
       processedContent += '```\n\n';
       processedContent += '## File Contents\n\n';
     }
@@ -463,4 +529,14 @@ ipcMain.handle('fs:saveFile', async (_, { content, defaultPath }) => {
 ipcMain.handle('gitignore:resetCache', () => {
   gitignoreParser.clearCache();
   return true;
+});
+
+// Get default configuration
+ipcMain.handle('config:getDefault', async () => {
+  try {
+    return loadDefaultConfig();
+  } catch (error) {
+    console.error('Error loading default config:', error);
+    throw error;
+  }
 });

@@ -31,7 +31,9 @@ class ContentProcessor {
         return formattedContent;
       }
 
-      // Process only text files
+      // Always read the file fresh from disk to ensure we have the latest content
+      // This is important for the refresh functionality
+      console.log(`Reading fresh content from: ${filePath}`);
       const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
       const tokenCount = this.tokenCounter.countTokens(content);
 

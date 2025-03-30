@@ -1,9 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import yaml from 'yaml';
 
 const AnalyzeTab = ({ analysisResult, onProcess }) => {
+  // Initialize with defaults, but we'll update from localStorage in useEffect
   const [includeTreeView, setIncludeTreeView] = useState(false);
-  const [showTokenCount, setShowTokenCount] = useState(true);
+  const [showTokenCount, setShowTokenCount] = useState(false);
+  
+  // Initialize from config when component mounts
+  useEffect(() => {
+    try {
+      // Try to get config from localStorage if it exists
+      const configContent = localStorage.getItem('configContent');
+      if (configContent) {
+        const config = yaml.parse(configContent);
+        // Always use the config values if available
+        setIncludeTreeView(config.include_tree_view === true);
+        setShowTokenCount(config.show_token_count === true);
+        
+        // Log for debugging
+        console.log('Loading analysis options from config:', {
+          includeTreeView: config.include_tree_view,
+          showTokenCount: config.show_token_count
+        });
+      }
+    } catch (error) {
+      console.error('Error parsing config for defaults:', error);
+    }
+  }, []);
+  
+  // Synchronize changes back to localStorage when checkbox state changes
+  useEffect(() => {
+    try {
+      const configContent = localStorage.getItem('configContent');
+      if (configContent) {
+        const config = yaml.parse(configContent);
+        
+        // Only update if values have actually changed
+        if (config.include_tree_view !== includeTreeView || 
+            config.show_token_count !== showTokenCount) {
+          
+          config.include_tree_view = includeTreeView;
+          config.show_token_count = showTokenCount;
+          
+          // Save to localStorage
+          const updatedConfig = yaml.stringify(config);
+          localStorage.setItem('configContent', updatedConfig);
+          
+          // Also directly trigger any parent callbacks to ensure full sync
+          if (window.electronAPI && window.electronAPI.updateConfig) {
+            window.electronAPI.updateConfig(updatedConfig);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error updating localStorage with checkbox changes:', error);
+    }
+  }, [includeTreeView, showTokenCount]);
 
   // Generate a tree view of the selected files
   const generateTreeView = () => {
@@ -104,7 +157,22 @@ const AnalyzeTab = ({ analysisResult, onProcess }) => {
                 type='checkbox'
                 className='h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500'
                 checked={includeTreeView}
-                onChange={() => setIncludeTreeView(!includeTreeView)}
+                onChange={(e) => {
+                  const newValue = e.target.checked;
+                  setIncludeTreeView(newValue);
+                  
+                  // Directly update config to ensure persistence
+                  try {
+                    const configContent = localStorage.getItem('configContent');
+                    if (configContent) {
+                      const config = yaml.parse(configContent);
+                      config.include_tree_view = newValue;
+                      localStorage.setItem('configContent', yaml.stringify(config));
+                    }
+                  } catch (error) {
+                    console.error('Error updating tree view option:', error);
+                  }
+                }}
               />
               <label
                 htmlFor='include-tree-view'
@@ -138,7 +206,22 @@ const AnalyzeTab = ({ analysisResult, onProcess }) => {
                 type='checkbox'
                 className='h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500'
                 checked={showTokenCount}
-                onChange={() => setShowTokenCount(!showTokenCount)}
+                onChange={(e) => {
+                  const newValue = e.target.checked;
+                  setShowTokenCount(newValue);
+                  
+                  // Directly update config to ensure persistence
+                  try {
+                    const configContent = localStorage.getItem('configContent');
+                    if (configContent) {
+                      const config = yaml.parse(configContent);
+                      config.show_token_count = newValue;
+                      localStorage.setItem('configContent', yaml.stringify(config));
+                    }
+                  } catch (error) {
+                    console.error('Error updating token count option:', error);
+                  }
+                }}
               />
               <label
                 htmlFor='show-token-count'

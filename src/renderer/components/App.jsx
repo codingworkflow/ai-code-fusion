@@ -1,113 +1,89 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TabBar from './TabBar';
 import SourceTab from './SourceTab';
 import ConfigTab from './ConfigTab';
 import AnalyzeTab from './AnalyzeTab';
 import ProcessedTab from './ProcessedTab';
-
-const defaultConfig = `# Filtering options
-use_custom_excludes: true
-use_gitignore: true
-
-
-# File extensions to include (with dot)
-include_extensions:
-  - .py
-  - .ts
-  - .js
-  - .jsx
-  - .tsx
-  - .json
-  - .md
-  - .txt
-  - .html
-  - .css
-  - .scss
-  - .less
-  - .ini
-  - .yaml
-  - .yml
-  - .kt
-  - .java
-  - .go
-  - .scm
-  - .php
-  - .rb
-  - .c
-  - .cpp
-  - .h
-  - .cs
-  - .sql
-  - .sh
-  - .bat
-  - .ps1
-  - .xml
-  - .config
-
-# Patterns to exclude (using fnmatch syntax)
-exclude_patterns:
-  # Version Control
-  - "**/.git/**"
-  - "**/.svn/**"
-  - "**/.hg/**"
-  - "**/vocab.txt"
-  - "**.onnx"
-  - "**/test*.py"
-
-  # Dependencies
-  - "**/node_modules/**"
-  - "**/venv/**"
-  - "**/env/**"
-  - "**/.venv/**"
-  - "**/.github/**"
-  - "**/vendor/**"
-  - "**/website/**"
-
-  # Build outputs
-  - "**/test/**"
-  - "**/dist/**"
-  - "**/build/**"
-  - "**/__pycache__/**"
-  - "**/*.pyc"
-  - "**/bundle.js"
-  - "**/bundle.js.map"
-  - "**/bundle.js.LICENSE.txt"
-  - "**/index.js.map"
-  - "**/output.css"
-
-  # Config files
-  - "**/.DS_Store"
-  - "**/.env"
-  - "**/package-lock.json"
-  - "**/yarn.lock"
-  - "**/.prettierrc"
-  - "**/.prettierignore"
-  - "**/.gitignore"
-  - "**/.gitattributes"
-  - "**/.npmrc"
-
-  # Documentation
-  - "**/LICENSE*"
-  - "**/LICENSE.*"
-  - "**/COPYING"
-  - "**/CODE_OF**"
-  - "**/CONTRIBUTING**"
-
-  # Test files
-  - "**/tests/**"
-  - "**/test/**"
-  - "**/__tests__/**"`;
+import yaml from 'yaml';
 
 const App = () => {
   const [activeTab, setActiveTab] = useState('config');
   const [rootPath, setRootPath] = useState('');
   const [directoryTree, setDirectoryTree] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [configContent, setConfigContent] = useState(defaultConfig);
+  const [configContent, setConfigContent] = useState(() => {
+    // Try to load from localStorage first
+    const savedConfig = localStorage.getItem('configContent');
+
+    if (savedConfig) {
+      return savedConfig;
+    }
+
+    // If not in localStorage, load from the main process
+    if (window.electronAPI && window.electronAPI.getDefaultConfig) {
+      // Use the main process to load the default config
+      window.electronAPI
+        .getDefaultConfig()
+        .then((defaultConfig) => {
+          if (defaultConfig) {
+            setConfigContent(defaultConfig);
+            localStorage.setItem('configContent', defaultConfig);
+          }
+        })
+        .catch((err) => {
+          console.error('Error loading default config:', err);
+        });
+
+      // Return an empty placeholder until the async operation completes
+      return '# Loading configuration...';
+    }
+
+    // Fallback to a minimal default config
+    return `# Filtering options
+use_custom_excludes: true
+use_custom_includes: true
+use_gitignore: true
+include_tree_view: false
+show_token_count: false
+
+# File extensions to include (with dot)
+include_extensions:
+  - .js
+  - .jsx
+  - .json
+
+# Patterns to exclude
+exclude_patterns:
+  - "**/node_modules/**"
+  - "**/.git/**"`;
+  });
+
+  // Whenever configContent changes, save to localStorage
+  useEffect(() => {
+    localStorage.setItem('configContent', configContent);
+  }, [configContent]);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [processedResult, setProcessedResult] = useState(null);
 
   const handleTabChange = (tab) => {
+    if (activeTab === tab) return; // Don't do anything if clicking the same tab
+
+    // Save current tab configuration to localStorage for all components to access
+    localStorage.setItem('configContent', configContent);
+
+    // When switching tabs, try to do so with consistent state
+    try {
+      const config = yaml.parse(configContent);
+
+      // Update processing options from config to maintain consistency
+      setProcessingOptions({
+        showTokenCount: config.show_token_count === true,
+        includeTreeView: config.include_tree_view === true,
+      });
+    } catch (error) {
+      console.error('Error parsing config when changing tabs:', error);
+    }
+
     setActiveTab(tab);
 
     // If switching from config tab to source tab and we have a root path, refresh the directory tree
@@ -177,7 +153,10 @@ const App = () => {
   };
 
   // Create state for processing options
-  const [processingOptions, setProcessingOptions] = useState({ showTokenCount: true });
+  const [processingOptions, setProcessingOptions] = useState({
+    showTokenCount: false,
+    includeTreeView: false,
+  });
 
   const handleAnalyze = async () => {
     if (!rootPath || selectedFiles.length === 0) {
@@ -325,12 +304,28 @@ const App = () => {
         throw new Error('No analysis results available');
       }
 
+      // Try to get the latest options from config
+      try {
+        const configContent = localStorage.getItem('configContent');
+        if (configContent) {
+          const config = yaml.parse(configContent);
+          // If options not explicitly provided, use config defaults
+          if (options.includeTreeView === undefined && config.include_tree_view !== undefined) {
+            options.includeTreeView = config.include_tree_view;
+          }
+          if (options.showTokenCount === undefined && config.show_token_count !== undefined) {
+            options.showTokenCount = config.show_token_count;
+          }
+        }
+      } catch (error) {
+        console.error('Error getting config defaults for processing:', error);
+      }
+
       // Store processing options
       setProcessingOptions({ ...processingOptions, ...options });
 
-      // Generate tree view if requested but not provided
-      const treeViewForProcess =
-        treeViewData || (options.includeTreeView ? generateTreeView() : null);
+      // Let the main process handle tree view generation for consistency
+      const treeViewForProcess = null;
 
       const result = await window.electronAPI.processRepository({
         rootPath,
@@ -345,6 +340,60 @@ const App = () => {
     } catch (error) {
       console.error('Error processing repository:', error);
       alert(`Error processing repository: ${error.message}`);
+      throw error;
+    }
+  };
+
+  // Method to reload and reprocess files with the latest content
+  const handleRefreshProcessed = async () => {
+    try {
+      // First check if we have valid selections
+      if (!rootPath || selectedFiles.length === 0) {
+        alert('No files are selected for processing. Please go to the Source tab and select files.');
+        return null;
+      }
+      
+      console.log('Reloading and processing files...');
+
+      // Run a fresh analysis to re-read all files from disk
+      const reanalysisResult = await window.electronAPI.analyzeRepository({
+        rootPath,
+        configContent,
+        selectedFiles: selectedFiles,
+      });
+      
+      // Update our state with the fresh analysis
+      setAnalysisResult(reanalysisResult);
+      
+      // Get the latest config options
+      let options = { ...processingOptions };
+      try {
+        const configStr = localStorage.getItem('configContent');
+        if (configStr) {
+          const config = yaml.parse(configStr);
+          options.showTokenCount = config.show_token_count === true;
+          options.includeTreeView = config.include_tree_view === true;
+        }
+      } catch (error) {
+        console.error('Error parsing config for refresh:', error);
+      }
+      
+      console.log('Processing with fresh analysis and options:', options);
+      
+      // Process with the fresh analysis
+      const result = await window.electronAPI.processRepository({
+        rootPath,
+        filesInfo: reanalysisResult.filesInfo,
+        treeView: null, // Let server generate
+        options,
+      });
+      
+      // Update the result and stay on the processed tab
+      setProcessedResult(result);
+      return result;
+    } catch (error) {
+      console.error('Error refreshing processed content:', error);
+      alert(`Error refreshing processed content: ${error.message}`);
       throw error;
     }
   };
@@ -523,7 +572,11 @@ const App = () => {
         )}
 
         {activeTab === 'processed' && (
-          <ProcessedTab processedResult={processedResult} onSave={handleSaveOutput} />
+          <ProcessedTab
+            processedResult={processedResult}
+            onSave={handleSaveOutput}
+            onRefresh={handleRefreshProcessed}
+          />
         )}
       </div>
     </div>
