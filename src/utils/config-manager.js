@@ -28,11 +28,11 @@ function getDefaultConfigObject() {
     return yaml.parse(configYaml);
   } catch (error) {
     console.error('Error parsing default config:', error);
-    return {}; 
+    return {};
   }
 }
 
 module.exports = {
   loadDefaultConfig,
-  getDefaultConfigObject
+  getDefaultConfigObject,
 };

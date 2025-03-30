@@ -14,9 +14,7 @@ const TabBar = ({ activeTab, onTabChange }) => {
         <button
           key={tab.id}
           className={`px-6 py-2 font-medium transition-colors ${
-            activeTab === tab.id
-              ? 'bg-gray-800 text-white'
-              : 'text-gray-600 hover:bg-gray-200'
+            activeTab === tab.id ? 'bg-gray-800 text-white' : 'text-gray-600 hover:bg-gray-200'
           }`}
           onClick={() => onTabChange(tab.id)}
           data-tab={tab.id}

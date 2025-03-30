@@ -3,14 +3,17 @@ const path = require('path');
 const fs = require('fs');
 const yaml = require('yaml');
 const { TokenCounter } = require('../utils/token-counter');
-const { FileAnalyzer } = require('../utils/file-analyzer');
+const { FileAnalyzer, isBinaryFile } = require('../utils/file-analyzer');
 const { ContentProcessor } = require('../utils/content-processor');
 const { GitignoreParser } = require('../utils/gitignore-parser');
 const { loadDefaultConfig } = require('../utils/config-manager');
-const fnmatch = require('../utils/fnmatch');
+const { shouldExclude, getRelativePath, normalizePath } = require('../utils/filter-utils');
 
 // Initialize the gitignore parser
 const gitignoreParser = new GitignoreParser();
+
+// Create a singleton TokenCounter instance for reuse
+const tokenCounter = new TokenCounter();
 
 // Keep a global reference of the window object to avoid garbage collection
 let mainWindow;
@@ -27,7 +30,7 @@ async function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      additionalArguments: [`--app-dev-mode=${isDevelopment ? 'true' : 'false'}`]
+      additionalArguments: [`--app-dev-mode=${isDevelopment ? 'true' : 'false'}`],
     },
     autoHideMenuBar: true, // Hide the menu bar by default
     icon: path.join(__dirname, '../assets/icon.ico'), // Set the application icon
@@ -69,7 +72,7 @@ app.whenReady().then(() => {
     const assetPath = path.normalize(path.join(__dirname, '../../public/assets', url));
     callback({ path: assetPath });
   });
-  
+
   createWindow();
 });
 
@@ -159,54 +162,12 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
 
   // Import the fnmatch module
 
-  // Helper function to check if a path should be excluded
-  const shouldExclude = (itemPath, itemName) => {
-    try {
-      // Use our consistent path normalization function
-      const normalizedPath = getRelativePath(itemPath, dirPath);
+  // Get the config for filtering
+  const config = configContent ? yaml.parse(configContent) : { exclude_patterns: [] };
 
-      // Check if we should filter by file extension
-      if (excludePatterns.includeExtensions && path.extname(itemPath)) {
-        const ext = path.extname(itemPath).toLowerCase();
-        // If we have include extensions defined and this file's extension isn't in the list
-        if (!excludePatterns.includeExtensions.includes(ext)) {
-          return true; // Exclude because extension is not in the include list
-        }
-      }
-
-      // First check if path is in include patterns (negated gitignore patterns)
-      // includePatterns take highest priority
-      if (excludePatterns.includePatterns && excludePatterns.includePatterns.length > 0) {
-        for (const pattern of excludePatterns.includePatterns) {
-          // Check both the full path and just the filename for simple patterns
-          if (
-            fnmatch.fnmatch(normalizedPath, pattern) ||
-            (!pattern.includes('/') && fnmatch.fnmatch(itemName, pattern))
-          ) {
-            // This path explicitly matches an include pattern, so don't exclude it
-            return false;
-          }
-        }
-      }
-
-      // Then check exclude patterns
-      if (Array.isArray(excludePatterns)) {
-        for (const pattern of excludePatterns) {
-          // Check both the full path and just the filename for simple patterns
-          if (
-            fnmatch.fnmatch(normalizedPath, pattern) ||
-            (!pattern.includes('/') && fnmatch.fnmatch(itemName, pattern))
-          ) {
-            return true; // Exclude this item
-          }
-        }
-      }
-
-      return false;
-    } catch (error) {
-      console.error(`Error in shouldExclude for ${itemPath}:`, error);
-      return false; // Default to including if there's an error
-    }
+  // Use the shared shouldExclude function from filter-utils
+  const localShouldExclude = (itemPath) => {
+    return shouldExclude(itemPath, dirPath, excludePatterns, config);
   };
 
   const walkDirectory = (dir) => {
@@ -218,7 +179,7 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
         const itemPath = path.join(dir, item);
 
         // Skip excluded items based on patterns, but don't exclude binary files from the tree
-        if (shouldExclude(itemPath, item)) {
+        if (localShouldExclude(itemPath)) {
           continue;
         }
 
@@ -271,16 +232,7 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
   }
 });
 
-// Utility function to normalize paths consistently
-const normalizePath = (inputPath) => {
-  return inputPath.replace(/\\/g, '/');
-};
-
-// Utility function to get relative path consistently
-const getRelativePath = (filePath, rootPath) => {
-  const relativePath = path.relative(rootPath, filePath);
-  return normalizePath(relativePath);
-};
+// Use the imported normalizePath from filter-utils
 
 // Analyze repository
 ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFiles }) => {
@@ -442,7 +394,10 @@ ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, option
         const fullPath = path.join(rootPath, filePath);
 
         // Validate the full path is within the root path
-        if (!normalizePath(fullPath).startsWith(normalizePath(rootPath))) {
+        const normalizedFullPath = normalizePath(fullPath);
+        const normalizedRootPath = normalizePath(rootPath);
+
+        if (!normalizedFullPath.startsWith(normalizedRootPath)) {
           console.warn(`Skipping file outside root directory: ${filePath}`);
           skippedFiles++;
           continue;
@@ -528,5 +483,54 @@ ipcMain.handle('assets:getPath', (_, assetName) => {
   } catch (error) {
     console.error('Error getting asset path:', error);
     return null;
+  }
+});
+
+// Count tokens for multiple files in a single call
+ipcMain.handle('tokens:countFiles', async (_, filePaths) => {
+  try {
+    const results = {};
+    const stats = {};
+
+    // Process each file
+    for (const filePath of filePaths) {
+      try {
+        // Check if file exists
+        if (!fs.existsSync(filePath)) {
+          console.warn(`File not found for token counting: ${filePath}`);
+          results[filePath] = 0;
+          continue;
+        }
+
+        // Get file stats
+        const fileStats = fs.statSync(filePath);
+        stats[filePath] = {
+          size: fileStats.size,
+          mtime: fileStats.mtime.getTime(), // Modification time for cache validation
+        };
+
+        // Skip binary files
+        if (isBinaryFile(filePath)) {
+          console.log(`Skipping binary file for token counting: ${filePath}`);
+          results[filePath] = 0;
+          continue;
+        }
+
+        // Read file content
+        const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
+
+        // Count tokens using the singleton token counter
+        const tokenCount = tokenCounter.countTokens(content);
+        results[filePath] = tokenCount;
+      } catch (error) {
+        console.error(`Error counting tokens for file ${filePath}:`, error);
+        results[filePath] = 0;
+      }
+    }
+
+    return { results, stats };
+  } catch (error) {
+    console.error(`Error counting tokens for files:`, error);
+    return { results: {}, stats: {} };
   }
 });

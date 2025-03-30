@@ -7,7 +7,7 @@ class ContentProcessor {
     this.tokenCounter = tokenCounter;
   }
 
-  processFile(filePath, relativePath, options = {}) {
+  processFile(filePath, relativePath) {
     try {
       // For binary files, show a note instead of content
       if (isBinaryFile(filePath)) {
@@ -35,7 +35,6 @@ class ContentProcessor {
       // This is important for the refresh functionality
       console.log(`Reading fresh content from: ${filePath}`);
       const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
-      const tokenCount = this.tokenCounter.countTokens(content);
 
       // Always use just the path without token count
       const headerContent = `${relativePath}`;

@@ -27,6 +27,7 @@
     "watch:css": "npx tailwindcss -i ./src/renderer/styles.css -o ./src/renderer/output.css --watch",
     "build:css": "npx tailwindcss -i ./src/renderer/styles.css -o ./src/renderer/output.css",
     "prepare": "husky install",
+    "sonar": "node scripts/sonar-scan.js",
     "release": "node scripts/index.js release",
     "clean": "node scripts/index.js clean",
     "setup": "node scripts/index.js setup",

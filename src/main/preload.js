@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, shell } = require('electron');
 
 // Expose development utilities for managing localStorage
 const isDev = process.env.NODE_ENV === 'development';
@@ -10,7 +10,14 @@ contextBridge.exposeInMainWorld('devUtils', {
     }
     return false;
   },
-  isDev: isDev
+  isDev: isDev,
+});
+
+// Expose electron shell for external links
+contextBridge.exposeInMainWorld('electron', {
+  shell: {
+    openExternal: (url) => shell.openExternal(url),
+  },
 });
 
 // Expose protected methods that allow the renderer process to use
@@ -28,10 +35,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Repository operations
   analyzeRepository: (options) => ipcRenderer.invoke('repo:analyze', options),
   processRepository: (options) => ipcRenderer.invoke('repo:process', options),
-  
+
   // Configuration operations
   getDefaultConfig: () => ipcRenderer.invoke('config:getDefault'),
-  
+
   // Asset operations
   getAssetPath: (assetName) => ipcRenderer.invoke('assets:getPath', assetName),
+
+  // Token counting
+  countFilesTokens: (filePaths) => ipcRenderer.invoke('tokens:countFiles', filePaths),
 });

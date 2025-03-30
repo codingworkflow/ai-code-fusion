@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { shouldExclude } = require('./filter-utils');
 
 // Helper function to check if a file is a binary file by examining content
 const isBinaryFile = (filePath) => {
@@ -42,16 +43,6 @@ const isBinaryFile = (filePath) => {
   }
 };
 
-// Use the standardized fnmatch utility
-const fnmatch = require('./fnmatch');
-
-// Define pattern matching function using our fnmatch utility
-const matchPattern = (filepath, pattern) => {
-  // Just pass through to our standardized fnmatch utility
-  // Error handling is already included in the fnmatch implementation
-  return fnmatch.fnmatch(filepath, pattern);
-};
-
 class FileAnalyzer {
   constructor(config, tokenCounter, options = {}) {
     this.config = config;
@@ -64,71 +55,41 @@ class FileAnalyzer {
   }
 
   shouldProcessFile(filePath) {
+    // The root path is not accessible directly, so we need to extract it from the first part of the path
+    // In practice, filePath is already relative to the root since it's passed that way from the main process
+
     // Convert path to forward slashes for consistent pattern matching
     const normalizedPath = filePath.replace(/\\/g, '/');
+
+    // We use path in other parts of the class (path.extname is called in other places)
 
     // Check if path contains node_modules - explicit check
     if (normalizedPath.split('/').includes('node_modules')) {
       return false;
     }
 
-    // Check if custom excludes are enabled (default to true if not specified)
-    const useCustomExcludes = this.config.use_custom_excludes !== false;
+    // Combine pattern arrays for use with shouldExclude
+    const excludePatterns = [];
 
-    // First check include patterns (negated gitignore patterns)
-    // These have highest priority - if a file matches an include pattern, it should be processed
-    if (
-      this.useGitignore &&
-      this.gitignorePatterns.includePatterns &&
-      this.gitignorePatterns.includePatterns.length > 0
-    ) {
-      for (const pattern of this.gitignorePatterns.includePatterns) {
-        if (this._matchPattern(normalizedPath, pattern)) {
-          // If matches an include pattern, we should process this file
-          // Skip the exclude checks and go straight to extension check
-          const ext = path.extname(filePath).toLowerCase();
-          return !useCustomExcludes || (this.config.include_extensions || []).includes(ext);
-        }
+    // Add gitignore patterns if enabled
+    if (this.useGitignore && this.gitignorePatterns) {
+      // Add includePatterns property for negated gitignore patterns
+      excludePatterns.includePatterns = this.gitignorePatterns.includePatterns;
+
+      // Add exclude patterns
+      if (this.gitignorePatterns.excludePatterns) {
+        excludePatterns.push(...this.gitignorePatterns.excludePatterns);
       }
     }
 
-    // Check gitignore exclude patterns if enabled
-    if (
-      this.useGitignore &&
-      this.gitignorePatterns.excludePatterns &&
-      this.gitignorePatterns.excludePatterns.length > 0
-    ) {
-      for (const pattern of this.gitignorePatterns.excludePatterns) {
-        if (this._matchPattern(normalizedPath, pattern)) {
-          return false;
-        }
-      }
+    // Add custom exclude patterns if enabled
+    if (this.config.use_custom_excludes !== false) {
+      excludePatterns.push(...(this.config.exclude_patterns || []));
     }
 
-    // Check custom exclude patterns if enabled
-    if (useCustomExcludes) {
-      for (const pattern of this.config.exclude_patterns || []) {
-        if (this._matchPattern(normalizedPath, pattern)) {
-          return false;
-        }
-      }
-    }
-
-    // If custom excludes are enabled, check file extension
-    if (useCustomExcludes) {
-      // Get file extension
-      const ext = path.extname(filePath).toLowerCase();
-      // Check if extension is in included list
-      return (this.config.include_extensions || []).includes(ext);
-    }
-
-    // If custom excludes are disabled, include all files that passed gitignore filters
-    return true;
-  }
-
-  _matchPattern(filepath, pattern) {
-    // Directly use the standardized matchPattern function
-    return matchPattern(filepath, pattern);
+    // We need to emulate shouldExclude without a rootPath since this is a relative path already
+    // Simply invert the result of shouldExclude
+    return !shouldExclude(filePath, '', excludePatterns, this.config);
   }
 
   analyzeFile(filePath) {

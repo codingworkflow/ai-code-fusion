@@ -4,6 +4,31 @@ const fs = require('fs');
 const path = require('path');
 const sonarqubeScanner = require('sonarqube-scanner');
 
+// Load environment variables from .env file
+const dotenvPath = path.resolve(__dirname, '..', '.env');
+if (fs.existsSync(dotenvPath)) {
+  console.log('Loading environment variables from .env file');
+  const envConfig = fs
+    .readFileSync(dotenvPath, 'utf8')
+    .split('\n')
+    .filter((line) => line.trim() && !line.startsWith('#'))
+    .reduce((acc, line) => {
+      const [key, value] = line.split('=').map((part) => part.trim());
+      if (key && value) {
+        acc[key] = value;
+        // Also set in process.env if not already set
+        if (!process.env[key]) {
+          process.env[key] = value;
+        }
+      }
+      return acc;
+    }, {});
+
+  console.log('Loaded environment variables:', Object.keys(envConfig).join(', '));
+} else {
+  console.log('No .env file found, using existing environment variables');
+}
+
 // Check environment variables
 const sonarToken = process.env.SONAR_TOKEN;
 const sonarUrl = process.env.SONAR_URL;

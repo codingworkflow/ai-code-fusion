@@ -16,12 +16,12 @@ const fnmatch = {
   fnmatch: (filepath, pattern) => {
     try {
       // Consistent options for all pattern matching throughout the app
-      const mm = new Minimatch(pattern, { 
-        dot: true,        // Match dotfiles
-        matchBase: true,  // Match basename if pattern has no slashes
-        nocomment: true,  // Disable comments in patterns
-        nobrace: false,   // Enable brace expansion
-        noext: false      // Enable extglob features
+      const mm = new Minimatch(pattern, {
+        dot: true, // Match dotfiles
+        matchBase: true, // Match basename if pattern has no slashes
+        nocomment: true, // Disable comments in patterns
+        nobrace: false, // Enable brace expansion
+        noext: false, // Enable extglob features
       });
       return mm.match(filepath);
     } catch (error) {
@@ -29,7 +29,7 @@ const fnmatch = {
       // We never use FALLBACK, return the error
       return false;
     }
-  }
+  },
 };
 
 module.exports = fnmatch;

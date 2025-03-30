@@ -18,10 +18,10 @@ const assetPaths = [
 
 async function cleanDevAssets() {
   console.log('🧹 Cleaning development assets...');
-  
+
   for (const assetPath of assetPaths) {
     const fullPath = path.join(process.cwd(), assetPath);
-    
+
     try {
       await rimraf(fullPath);
       console.log(`  ✓ Removed: ${assetPath}`);
@@ -32,12 +32,12 @@ async function cleanDevAssets() {
       }
     }
   }
-  
+
   console.log('✅ Development assets cleaned successfully');
 }
 
 // Run the cleaning process
-cleanDevAssets().catch(err => {
+cleanDevAssets().catch((err) => {
   console.error('Error cleaning assets:', err);
   process.exit(1);
 });

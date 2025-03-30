@@ -12,17 +12,18 @@ const App = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   // Load config from localStorage or via API, no fallbacks
   const [configContent, setConfigContent] = useState('# Loading configuration...');
-  
+
   // Load config from localStorage or default config
   useEffect(() => {
     // First try to load from localStorage
     const savedConfig = localStorage.getItem('configContent');
     if (savedConfig) {
       setConfigContent(savedConfig);
-    } else {    
+    } else {
       // Otherwise load from the main process
       if (window.electronAPI && window.electronAPI.getDefaultConfig) {
-        window.electronAPI.getDefaultConfig()
+        window.electronAPI
+          .getDefaultConfig()
           .then((defaultConfig) => {
             if (defaultConfig) {
               setConfigContent(defaultConfig);
@@ -34,24 +35,25 @@ const App = () => {
           });
       }
     }
-    
+
     // Load rootPath from localStorage if available
     const savedRootPath = localStorage.getItem('rootPath');
     if (savedRootPath) {
       setRootPath(savedRootPath);
       // Load directory tree for the saved path
       if (window.electronAPI && window.electronAPI.getDirectoryTree) {
-        window.electronAPI.getDirectoryTree(savedRootPath, localStorage.getItem('configContent'))
-          .then(tree => {
+        window.electronAPI
+          .getDirectoryTree(savedRootPath, localStorage.getItem('configContent'))
+          .then((tree) => {
             setDirectoryTree(tree);
           })
-          .catch(err => {
+          .catch((err) => {
             console.error('Error loading directory tree:', err);
           });
       }
     }
   }, []);
-  
+
   // Setup path change listener to keep all components in sync
   useEffect(() => {
     // Create a function to check for rootPath changes
@@ -61,10 +63,10 @@ const App = () => {
         setRootPath(e.newValue);
       }
     };
-    
+
     // Add event listener for localStorage changes
     window.addEventListener('storage', handleStorageChange);
-    
+
     // Create an interval to check localStorage directly (for cross-component updates)
     const pathSyncInterval = setInterval(() => {
       const currentStoredPath = localStorage.getItem('rootPath');
@@ -72,7 +74,7 @@ const App = () => {
         setRootPath(currentStoredPath);
       }
     }, 500);
-    
+
     // Cleanup
     return () => {
       window.removeEventListener('storage', handleStorageChange);
@@ -107,7 +109,7 @@ const App = () => {
         showTokenCount: config.show_token_count === true,
         includeTreeView: config.include_tree_view === true,
       });
-      
+
       // Ensure we've saved any config changes before switching tabs
       localStorage.setItem('configContent', configContent);
     } catch (error) {
@@ -125,17 +127,16 @@ const App = () => {
       refreshDirectoryTree();
     }
 
-    // Clear analysis and processed results when switching to source to select new files
-    // But don't clear selections when switching from analyze to source
-    if (tab === 'source' && activeTab !== 'analyze') {
+    // Clear analysis results when switching to source tab
+    if (tab === 'source') {
       setAnalysisResult(null);
     }
 
-    if (tab === 'source' && activeTab !== 'processed') {
+    if (tab === 'source') {
       setProcessedResult(null);
     }
   };
-  
+
   // Expose the tab change function for other components to use
   window.switchToTab = handleTabChange;
 
@@ -160,7 +161,7 @@ const App = () => {
       setDirectoryTree(tree);
     }
   };
-  
+
   // Expose the refreshDirectoryTree function to the window object for SourceTab to use
   window.refreshDirectoryTree = refreshDirectoryTree;
 
@@ -177,7 +178,7 @@ const App = () => {
       // Update rootPath and save to localStorage
       setRootPath(dirPath);
       localStorage.setItem('rootPath', dirPath);
-      
+
       // Dispatch a custom event to notify all components of the path change
       window.dispatchEvent(new CustomEvent('rootPathChanged', { detail: dirPath }));
 
@@ -234,7 +235,7 @@ const App = () => {
 
       // Store analysis result
       setAnalysisResult(analysisResult);
-      
+
       // Read options from config
       let options = {};
       try {
@@ -244,7 +245,7 @@ const App = () => {
       } catch (error) {
         console.error('Error parsing config for processing:', error);
       }
-      
+
       // Process directly without going to analyze tab
       const result = await window.electronAPI.processRepository({
         rootPath,
@@ -252,11 +253,11 @@ const App = () => {
         treeView: null, // Let the main process handle tree generation
         options,
       });
-      
+
       // Set processed result and go directly to processed tab
       setProcessedResult(result);
       setActiveTab('processed');
-      
+
       return Promise.resolve(analysisResult);
     } catch (error) {
       console.error('Error processing repository:', error);
@@ -273,10 +274,12 @@ const App = () => {
     try {
       // First check if we have valid selections
       if (!rootPath || selectedFiles.length === 0) {
-        alert('No files are selected for processing. Please go to the Source tab and select files.');
+        alert(
+          'No files are selected for processing. Please go to the Source tab and select files.'
+        );
         return null;
       }
-      
+
       console.log('Reloading and processing files...');
 
       // Run a fresh analysis to re-read all files from disk
@@ -285,10 +288,10 @@ const App = () => {
         configContent,
         selectedFiles: selectedFiles,
       });
-      
+
       // Update our state with the fresh analysis
       setAnalysisResult(reanalysisResult);
-      
+
       // Get the latest config options
       let options = { ...processingOptions };
       try {
@@ -301,9 +304,9 @@ const App = () => {
       } catch (error) {
         console.error('Error parsing config for refresh:', error);
       }
-      
+
       console.log('Processing with fresh analysis and options:', options);
-      
+
       // Process with the fresh analysis
       const result = await window.electronAPI.processRepository({
         rootPath,
@@ -311,7 +314,7 @@ const App = () => {
         treeView: null, // Let server generate
         options,
       });
-      
+
       // Update the result and stay on the processed tab
       setProcessedResult(result);
       return result;
@@ -475,83 +478,89 @@ const App = () => {
         <div className='w-full border-b border-gray-300 flex justify-between items-center bg-gray-100'>
           <TabBar activeTab={activeTab} onTabChange={handleTabChange} />
           <div className='flex items-center pr-4'>
-            <div className="h-8 w-8 mr-2 flex items-center justify-center">
-              {/* Using a direct reference to the icon in the renderer directory */}
-              <img 
-                src="icon.png" 
-                alt="AI Code Fusion" 
-                className="h-8 w-8" 
-                onError={(e) => {
-                  console.error("Failed to load icon.png");
-                  e.target.style.display = 'none';
-                  e.target.nextElementSibling.style.display = 'block';
-                }} 
-              />
-              {/* Fallback icon */}
-              <svg 
-                style={{display: 'none'}} 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-7 w-7" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="#1E40AF"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={1.5} 
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+            <a
+              onClick={(e) => {
+                e.preventDefault();
+                if (window.electron && window.electron.shell) {
+                  window.electron.shell.openExternal(
+                    'https://github.com/codingworkflow/ai-code-fusion'
+                  );
+                }
+              }}
+              href='#'
+              className='flex items-center hover:text-blue-700 cursor-pointer'
+              title='View on GitHub'
+            >
+              <div className='h-8 w-8 mr-2 flex items-center justify-center'>
+                {/* Using a direct reference to the icon in the renderer directory */}
+                <img
+                  src='icon.png'
+                  alt='AI Code Fusion'
+                  className='h-8 w-8'
+                  onError={(e) => {
+                    console.error('Failed to load icon.png');
+                    e.target.style.display = 'none';
+                    e.target.nextElementSibling.style.display = 'block';
+                  }}
                 />
-              </svg>
-            </div>
-            <div className="flex items-center">
-              <h1 className='text-2xl font-bold'>AI Code Fusion</h1>
-              <a 
-                href="https://github.com/codingworkflow/ai-code-fusion" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="ml-2 text-gray-600 hover:text-gray-800"
-                title="View on GitHub"
-              >
-                <svg 
-                  className="w-5 h-5" 
-                  fill="currentColor" 
-                  viewBox="0 0 24 24" 
-                  xmlns="http://www.w3.org/2000/svg"
+                {/* Fallback icon */}
+                <svg
+                  style={{ display: 'none' }}
+                  xmlns='http://www.w3.org/2000/svg'
+                  className='h-7 w-7'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                  stroke='#1E40AF'
                 >
-                  <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z" />
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={1.5}
+                    d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+                  />
                 </svg>
-              </a>
-            </div>
+              </div>
+              <div className='flex items-center'>
+                <h1 className='text-2xl font-bold'>AI Code Fusion</h1>
+                <svg
+                  className='ml-2 w-5 h-5 text-gray-600'
+                  fill='currentColor'
+                  viewBox='0 0 24 24'
+                  xmlns='http://www.w3.org/2000/svg'
+                >
+                  <path d='M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z' />
+                </svg>
+              </div>
+            </a>
           </div>
         </div>
-        
+
         {/* Tab content */}
         <div className='tab-content bg-white p-4 border-t-0'>
-        {activeTab === 'config' && (
-          <ConfigTab configContent={configContent} onConfigChange={setConfigContent} />
-        )}
+          {activeTab === 'config' && (
+            <ConfigTab configContent={configContent} onConfigChange={setConfigContent} />
+          )}
 
-        {activeTab === 'source' && (
-          <SourceTab
-            rootPath={rootPath}
-            directoryTree={directoryTree}
-            selectedFiles={selectedFiles}
-            selectedFolders={selectedFolders}
-            onDirectorySelect={handleDirectorySelect}
-            onFileSelect={handleFileSelect}
-            onFolderSelect={handleFolderSelect}
-            onAnalyze={handleAnalyze}
-          />
-        )}
+          {activeTab === 'source' && (
+            <SourceTab
+              rootPath={rootPath}
+              directoryTree={directoryTree}
+              selectedFiles={selectedFiles}
+              selectedFolders={selectedFolders}
+              onDirectorySelect={handleDirectorySelect}
+              onFileSelect={handleFileSelect}
+              onFolderSelect={handleFolderSelect}
+              onAnalyze={handleAnalyze}
+            />
+          )}
 
-        {activeTab === 'processed' && (
-          <ProcessedTab
-            processedResult={processedResult}
-            onSave={handleSaveOutput}
-            onRefresh={handleRefreshProcessed}
-          />
-        )}
+          {activeTab === 'processed' && (
+            <ProcessedTab
+              processedResult={processedResult}
+              onSave={handleSaveOutput}
+              onRefresh={handleRefreshProcessed}
+            />
+          )}
         </div>
       </div>
     </div>
