@@ -1,5 +1,18 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Expose development utilities for managing localStorage
+const isDev = process.env.NODE_ENV === 'development';
+contextBridge.exposeInMainWorld('devUtils', {
+  clearLocalStorage: () => {
+    if (isDev) {
+      // Signal to clear, but actual clearing happens in renderer
+      return true;
+    }
+    return false;
+  },
+  isDev: isDev
+});
+
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {

@@ -431,11 +431,12 @@ const App = () => {
 
   return (
     <div className='container mx-auto p-4'>
-      <h1 className='mb-4 text-2xl font-bold'>AI Code Fusion</h1>
+      <div className='flex justify-between items-center'>
+        <TabBar activeTab={activeTab} onTabChange={handleTabChange} />
+        <h1 className='text-2xl font-bold'>AI Code Fusion</h1>
+      </div>
 
-      <TabBar activeTab={activeTab} onTabChange={handleTabChange} />
-
-      <div className='tab-content rounded border border-gray-300 bg-white p-4'>
+      <div className='tab-content rounded-b rounded-r rounded-l border-b border-r border-l border-gray-300 bg-white p-4'>
         {activeTab === 'config' && (
           <ConfigTab configContent={configContent} onConfigChange={setConfigContent} />
         )}

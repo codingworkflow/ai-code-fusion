@@ -42,7 +42,9 @@ include_extensions:
 # Patterns to exclude (using fnmatch syntax)
 exclude_patterns:
   # Version Control
+  - ".git"
   - "**/.git/**"
+  - "**/.git{,/**}"
   - "**/.svn/**"
   - "**/.hg/**"
   - "**/vocab.txt"

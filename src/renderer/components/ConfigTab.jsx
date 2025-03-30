@@ -7,8 +7,8 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
   const [useCustomExcludes, setUseCustomExcludes] = useState(true);
   const [useCustomIncludes, setUseCustomIncludes] = useState(true);
   const [useGitignore, setUseGitignore] = useState(true);
-  const [includeTreeView, setIncludeTreeView] = useState(false);
-  const [showTokenCount, setShowTokenCount] = useState(false);
+  const [includeTreeView, setIncludeTreeView] = useState(true);
+  const [showTokenCount, setShowTokenCount] = useState(true);
   const [fileExtensions, setFileExtensions] = useState('');
   const [excludePatterns, setExcludePatterns] = useState('');
 
@@ -155,7 +155,6 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
 
       {/* Folder selector */}
       <div className='mb-4'>
-        <label className='mb-1 block text-sm font-medium text-gray-700'>Folder selector</label>
         <div className='flex'>
           <input
             type='text'
@@ -183,161 +182,174 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
       
       <div className='mb-4'>
         <div className='rounded-md border border-gray-200 bg-gray-50 p-4'>
-          <h3 className='mb-2 text-sm font-medium text-gray-700'>Filter Options</h3>
 
-          <div className='mb-2 flex items-center'>
-            <input
-              type='checkbox'
-              id='use-custom-excludes'
-              checked={useCustomExcludes}
-              onChange={(e) => {
-                const newValue = e.target.checked;
-                setUseCustomExcludes(newValue);
-                
-                // Directly update the config to ensure it persists
-                try {
-                  const config = yaml.parse(configContent) || {};
-                  config.use_custom_excludes = newValue;
-                  const updatedConfig = yaml.stringify(config);
-                  onConfigChange(updatedConfig);
-                  localStorage.setItem('configContent', updatedConfig);
-                } catch (error) {
-                  console.error('Error updating config:', error);
-                }
-              }}
-              className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
-            />
-            <label htmlFor='use-custom-excludes' className='ml-2 block text-sm text-gray-700'>
-              Use Exclude Patterns
-            </label>
-          </div>
-
-          <div className='mb-2 flex items-center'>
-            <input
-              type='checkbox'
-              id='use-gitignore'
-              checked={useGitignore}
-              onChange={(e) => {
-                const newValue = e.target.checked;
-                setUseGitignore(newValue);
-                
-                // Directly update the config to ensure it persists
-                try {
-                  const config = yaml.parse(configContent) || {};
-                  config.use_gitignore = newValue;
-                  const updatedConfig = yaml.stringify(config);
-                  onConfigChange(updatedConfig);
-                  localStorage.setItem('configContent', updatedConfig);
-                } catch (error) {
-                  console.error('Error updating config:', error);
-                }
-              }}
-              className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
-            />
-            <label htmlFor='use-gitignore' className='ml-2 block text-sm text-gray-700'>
-              Use .gitignore rules if found
-            </label>
-          </div>
-
-          <div className='mb-2 flex items-center'>
-            <input
-              type='checkbox'
-              id='use-custom-includes'
-              checked={useCustomIncludes}
-              onChange={(e) => {
-                const newValue = e.target.checked;
-                setUseCustomIncludes(newValue);
-                
-                // Directly update the config to ensure it persists
-                try {
-                  const config = yaml.parse(configContent) || {};
-                  config.use_custom_includes = newValue;
-                  const updatedConfig = yaml.stringify(config);
-                  onConfigChange(updatedConfig);
-                  localStorage.setItem('configContent', updatedConfig);
-                } catch (error) {
-                  console.error('Error updating config:', error);
-                }
-              }}
-              className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
-            />
-            <label htmlFor='use-custom-includes' className='ml-2 block text-sm text-gray-700'>
-              Only show file extensions in the list
-            </label>
-          </div>
           
-          <div className='mt-3 mb-2 flex items-center'>
-            <input
-              id='include-tree-view'
-              type='checkbox'
-              className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
-              checked={includeTreeView}
-              onChange={(e) => {
-                const newValue = e.target.checked;
-                setIncludeTreeView(newValue);
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-2'>
+            {/* File Filtering section */}
+            <div className='rounded border border-gray-200 bg-white p-4'>
+              <h4 className='mb-2 text-sm font-semibold text-gray-700'>File Filtering</h4>
+              
+              <div className='space-y-2'>
+                <div className='flex items-center'>
+                  <input
+                    type='checkbox'
+                    id='use-custom-includes'
+                    checked={useCustomIncludes}
+                    onChange={(e) => {
+                      const newValue = e.target.checked;
+                      setUseCustomIncludes(newValue);
+                      
+                      // Directly update the config to ensure it persists
+                      try {
+                        const config = yaml.parse(configContent) || {};
+                        config.use_custom_includes = newValue;
+                        const updatedConfig = yaml.stringify(config);
+                        onConfigChange(updatedConfig);
+                        localStorage.setItem('configContent', updatedConfig);
+                      } catch (error) {
+                        console.error('Error updating config:', error);
+                      }
+                    }}
+                    className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
+                  />
+                  <label htmlFor='use-custom-includes' className='ml-2 block text-sm text-gray-700'>
+                    Filter by file extensions
+                  </label>
+                </div>
                 
-                // Directly update the config to ensure it persists
-                try {
-                  const config = yaml.parse(configContent) || {};
-                  config.include_tree_view = newValue;
-                  const updatedConfig = yaml.stringify(config);
-                  onConfigChange(updatedConfig);
-                  localStorage.setItem('configContent', updatedConfig);
-                } catch (error) {
-                  console.error('Error updating config:', error);
-                }
-              }}
-            />
-            <label
-              htmlFor='include-tree-view'
-              className='ml-2 block text-sm text-gray-700'
-            >
-              Add file tree to output
-            </label>
+                <div className='flex items-center'>
+                  <input
+                    type='checkbox'
+                    id='use-custom-excludes'
+                    checked={useCustomExcludes}
+                    onChange={(e) => {
+                      const newValue = e.target.checked;
+                      setUseCustomExcludes(newValue);
+                      
+                      // Directly update the config to ensure it persists
+                      try {
+                        const config = yaml.parse(configContent) || {};
+                        config.use_custom_excludes = newValue;
+                        const updatedConfig = yaml.stringify(config);
+                        onConfigChange(updatedConfig);
+                        localStorage.setItem('configContent', updatedConfig);
+                      } catch (error) {
+                        console.error('Error updating config:', error);
+                      }
+                    }}
+                    className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
+                  />
+                  <label htmlFor='use-custom-excludes' className='ml-2 block text-sm text-gray-700'>
+                    Use exclude patterns
+                  </label>
+                </div>
+                
+                <div className='flex items-center'>
+                  <input
+                    type='checkbox'
+                    id='use-gitignore'
+                    checked={useGitignore}
+                    onChange={(e) => {
+                      const newValue = e.target.checked;
+                      setUseGitignore(newValue);
+                      
+                      // Directly update the config to ensure it persists
+                      try {
+                        const config = yaml.parse(configContent) || {};
+                        config.use_gitignore = newValue;
+                        const updatedConfig = yaml.stringify(config);
+                        onConfigChange(updatedConfig);
+                        localStorage.setItem('configContent', updatedConfig);
+                      } catch (error) {
+                        console.error('Error updating config:', error);
+                      }
+                    }}
+                    className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
+                  />
+                  <label htmlFor='use-gitignore' className='ml-2 block text-sm text-gray-700'>
+                    Apply .gitignore rules
+                  </label>
+                </div>
+              </div>
+            </div>
+            
+            {/* Output Formatting section */}
+            <div className='rounded border border-gray-200 bg-white p-4'>
+              <h4 className='mb-2 text-sm font-semibold text-gray-700'>Output Formatting</h4>
+              
+              <div className='space-y-2'>
+                <div className='flex items-center'>
+                  <input
+                    id='include-tree-view'
+                    type='checkbox'
+                    className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
+                    checked={includeTreeView}
+                    onChange={(e) => {
+                      const newValue = e.target.checked;
+                      setIncludeTreeView(newValue);
+                      
+                      // Directly update the config to ensure it persists
+                      try {
+                        const config = yaml.parse(configContent) || {};
+                        config.include_tree_view = newValue;
+                        const updatedConfig = yaml.stringify(config);
+                        onConfigChange(updatedConfig);
+                        localStorage.setItem('configContent', updatedConfig);
+                      } catch (error) {
+                        console.error('Error updating config:', error);
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor='include-tree-view'
+                    className='ml-2 block text-sm text-gray-700'
+                  >
+                    Include file tree in output
+                  </label>
+                </div>
+                
+                <div className='flex items-center'>
+                  <input
+                    id='show-token-count'
+                    type='checkbox'
+                    className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
+                    checked={showTokenCount}
+                    onChange={(e) => {
+                      const newValue = e.target.checked;
+                      setShowTokenCount(newValue);
+                      
+                      // Directly update the config to ensure it persists
+                      try {
+                        const config = yaml.parse(configContent) || {};
+                        config.show_token_count = newValue;
+                        const updatedConfig = yaml.stringify(config);
+                        onConfigChange(updatedConfig);
+                        localStorage.setItem('configContent', updatedConfig);
+                      } catch (error) {
+                        console.error('Error updating config:', error);
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor='show-token-count'
+                    className='ml-2 block text-sm text-gray-700'
+                  >
+                    Display token counts
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className='mb-2 flex items-center'>
-            <input
-              id='show-token-count'
-              type='checkbox'
-              className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
-              checked={showTokenCount}
-              onChange={(e) => {
-                const newValue = e.target.checked;
-                setShowTokenCount(newValue);
-                
-                // Directly update the config to ensure it persists
-                try {
-                  const config = yaml.parse(configContent) || {};
-                  config.show_token_count = newValue;
-                  const updatedConfig = yaml.stringify(config);
-                  onConfigChange(updatedConfig);
-                  localStorage.setItem('configContent', updatedConfig);
-                } catch (error) {
-                  console.error('Error updating config:', error);
-                }
-              }}
-            />
-            <label
-              htmlFor='show-token-count'
-              className='ml-2 block text-sm text-gray-700'
-            >
-              Show token count in file selection
-            </label>
-          </div>
-
-
-
-          <p className='mt-2 text-xs text-gray-500'>
-            Select which filtering methods to apply when building the file tree. Changes will automatically 
-            save and apply after switching to the Source tab.
+          <p className='mt-3 text-xs text-gray-500'>
+            Changes are automatically saved and will be applied when switching to the Source tab. 
+            Token count estimates help with optimizing context for large repositories.
           </p>
         </div>
       </div>
 
       <div className='mb-4'>
-        <div className='mb-1 flex items-center justify-between'>
-          <label className='block text-sm font-medium text-gray-700'>Configuration</label>
+        <div className='mb-1 flex items-center justify-end'>
           <button
             onClick={saveConfig}
             className='inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
@@ -347,7 +359,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
         </div>
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
           <div>
-            <h4 className='mb-2 text-xs font-medium text-gray-700'>File Extensions to Include</h4>
+            <h4 className='mb-2 text-xs font-medium text-gray-700'>Only process files with these extensions</h4>
             <textarea
               className='h-44 w-full rounded-md border border-gray-300 p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
               value={fileExtensions}
@@ -403,11 +415,8 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
         </div>
       </div>
 
-      <div className='mt-4 text-sm text-gray-600'>
+      <div className='mt-4 text-xs text-gray-500'>
         <p>Configure which file types to include and patterns to exclude in the analysis.</p>
-        <p className='mt-2'>
-          Changes to configuration are automatically saved. Go to the Source tab to select files and run the analysis.
-        </p>
       </div>
     </div>
   );

@@ -38,47 +38,80 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
     <div>
       {processedResult ? (
         <>
-          <div className='mb-4'>
-            <h3 className='mb-2 text-lg font-medium text-gray-900'>Processing Summary</h3>
-            <div className='rounded-md bg-gray-100 p-4 shadow-sm'>
-              <div className='grid grid-cols-3 gap-4'>
-                <div className='rounded bg-white p-3 shadow-sm'>
-                  <div className='text-xs text-gray-500'>Processed Files</div>
-                  <div className='text-xl font-bold text-blue-600'>
-                    {processedResult.processedFiles}
-                  </div>
-                </div>
-
-                <div className='rounded bg-white p-3 shadow-sm'>
-                  <div className='text-xs text-gray-500'>Total Tokens</div>
-                  <div className='text-xl font-bold text-green-600'>
-                    {processedResult.totalTokens.toLocaleString()}
-                  </div>
-                </div>
-
-                {processedResult.skippedFiles > 0 && (
-                  <div className='rounded bg-white p-3 shadow-sm'>
-                    <div className='text-xs text-gray-500'>Skipped Files</div>
-                    <div className='text-xl font-bold text-amber-600'>
-                      {processedResult.skippedFiles}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Action buttons moved above the processed content */}
-          <div className='mb-4 flex justify-between'>
+          {/* Action buttons with processing stats in the center */}
+          <div className='mb-4 flex justify-between items-center'>
             <div>
               <button
                 onClick={handleRefresh}
-                className='inline-flex items-center rounded-md border border-gray-300 bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none'
+                className='inline-flex items-center rounded-md border border-transparent bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
                 disabled={isRefreshing}
               >
-                {isRefreshing ? '⟳ Reloading...' : '⟳ Reload and Reprocess'}
+                {isRefreshing ? (
+                  <>
+                    <svg 
+                      className="animate-spin -ml-1 mr-2 h-4 w-4" 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      fill="none" 
+                      viewBox="0 0 24 24"
+                    >
+                      <circle 
+                        className="opacity-25" 
+                        cx="12" 
+                        cy="12" 
+                        r="10" 
+                        stroke="currentColor" 
+                        strokeWidth="4"
+                      ></circle>
+                      <path 
+                        className="opacity-75" 
+                        fill="currentColor" 
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Reprocessing...
+                  </>
+                ) : (
+                  <>
+                    <svg 
+                      className="w-4 h-4 mr-2" 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+                      />
+                    </svg>
+                    Reprocess Code
+                  </>
+                )}
               </button>
             </div>
+            
+            {/* Stats in the center */}
+            <div className='flex items-center space-x-6'>
+              <div className='flex items-center'>
+                <span className='text-sm text-gray-500 mr-2'>Files</span>
+                <span className='text-lg font-bold text-blue-600'>{processedResult.processedFiles}</span>
+              </div>
+              
+              <div className='flex items-center'>
+                <span className='text-sm text-gray-500 mr-2'>Tokens</span>
+                <span className='text-lg font-bold text-green-600'>{processedResult.totalTokens.toLocaleString()}</span>
+              </div>
+              
+              {processedResult.skippedFiles > 0 && (
+                <div className='flex items-center'>
+                  <span className='text-sm text-gray-500 mr-2'>Skipped</span>
+                  <span className='text-lg font-bold text-amber-600'>{processedResult.skippedFiles}</span>
+                </div>
+              )}
+            </div>
+            
             <div className='flex space-x-2'>
               <button
                 onClick={handleCopy}
@@ -105,7 +138,25 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
                   isSaving ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'
                 } focus:outline-none`}
               >
-                {isSaving ? '✓ Saving...' : 'Save to File'}
+                {isSaving ? '✓ Saving...' : (
+                  <>
+                    <svg 
+                      className="w-4 h-4 mr-2" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24" 
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" 
+                      />
+                    </svg>
+                    Save to File
+                  </>
+                )}
               </button>
             </div>
           </div>

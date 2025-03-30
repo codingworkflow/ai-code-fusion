@@ -27,6 +27,7 @@ async function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
+      additionalArguments: [`--app-dev-mode=${isDevelopment ? 'true' : 'false'}`]
     },
     autoHideMenuBar: true, // Hide the menu bar by default
     icon: path.join(__dirname, '../assets/icon.ico'), // Set the application icon
@@ -106,7 +107,7 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
     const useGitignore = config.use_gitignore !== false;
 
     // Start with empty excludePatterns array (no hardcoded patterns)
-    excludePatterns = [];
+    excludePatterns = ['**/.git/**'];
 
     // Add custom exclude patterns if enabled
     if (useCustomExcludes && config.exclude_patterns && Array.isArray(config.exclude_patterns)) {
