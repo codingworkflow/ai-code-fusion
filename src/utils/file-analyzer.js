@@ -59,47 +59,51 @@ class FileAnalyzer {
     // Convert path to forward slashes for consistent pattern matching
     const normalizedPath = filePath.replace(/\\/g, '/');
     const ext = path.extname(filePath);
-    
+
     // Explicit check for node_modules
     if (normalizedPath.split('/').includes('node_modules')) {
       return false;
     }
-    
+
     // 1. Extension filtering - apply unless explicitly disabled
-    if (this.config.use_custom_includes !== false && 
-        this.config.include_extensions && 
-        Array.isArray(this.config.include_extensions) &&
-        ext) {
+    if (
+      this.config.use_custom_includes !== false &&
+      this.config.include_extensions &&
+      Array.isArray(this.config.include_extensions) &&
+      ext
+    ) {
       if (!this.config.include_extensions.includes(ext.toLowerCase())) {
         return false; // Exclude files with extensions not in the include list
       }
     }
-    
+
     // 2. Build patterns array with proper structure and priority
     const patterns = [];
-    
+
     // Add custom exclude patterns (highest priority)
-    if (this.config.use_custom_excludes !== false && 
-        this.config.exclude_patterns && 
-        Array.isArray(this.config.exclude_patterns)) {
+    if (
+      this.config.use_custom_excludes !== false &&
+      this.config.exclude_patterns &&
+      Array.isArray(this.config.exclude_patterns)
+    ) {
       patterns.push(...this.config.exclude_patterns);
     }
-    
+
     // Add gitignore exclude patterns
     if (this.useGitignore && this.gitignorePatterns && this.gitignorePatterns.excludePatterns) {
       patterns.push(...this.gitignorePatterns.excludePatterns);
     }
-    
+
     // Add include patterns property for gitignore negated patterns
     if (this.useGitignore && this.gitignorePatterns && this.gitignorePatterns.includePatterns) {
       patterns.includePatterns = this.gitignorePatterns.includePatterns;
     }
-    
+
     // 3. Use the shouldExclude utility for consistent pattern matching
     if (filterUtils.shouldExclude(filePath, '', patterns, this.config)) {
       return false; // File should be excluded based on pattern matching
     }
-    
+
     // If we reach this point, the file should be processed
     return true;
   }

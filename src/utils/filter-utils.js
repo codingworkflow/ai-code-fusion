@@ -75,8 +75,10 @@ const matchesIncludePatterns = (normalizedPath, itemName, includePatterns) => {
  * @param {Array} excludePatterns - Exclude patterns to check
  * @returns {boolean} - True if file matches any exclude pattern
  */
-const matchesExcludePatterns = (normalizedPath, itemName, excludePatterns) => 
-  Array.isArray(excludePatterns) && excludePatterns.length > 0 && excludePatterns.some(
+const matchesExcludePatterns = (normalizedPath, itemName, excludePatterns) =>
+  Array.isArray(excludePatterns) &&
+  excludePatterns.length > 0 &&
+  excludePatterns.some(
     (pattern) =>
       fnmatch.fnmatch(normalizedPath, pattern) ||
       (!pattern.includes('/') && fnmatch.fnmatch(itemName, pattern))
@@ -100,37 +102,44 @@ const shouldExclude = (itemPath, rootPath, excludePatterns, config) => {
     if (shouldExcludeByExtension(itemPath, config)) {
       return true; // Excluded by extension
     }
-    
+
     // 2. Process custom exclude patterns (highest priority)
     if (config?.use_custom_excludes !== false && config?.exclude_patterns) {
       const customExcludes = Array.isArray(config.exclude_patterns) ? config.exclude_patterns : [];
-      
-      if (customExcludes.length > 0 && 
-          matchesExcludePatterns(normalizedPath, itemName, customExcludes)) {
+
+      if (
+        customExcludes.length > 0 &&
+        matchesExcludePatterns(normalizedPath, itemName, customExcludes)
+      ) {
         return true; // Excluded by custom pattern
       }
     }
-    
+
     // 3. Process gitignore patterns if enabled
     if (config?.use_gitignore !== false) {
       // First check gitignore include patterns (negated patterns with ! prefix)
       const gitignoreIncludes = excludePatterns?.includePatterns || [];
-      
-      if (gitignoreIncludes.length > 0 && 
-          matchesIncludePatterns(normalizedPath, itemName, gitignoreIncludes)) {
+
+      if (
+        gitignoreIncludes.length > 0 &&
+        matchesIncludePatterns(normalizedPath, itemName, gitignoreIncludes)
+      ) {
         return false; // Explicitly included by gitignore negated pattern
       }
-      
+
       // Then check regular gitignore exclude patterns
-      const gitignoreExcludes = Array.isArray(excludePatterns) 
-        ? excludePatterns.filter(pattern => 
-            // Filter out patterns that are already in custom excludes
-            !(config?.exclude_patterns || []).includes(pattern)
+      const gitignoreExcludes = Array.isArray(excludePatterns)
+        ? excludePatterns.filter(
+            (pattern) =>
+              // Filter out patterns that are already in custom excludes
+              !(config?.exclude_patterns || []).includes(pattern)
           )
         : [];
-      
-      if (gitignoreExcludes.length > 0 && 
-          matchesExcludePatterns(normalizedPath, itemName, gitignoreExcludes)) {
+
+      if (
+        gitignoreExcludes.length > 0 &&
+        matchesExcludePatterns(normalizedPath, itemName, gitignoreExcludes)
+      ) {
         return true; // Excluded by gitignore pattern
       }
     }

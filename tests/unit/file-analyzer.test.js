@@ -79,7 +79,7 @@ describe('FileAnalyzer', () => {
       // Direct module mocking approach
       const filterUtils = require('../../src/utils/filter-utils');
       const originalShouldExclude = filterUtils.shouldExclude;
-      
+
       // Replace the module function directly
       filterUtils.shouldExclude = jest.fn((itemPath) => {
         // Check common exclude patterns
@@ -89,11 +89,11 @@ describe('FileAnalyzer', () => {
         if (itemPath.includes('build/')) return true;
         if (itemPath.endsWith('.min.js')) return true;
         if (itemPath === '.env') return true;
-        
+
         // Default: don't exclude
         return false;
       });
-      
+
       // Node modules files
       expect(fileAnalyzer.shouldProcessFile('src/node_modules/package/index.js')).toBe(false);
 
@@ -111,7 +111,7 @@ describe('FileAnalyzer', () => {
 
       // Root-level config files
       expect(fileAnalyzer.shouldProcessFile('.env')).toBe(false);
-      
+
       // Restore original implementation
       filterUtils.shouldExclude = originalShouldExclude;
     });
@@ -140,11 +140,11 @@ describe('FileAnalyzer', () => {
           ...mockConfig,
           // Include extensions is already set in mockConfig
           // But we'll explicitly set use_custom_includes to true
-          use_custom_includes: true
+          use_custom_includes: true,
         },
         mockTokenCounter
       );
-      
+
       // CSS file (not in include list)
       expect(extensionTestAnalyzer.shouldProcessFile('src/styles.css')).toBe(false);
 
@@ -153,7 +153,7 @@ describe('FileAnalyzer', () => {
 
       // Image file (not in include list)
       expect(extensionTestAnalyzer.shouldProcessFile('assets/logo.png')).toBe(false);
-      
+
       // Verify that included extensions do work
       expect(extensionTestAnalyzer.shouldProcessFile('src/app.js')).toBe(true);
     });
@@ -208,7 +208,7 @@ describe('FileAnalyzer', () => {
       // because file-analyzer.js is referencing it directly from destructuring
       const filterUtils = require('../../src/utils/filter-utils');
       const originalShouldExclude = filterUtils.shouldExclude;
-      
+
       // Direct replacement of the module function
       filterUtils.shouldExclude = jest.fn((itemPath) => {
         const pathsToExclude = [
@@ -216,11 +216,11 @@ describe('FileAnalyzer', () => {
           'debug.log',
           'coverage/lcov.info',
           'src/coverage/report.js',
-          'temp/cache.js'
+          'temp/cache.js',
         ];
         return pathsToExclude.includes(itemPath);
       });
-      
+
       // Enable gitignore for this test
       const gitignoreAnalyzer = new FileAnalyzer(
         { ...mockConfig, use_gitignore: true },
@@ -243,7 +243,7 @@ describe('FileAnalyzer', () => {
 
       // Files that should still be processed
       expect(gitignoreAnalyzer.shouldProcessFile('src/app.js')).toBe(true);
-      
+
       // Restore the original implementation
       filterUtils.shouldExclude = originalShouldExclude;
     });
@@ -252,7 +252,7 @@ describe('FileAnalyzer', () => {
       // Direct module mocking approach
       const filterUtils = require('../../src/utils/filter-utils');
       const originalShouldExclude = filterUtils.shouldExclude;
-      
+
       // Replace the module function directly
       filterUtils.shouldExclude = jest.fn((itemPath) => {
         // For these specific test cases, return a direct mock result
@@ -260,11 +260,11 @@ describe('FileAnalyzer', () => {
         if (itemPath === 'logs/critical/error.js') return false; // Don't exclude this file
         if (itemPath === 'debug.log') return true; // Exclude this file
         if (itemPath === 'logs/debug.js') return true; // Exclude this file
-        
+
         // Default: don't exclude
         return false;
       });
-      
+
       // Create the analyzer
       const negatedPatternAnalyzer = new FileAnalyzer(
         {
@@ -289,7 +289,7 @@ describe('FileAnalyzer', () => {
       // Files matching exclude patterns should be excluded
       expect(negatedPatternAnalyzer.shouldProcessFile('debug.log')).toBe(false);
       expect(negatedPatternAnalyzer.shouldProcessFile('logs/debug.js')).toBe(false);
-      
+
       // Restore the original implementation
       filterUtils.shouldExclude = originalShouldExclude;
     });
@@ -298,19 +298,19 @@ describe('FileAnalyzer', () => {
       // Direct module mocking approach
       const filterUtils = require('../../src/utils/filter-utils');
       const originalShouldExclude = filterUtils.shouldExclude;
-      
-      // Replace the module function directly 
+
+      // Replace the module function directly
       filterUtils.shouldExclude = jest.fn((itemPath) => {
         // Check for custom exclude pattern (important.log)
         if (itemPath === 'important.log') return true;
-        
+
         // Other log files should be excluded by gitignore patterns
         if (itemPath.endsWith('.log')) return true;
-        
+
         // Not excluded
         return false;
       });
-      
+
       // Enable both custom excludes and gitignore
       const priorityAnalyzer = new FileAnalyzer(
         {
@@ -335,7 +335,7 @@ describe('FileAnalyzer', () => {
 
       // Other .log files should be excluded by gitignore patterns
       expect(priorityAnalyzer.shouldProcessFile('debug.log')).toBe(false);
-      
+
       // Restore the original implementation
       filterUtils.shouldExclude = originalShouldExclude;
     });
