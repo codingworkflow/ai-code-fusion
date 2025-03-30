@@ -123,14 +123,48 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
   // State to track the current folder path
   const [folderPath, setFolderPath] = useState(localStorage.getItem('rootPath') || '');
 
+  // Listen for path changes from other components
+  useEffect(() => {
+    // Function to update our path when localStorage changes
+    const checkForPathChanges = () => {
+      const currentPath = localStorage.getItem('rootPath');
+      if (currentPath && currentPath !== folderPath) {
+        setFolderPath(currentPath);
+      }
+    };
+    
+    // Check immediately
+    checkForPathChanges();
+    
+    // Setup interval to check for changes
+    const pathCheckInterval = setInterval(checkForPathChanges, 500);
+    
+    // Listen for custom events
+    const handleRootPathChanged = (e) => {
+      if (e.detail && e.detail !== folderPath) {
+        setFolderPath(e.detail);
+      }
+    };
+    
+    window.addEventListener('rootPathChanged', handleRootPathChanged);
+    
+    return () => {
+      clearInterval(pathCheckInterval);
+      window.removeEventListener('rootPathChanged', handleRootPathChanged);
+    };
+  }, [folderPath]);
+
   // Handle folder selection
   const handleFolderSelect = async () => {
     if (window.electronAPI && window.electronAPI.selectDirectory) {
       const dirPath = await window.electronAPI.selectDirectory();
       if (dirPath) {
-        // Store the selected path in localStorage for use in the Source tab
+        // Store the selected path in localStorage for use across the app
         localStorage.setItem('rootPath', dirPath);
         setFolderPath(dirPath);
+        
+        // Dispatch a custom event to notify other components
+        window.dispatchEvent(new CustomEvent('rootPathChanged', { detail: dirPath }));
         
         // Automatically switch to Select Files tab
         setTimeout(() => {
@@ -155,25 +189,33 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
         <div className='flex'>
           <input
             type='text'
-            className='grow rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+            className='grow border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 cursor-pointer'
             value={folderPath}
             readOnly
             placeholder='Select a root folder'
+            onClick={handleFolderSelect}
+            title="Click to browse for a directory"
           />
           <button
             onClick={handleFolderSelect}
-            className='ml-2 inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+            className='ml-2 inline-flex items-center border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
           >
-            Browse
-          </button>
-          {folderPath && (
-            <button
-              onClick={goToSourceTab}
-              className='ml-2 inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
+            <svg 
+              className="w-4 h-4 mr-1" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24" 
+              xmlns="http://www.w3.org/2000/svg"
             >
-              Select Files
-            </button>
-          )}
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" 
+              />
+            </svg>
+            Select Folder
+          </button>
         </div>
       </div>
       
@@ -349,7 +391,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
         <div className='mb-1 flex items-center justify-end'>
           <button
             onClick={saveConfig}
-            className='inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
+            className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
           >
             {isSaved ? '✓ Saved' : 'Save Config'}
           </button>
@@ -359,7 +401,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
             <h4 className='mb-2 text-xs font-medium text-gray-700'>Only process files with these extensions</h4>
             <p className='text-xs text-gray-500 mb-1'>One extension per line (include the dot)</p>
             <textarea
-              className='h-44 w-full rounded-md border border-gray-300 p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+              className='h-44 w-full border border-gray-300 p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
               value={fileExtensions}
               placeholder='.py
 .js
@@ -388,7 +430,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
             <h4 className='mb-2 text-xs font-medium text-gray-700'>Exclude Patterns</h4>
             <p className='text-xs text-gray-500 mb-1'>One pattern per line (using glob pattern)</p>
             <textarea
-              className='h-44 w-full rounded-md border border-gray-300 p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+              className='h-44 w-full border border-gray-300 p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
               value={excludePatterns}
               placeholder='**/.git/**
 **/node_modules/**

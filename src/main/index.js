@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const yaml = require('yaml');
@@ -44,6 +44,12 @@ async function createWindow() {
     await mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
+  // Set up protocol for the public assets folder
+  protocol.registerFileProtocol('assets', (request, callback) => {
+    const url = request.url.substr(9); // Remove 'assets://' prefix
+    callback({ path: path.normalize(`${__dirname}/../../public/assets/${url}`) });
+  });
+
   // Window closed event
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -56,7 +62,16 @@ if (process.platform === 'win32') {
 }
 
 // Create window when Electron is ready
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  // Register assets protocol
+  protocol.registerFileProtocol('assets', (request, callback) => {
+    const url = request.url.replace('assets://', '');
+    const assetPath = path.normalize(path.join(__dirname, '../../public/assets', url));
+    callback({ path: assetPath });
+  });
+  
+  createWindow();
+});
 
 // Quit when all windows are closed
 app.on('window-all-closed', () => {
@@ -498,5 +513,20 @@ ipcMain.handle('config:getDefault', async () => {
   } catch (error) {
     console.error('Error loading default config:', error);
     throw error;
+  }
+});
+
+// Get path to an asset
+ipcMain.handle('assets:getPath', (_, assetName) => {
+  try {
+    const assetPath = path.join(__dirname, '..', 'assets', assetName);
+    if (fs.existsSync(assetPath)) {
+      return assetPath;
+    }
+    console.error(`Asset not found: ${assetName} at ${assetPath}`);
+    return null;
+  } catch (error) {
+    console.error('Error getting asset path:', error);
+    return null;
   }
 });

@@ -51,6 +51,34 @@ const App = () => {
       }
     }
   }, []);
+  
+  // Setup path change listener to keep all components in sync
+  useEffect(() => {
+    // Create a function to check for rootPath changes
+    const handleStorageChange = (e) => {
+      if (e.key === 'rootPath' && e.newValue !== rootPath) {
+        // Update our internal state with the new path
+        setRootPath(e.newValue);
+      }
+    };
+    
+    // Add event listener for localStorage changes
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Create an interval to check localStorage directly (for cross-component updates)
+    const pathSyncInterval = setInterval(() => {
+      const currentStoredPath = localStorage.getItem('rootPath');
+      if (currentStoredPath && currentStoredPath !== rootPath) {
+        setRootPath(currentStoredPath);
+      }
+    }, 500);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(pathSyncInterval);
+    };
+  }, [rootPath]);
 
   // Whenever configContent changes, save to localStorage
   useEffect(() => {
@@ -149,6 +177,9 @@ const App = () => {
       // Update rootPath and save to localStorage
       setRootPath(dirPath);
       localStorage.setItem('rootPath', dirPath);
+      
+      // Dispatch a custom event to notify all components of the path change
+      window.dispatchEvent(new CustomEvent('rootPathChanged', { detail: dirPath }));
 
       // Reset gitignore cache to ensure fresh parsing
       if (window.electronAPI.resetGitignoreCache) {
@@ -438,20 +469,65 @@ const App = () => {
 
   return (
     <div className='container mx-auto p-4'>
-      {/* Header with app title */}
-      <div className='flex justify-end items-center mb-2'>
-        <h1 className='text-2xl font-bold'>AI Code Fusion</h1>
-      </div>
-      
       {/* Tab navigation and content container */}
-      <div className='w-full border border-gray-300 rounded-md'>
-        {/* Tab Bar in its own row */}
-        <div className='w-full border-b border-gray-300'>
+      <div className='w-full border border-gray-300 bg-gray-50'>
+        {/* Tab Bar and title in the same row */}
+        <div className='w-full border-b border-gray-300 flex justify-between items-center bg-gray-100'>
           <TabBar activeTab={activeTab} onTabChange={handleTabChange} />
+          <div className='flex items-center pr-4'>
+            <div className="h-8 w-8 mr-2 flex items-center justify-center">
+              {/* Using a direct reference to the icon in the renderer directory */}
+              <img 
+                src="icon.png" 
+                alt="AI Code Fusion" 
+                className="h-8 w-8" 
+                onError={(e) => {
+                  console.error("Failed to load icon.png");
+                  e.target.style.display = 'none';
+                  e.target.nextElementSibling.style.display = 'block';
+                }} 
+              />
+              {/* Fallback icon */}
+              <svg 
+                style={{display: 'none'}} 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-7 w-7" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="#1E40AF"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={1.5} 
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+                />
+              </svg>
+            </div>
+            <div className="flex items-center">
+              <h1 className='text-2xl font-bold'>AI Code Fusion</h1>
+              <a 
+                href="https://github.com/codingworkflow/ai-code-fusion" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="ml-2 text-gray-600 hover:text-gray-800"
+                title="View on GitHub"
+              >
+                <svg 
+                  className="w-5 h-5" 
+                  fill="currentColor" 
+                  viewBox="0 0 24 24" 
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z" />
+                </svg>
+              </a>
+            </div>
+          </div>
         </div>
         
         {/* Tab content */}
-        <div className='tab-content bg-white p-4'>
+        <div className='tab-content bg-white p-4 border-t-0'>
         {activeTab === 'config' && (
           <ConfigTab configContent={configContent} onConfigChange={setConfigContent} />
         )}

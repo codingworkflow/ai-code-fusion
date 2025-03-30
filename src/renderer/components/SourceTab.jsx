@@ -54,16 +54,32 @@ const SourceTab = ({
         <div className='flex'>
           <input
             type='text'
-            className='grow rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+            className='grow border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 cursor-pointer'
             value={rootPath}
             readOnly
             placeholder='Select a root folder'
+            onClick={handleDirectorySelect}
+            title="Click to browse for a directory"
           />
           <button
             onClick={handleDirectorySelect}
-            className='ml-2 inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+            className='ml-2 inline-flex items-center border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
           >
-            Browse
+            <svg 
+              className="w-4 h-4 mr-1" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24" 
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" 
+              />
+            </svg>
+            Select Folder
           </button>
         </div>
       </div>
@@ -79,7 +95,7 @@ const SourceTab = ({
                   await window.refreshDirectoryTree();
                 }
               }}
-              className='inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
+              className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
               title='Refresh the file list'
             >
               <svg
@@ -104,7 +120,7 @@ const SourceTab = ({
                 // Clear selected files only
                 selectedFiles.forEach((file) => onFileSelect(file, false));
               }}
-              className='inline-flex items-center rounded-md border border-transparent bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2'
+              className='inline-flex items-center border border-transparent bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2'
               title='Clear all selected files'
             >
               <svg 
@@ -153,7 +169,7 @@ const SourceTab = ({
             });
           }}
           disabled={!rootPath || selectedFiles.length === 0 || isAnalyzing}
-          className={`inline-flex items-center rounded-md border border-transparent px-5 py-2 text-sm font-medium text-white shadow-sm ${
+          className={`inline-flex items-center border border-transparent px-5 py-2 text-sm font-medium text-white shadow-sm ${
             !rootPath || selectedFiles.length === 0 || isAnalyzing
               ? 'cursor-not-allowed bg-gray-400'
               : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'

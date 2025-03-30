@@ -43,7 +43,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
             <div>
               <button
                 onClick={handleRefresh}
-                className='inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
+                className='inline-flex items-center border border-transparent bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
                 disabled={isRefreshing}
                 title="Reload selected files and regenerate output with latest content"
               >
@@ -121,7 +121,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
             <div className='flex space-x-2'>
               <button
                 onClick={handleCopy}
-                className='inline-flex items-center rounded-md border border-gray-300 bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
+                className='inline-flex items-center border border-gray-300 bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
               >
                 {isCopied ? '✓ Copied' : (
                   <>
@@ -140,7 +140,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
               </button>
               <button
                 onClick={handleSave}
-                className={`inline-flex items-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm ${
+                className={`inline-flex items-center border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm ${
                   isSaving ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'
                 } focus:outline-none`}
               >

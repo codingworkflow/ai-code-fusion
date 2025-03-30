@@ -31,4 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Configuration operations
   getDefaultConfig: () => ipcRenderer.invoke('config:getDefault'),
+  
+  // Asset operations
+  getAssetPath: (assetName) => ipcRenderer.invoke('assets:getPath', assetName),
 });

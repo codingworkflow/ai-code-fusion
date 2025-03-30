@@ -29,8 +29,8 @@ class TokenCounter {
       }
     } catch (error) {
       console.error('Error counting tokens:', error);
-      // Fallback to a simple approximation for non-null inputs
-      return text ? Math.ceil(String(text).length / 4) : 0;
+      // No fallback here; just return 0
+      return 0;
     }
   }
 }
