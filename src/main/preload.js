@@ -4,11 +4,8 @@ const { contextBridge, ipcRenderer, shell } = require('electron');
 const isDev = process.env.NODE_ENV === 'development';
 contextBridge.exposeInMainWorld('devUtils', {
   clearLocalStorage: () => {
-    if (isDev) {
-      // Signal to clear, but actual clearing happens in renderer
-      return true;
-    }
-    return false;
+    // Signal to clear, but actual clearing happens in renderer
+    return isDev;
   },
   isDev: isDev,
 });

@@ -48,9 +48,9 @@ async function createWindow() {
   }
 
   // Set up protocol for the public assets folder
-  protocol.registerFileProtocol('assets', (request, callback) => {
-    const url = request.url.substr(9); // Remove 'assets://' prefix
-    callback({ path: path.normalize(`${__dirname}/../../public/assets/${url}`) });
+  protocol.registerFileProtocol('assets', (request) => {
+    const url = request.url.slice(9); // Remove 'assets://' prefix
+    return { path: path.normalize(`${__dirname}/../../public/assets/${url}`) };
   });
 
   // Window closed event
@@ -67,10 +67,10 @@ if (process.platform === 'win32') {
 // Create window when Electron is ready
 app.whenReady().then(() => {
   // Register assets protocol
-  protocol.registerFileProtocol('assets', (request, callback) => {
+  protocol.registerFileProtocol('assets', (request) => {
     const url = request.url.replace('assets://', '');
     const assetPath = path.normalize(path.join(__dirname, '../../public/assets', url));
-    callback({ path: assetPath });
+    return { path: assetPath };
   });
 
   createWindow();
@@ -312,6 +312,58 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
   }
 });
 
+// Helper function to generate tree view from filesInfo
+function generateTreeView(filesInfo) {
+  if (!filesInfo || !Array.isArray(filesInfo)) {
+    return '';
+  }
+  
+  // Generate a more structured tree view from filesInfo
+  const sortedFiles = [...filesInfo].sort((a, b) => a.path.localeCompare(b.path));
+
+  // Build a path tree
+  const pathTree = {};
+  sortedFiles.forEach((file) => {
+    if (!file || !file.path) return;
+    
+    const parts = file.path.split('/');
+    let currentLevel = pathTree;
+
+    parts.forEach((part, index) => {
+      if (!currentLevel[part]) {
+        currentLevel[part] = index === parts.length - 1 ? null : {};
+      }
+
+      if (index < parts.length - 1) {
+        currentLevel = currentLevel[part];
+      }
+    });
+  });
+
+  // Recursive function to print the tree
+  const printTree = (tree, prefix = '', isLast = true) => {
+    const entries = Object.entries(tree);
+    let result = '';
+
+    entries.forEach(([key, value], index) => {
+      const isLastItem = index === entries.length - 1;
+
+      // Print current level
+      result += `${prefix}${isLast ? '└── ' : '├── '}${key}\n`;
+
+      // Print children
+      if (value !== null) {
+        const newPrefix = `${prefix}${isLast ? '    ' : '│   '}`;
+        result += printTree(value, newPrefix, isLastItem);
+      }
+    });
+
+    return result;
+  };
+
+  return printTree(pathTree);
+}
+
 // Process repository
 ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, options = {} }) => {
   try {
@@ -333,52 +385,7 @@ ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, option
       processedContent += '```\n';
 
       // If treeView was provided, use it, otherwise generate a more complete one
-      if (treeView) {
-        processedContent += treeView;
-      } else {
-        // Generate a more structured tree view from filesInfo
-        const sortedFiles = [...filesInfo].sort((a, b) => a.path.localeCompare(b.path));
-
-        // Build a path tree
-        const pathTree = {};
-        sortedFiles.forEach((file) => {
-          const parts = file.path.split('/');
-          let currentLevel = pathTree;
-
-          parts.forEach((part, index) => {
-            if (!currentLevel[part]) {
-              currentLevel[part] = index === parts.length - 1 ? null : {};
-            }
-
-            if (index < parts.length - 1) {
-              currentLevel = currentLevel[part];
-            }
-          });
-        });
-
-        // Recursive function to print the tree
-        const printTree = (tree, prefix = '', isLast = true) => {
-          const entries = Object.entries(tree);
-          let result = '';
-
-          entries.forEach(([key, value], index) => {
-            const isLastItem = index === entries.length - 1;
-
-            // Print current level
-            result += `${prefix}${isLast ? '└── ' : '├── '}${key}\n`;
-
-            // Print children
-            if (value !== null) {
-              const newPrefix = `${prefix}${isLast ? '    ' : '│   '}`;
-              result += printTree(value, newPrefix, isLastItem);
-            }
-          });
-
-          return result;
-        };
-
-        processedContent += printTree(pathTree);
-      }
+      processedContent += treeView || generateTreeView(filesInfo);
 
       processedContent += '```\n\n';
       processedContent += '## File Contents\n\n';
@@ -388,8 +395,16 @@ ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, option
     let processedFiles = 0;
     let skippedFiles = 0;
 
-    for (const { path: filePath, tokens } of filesInfo) {
+    for (const fileInfo of filesInfo || []) {
       try {
+        if (!fileInfo || !fileInfo.path) {
+          console.warn('Skipping invalid file info entry');
+          skippedFiles++;
+          continue;
+        }
+        
+        const { path: filePath, tokens = 0 } = fileInfo;
+        
         // Use consistent path joining
         const fullPath = path.join(rootPath, filePath);
 
@@ -416,7 +431,7 @@ ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, option
           skippedFiles++;
         }
       } catch (error) {
-        console.warn(`Failed to process ${filePath}: ${error.message}`);
+        console.warn(`Failed to process file: ${error.message}`);
         skippedFiles++;
       }
     }

@@ -5,6 +5,12 @@ import ConfigTab from './ConfigTab';
 import ProcessedTab from './ProcessedTab';
 import yaml from 'yaml';
 
+// Helper function to ensure consistent error handling
+const ensureError = (error) => {
+  if (error instanceof Error) return error;
+  return new Error(String(error));
+};
+
 const App = () => {
   const [activeTab, setActiveTab] = useState('config');
   const [rootPath, setRootPath] = useState('');
@@ -19,21 +25,19 @@ const App = () => {
     const savedConfig = localStorage.getItem('configContent');
     if (savedConfig) {
       setConfigContent(savedConfig);
-    } else {
+    } else if (window.electronAPI?.getDefaultConfig) {
       // Otherwise load from the main process
-      if (window.electronAPI && window.electronAPI.getDefaultConfig) {
-        window.electronAPI
-          .getDefaultConfig()
-          .then((defaultConfig) => {
-            if (defaultConfig) {
-              setConfigContent(defaultConfig);
-              localStorage.setItem('configContent', defaultConfig);
-            }
-          })
-          .catch((err) => {
-            console.error('Error loading config:', err);
-          });
-      }
+      window.electronAPI
+        .getDefaultConfig?.()
+        .then((defaultConfig) => {
+          if (defaultConfig) {
+            setConfigContent(defaultConfig);
+            localStorage.setItem('configContent', defaultConfig);
+          }
+        })
+        .catch((err) => {
+          console.error('Error loading config:', err);
+        });
     }
 
     // Load rootPath from localStorage if available
@@ -41,9 +45,9 @@ const App = () => {
     if (savedRootPath) {
       setRootPath(savedRootPath);
       // Load directory tree for the saved path
-      if (window.electronAPI && window.electronAPI.getDirectoryTree) {
+      if (window.electronAPI?.getDirectoryTree) {
         window.electronAPI
-          .getDirectoryTree(savedRootPath, localStorage.getItem('configContent'))
+          .getDirectoryTree?.(savedRootPath, localStorage.getItem('configContent'))
           .then((tree) => {
             setDirectoryTree(tree);
           })
@@ -86,8 +90,12 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem('configContent', configContent);
   }, [configContent]);
+  /* This state is used indirectly via setAnalysisResult to track analysis results.
+     Although the variable is not directly read, the state updates are important
+     for component lifecycle and data flow. SonarQube flags this as unused, but
+     removing it would break application functionality. */
   // eslint-disable-next-line no-unused-vars
-  const [analysisResult, setAnalysisResult] = useState(null); // Used indirectly in handleAnalyze and handleRefreshProcessed
+  const [analysisResult, setAnalysisResult] = useState(null);
   const [processedResult, setProcessedResult] = useState(null);
 
   const handleTabChange = (tab) => {
@@ -122,7 +130,7 @@ const App = () => {
     // This allows the exclude patterns to be applied when the config is updated
     if (activeTab === 'config' && tab === 'source' && rootPath) {
       // Reset gitignore parser cache to ensure fresh parsing
-      window.electronAPI.resetGitignoreCache && window.electronAPI.resetGitignoreCache();
+      window.electronAPI?.resetGitignoreCache?.();
       // refreshDirectoryTree now resets selection states and gets a fresh tree
       refreshDirectoryTree();
     }
@@ -152,12 +160,10 @@ const App = () => {
       setProcessedResult(null);
 
       // Reset gitignore cache to ensure fresh parsing
-      if (window.electronAPI.resetGitignoreCache) {
-        await window.electronAPI.resetGitignoreCache();
-      }
+      await window.electronAPI?.resetGitignoreCache?.();
 
       // Get fresh directory tree
-      const tree = await window.electronAPI.getDirectoryTree(rootPath, configContent);
+      const tree = await window.electronAPI?.getDirectoryTree?.(rootPath, configContent);
       setDirectoryTree(tree);
     }
   };
@@ -166,7 +172,7 @@ const App = () => {
   window.refreshDirectoryTree = refreshDirectoryTree;
 
   const handleDirectorySelect = async () => {
-    const dirPath = await window.electronAPI.selectDirectory();
+    const dirPath = await window.electronAPI?.selectDirectory?.();
 
     if (dirPath) {
       // First reset selection states and analysis results
@@ -183,12 +189,10 @@ const App = () => {
       window.dispatchEvent(new CustomEvent('rootPathChanged', { detail: dirPath }));
 
       // Reset gitignore cache to ensure fresh parsing
-      if (window.electronAPI.resetGitignoreCache) {
-        await window.electronAPI.resetGitignoreCache();
-      }
+      await window.electronAPI?.resetGitignoreCache?.();
 
       // Get fresh directory tree
-      const tree = await window.electronAPI.getDirectoryTree(dirPath, configContent);
+      const tree = await window.electronAPI?.getDirectoryTree?.(dirPath, configContent);
       setDirectoryTree(tree);
     }
   };
@@ -203,8 +207,7 @@ const App = () => {
   const handleAnalyze = async () => {
     if (!rootPath || selectedFiles.length === 0) {
       alert('Please select a root directory and at least one file.');
-      const error = new Error('No directory or files selected');
-      return Promise.reject(error);
+      throw new Error('No directory or files selected');
     }
 
     try {
@@ -224,18 +227,18 @@ const App = () => {
         alert(
           'No valid files selected for analysis. Please select files within the current directory.'
         );
-        return Promise.reject(new Error('No valid files selected'));
+        throw new Error('No valid files selected');
       }
 
       // Apply current config before analyzing
-      const analysisResult = await window.electronAPI.analyzeRepository({
+      const currentAnalysisResult = await window.electronAPI?.analyzeRepository?.({
         rootPath,
         configContent,
         selectedFiles: validFiles, // Use validated files only
       });
 
       // Store analysis result
-      setAnalysisResult(analysisResult);
+      setAnalysisResult(currentAnalysisResult);
 
       // Read options from config
       let options = {};
@@ -244,26 +247,34 @@ const App = () => {
         options.showTokenCount = config.show_token_count === true;
         options.includeTreeView = config.include_tree_view === true;
       } catch (error) {
-        console.error('Error parsing config for processing:', error);
+        console.error('Error parsing config for processing:', ensureError(error));
       }
 
       // Process directly without going to analyze tab
-      const result = await window.electronAPI.processRepository({
+      const result = await window.electronAPI?.processRepository?.({
         rootPath,
-        filesInfo: analysisResult.filesInfo,
+        // Now using a conditional expression to meet SonarQube's preference
+        filesInfo: currentAnalysisResult?.filesInfo ?? [],
         treeView: null, // Let the main process handle tree generation
         options,
       });
+
+      // Check if the result is valid before using it
+      if (!result) {
+        console.error('Processing failed or returned invalid data:', result);
+        throw new Error('Processing operation failed or did not return expected data.');
+      }
 
       // Set processed result and go directly to processed tab
       setProcessedResult(result);
       setActiveTab('processed');
 
-      return Promise.resolve(analysisResult);
+      return currentAnalysisResult;
     } catch (error) {
-      console.error('Error processing repository:', error);
-      alert(`Error processing repository: ${error.message}`);
-      return Promise.reject(error);
+      const processedError = ensureError(error);
+      console.error('Error processing repository:', processedError);
+      alert(`Error processing repository: ${processedError.message}`);
+      throw processedError;
     }
   };
 
@@ -284,14 +295,14 @@ const App = () => {
       console.log('Reloading and processing files...');
 
       // Run a fresh analysis to re-read all files from disk
-      const reanalysisResult = await window.electronAPI.analyzeRepository({
+      const currentReanalysisResult = await window.electronAPI?.analyzeRepository?.({
         rootPath,
         configContent,
         selectedFiles: selectedFiles,
       });
 
       // Update our state with the fresh analysis
-      setAnalysisResult(reanalysisResult);
+      setAnalysisResult(currentReanalysisResult);
 
       // Get the latest config options
       let options = { ...processingOptions };
@@ -303,26 +314,34 @@ const App = () => {
           options.includeTreeView = config.include_tree_view === true;
         }
       } catch (error) {
-        console.error('Error parsing config for refresh:', error);
+        console.error('Error parsing config for refresh:', ensureError(error));
       }
 
       console.log('Processing with fresh analysis and options:', options);
 
       // Process with the fresh analysis
-      const result = await window.electronAPI.processRepository({
+      const result = await window.electronAPI?.processRepository?.({
         rootPath,
-        filesInfo: reanalysisResult.filesInfo,
+        // Now using a conditional expression to meet SonarQube's preference
+        filesInfo: currentReanalysisResult?.filesInfo ?? [],
         treeView: null, // Let server generate
         options,
       });
+
+      // Check if the result is valid before using it
+      if (!result) {
+        console.error('Re-processing failed or returned invalid data:', result);
+        throw new Error('Re-processing operation failed or did not return expected data.');
+      }
 
       // Update the result and stay on the processed tab
       setProcessedResult(result);
       return result;
     } catch (error) {
-      console.error('Error refreshing processed content:', error);
-      alert(`Error refreshing processed content: ${error.message}`);
-      throw error;
+      const processedError = ensureError(error);
+      console.error('Error refreshing processed content:', processedError);
+      alert(`Error refreshing processed content: ${processedError.message}`);
+      throw processedError;
     }
   };
 
@@ -333,13 +352,14 @@ const App = () => {
     }
 
     try {
-      await window.electronAPI.saveFile({
+      await window.electronAPI?.saveFile?.({
         content: processedResult.content,
         defaultPath: `${rootPath}/output.md`,
       });
     } catch (error) {
-      console.error('Error saving file:', error);
-      alert(`Error saving file: ${error.message}`);
+      const processedError = ensureError(error);
+      console.error('Error saving file:', processedError);
+      alert(`Error saving file: ${processedError.message}`);
     }
   };
 
@@ -381,13 +401,13 @@ const App = () => {
 
     // Find the folder in the directory tree
     const findFolder = (items, path) => {
-      for (const item of items) {
-        if (item.path === path) {
+      for (const item of items ?? []) {
+        if (item?.path === path) {
           return item;
         }
 
-        if (item.type === 'directory' && item.children) {
-          const found = findFolder(item.children, path);
+        if (item?.type === 'directory' && item?.children) {
+          const found = findFolder(item?.children, path);
           if (found) {
             return found;
           }
@@ -399,15 +419,15 @@ const App = () => {
 
     // Get all sub-folders in the folder recursively
     const getAllSubFolders = (folder) => {
-      if (!folder || !folder.children) return [];
+      if (!folder?.children) return [];
 
       let folders = [];
 
-      for (const item of folder.children) {
-        if (item.type === 'directory') {
+      for (const item of folder?.children ?? []) {
+        if (item?.type === 'directory') {
           // Validate each folder is within current root
-          if (item.path.startsWith(rootPath)) {
-            folders.push(item.path);
+          if (item?.path?.startsWith(rootPath)) {
+            folders.push(item?.path);
             folders = [...folders, ...getAllSubFolders(item)];
           }
         }
@@ -418,17 +438,17 @@ const App = () => {
 
     // Get all files in the folder recursively
     const getAllFiles = (folder) => {
-      if (!folder || !folder.children) return [];
+      if (!folder?.children) return [];
 
       let files = [];
 
-      for (const item of folder.children) {
-        if (item.type === 'file') {
+      for (const item of folder?.children ?? []) {
+        if (item?.type === 'file') {
           // Validate each file is within current root
-          if (item.path.startsWith(rootPath)) {
-            files.push(item.path);
+          if (item?.path?.startsWith(rootPath)) {
+            files.push(item?.path);
           }
-        } else if (item.type === 'directory') {
+        } else if (item?.type === 'directory') {
           files = [...files, ...getAllFiles(item)];
         }
       }
@@ -481,11 +501,9 @@ const App = () => {
           <div className='flex items-center pr-4'>
             <button
               onClick={() => {
-                if (window.electron && window.electron.shell) {
-                  window.electron.shell.openExternal(
-                    'https://github.com/codingworkflow/ai-code-fusion'
-                  );
-                }
+                window.electron?.shell?.openExternal?.(
+                  'https://github.com/codingworkflow/ai-code-fusion'
+                );
               }}
               className='flex items-center hover:text-blue-700 cursor-pointer bg-transparent border-0'
               title='View on GitHub'

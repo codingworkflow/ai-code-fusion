@@ -1,7 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import PropTypes from 'prop-types';
 import yaml from 'yaml';
 import FileTree from './FileTree';
+
+// Helper function to update token cache
+const updateTokenCache = (results, stats, setTokenCache) => {
+  setTokenCache((prevCache) => {
+    const newCache = { ...prevCache };
+
+    // Add new entries to cache
+    Object.entries(results).forEach(([file, tokenCount]) => {
+      newCache[file] = {
+        tokenCount,
+        mtime: stats[file]?.mtime || Date.now(),
+        size: stats[file]?.size || 0,
+      };
+    });
+
+    return newCache;
+  });
+};
+
+// Helper function to get process button class
+const getProcessButtonClass = (rootPath, selectedFiles, isAnalyzing) => {
+  const isDisabled = !rootPath || selectedFiles.length === 0 || isAnalyzing;
+  
+  const baseClass = 'inline-flex items-center border border-transparent px-5 py-2 text-sm font-medium text-white shadow-sm';
+  const enabledClass = 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2';
+  const disabledClass = 'cursor-not-allowed bg-gray-400';
+  
+  return `${baseClass} ${isDisabled ? disabledClass : enabledClass}`;
+};
 
 const SourceTab = ({
   rootPath,
@@ -94,21 +123,8 @@ const SourceTab = ({
         // Get token counts for the batch
         const { results, stats } = await window.electronAPI.countFilesTokens(fileBatch);
 
-        // Update cache with new results
-        setTokenCache((prevCache) => {
-          const newCache = { ...prevCache };
-
-          // Add new entries to cache
-          Object.entries(results).forEach(([file, tokenCount]) => {
-            newCache[file] = {
-              tokenCount,
-              mtime: stats[file]?.mtime || Date.now(),
-              size: stats[file]?.size || 0,
-            };
-          });
-
-          return newCache;
-        });
+        // Extract cache update logic to avoid nested function
+        updateTokenCache(results, stats, setTokenCache);
 
         // Calculate new total (including cached files)
         const newTotal = selectedFiles.reduce((sum, file) => {
@@ -311,6 +327,7 @@ const SourceTab = ({
           )}
         </div>
 
+        {/* Extract nested ternary from button class */}
         <button
           onClick={() => {
             setIsAnalyzing(true);
@@ -319,11 +336,7 @@ const SourceTab = ({
             });
           }}
           disabled={!rootPath || selectedFiles.length === 0 || isAnalyzing}
-          className={`inline-flex items-center border border-transparent px-5 py-2 text-sm font-medium text-white shadow-sm ${
-            !rootPath || selectedFiles.length === 0 || isAnalyzing
-              ? 'cursor-not-allowed bg-gray-400'
-              : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-          }`}
+          className={getProcessButtonClass(rootPath, selectedFiles, isAnalyzing)}
         >
           {isAnalyzing ? (
             <>
@@ -374,12 +387,15 @@ const SourceTab = ({
       {directoryTree.length > 0 ? (
         <div className='mb-6'>
           <div className='mb-2 flex items-center'>
-            <label htmlFor="file-folder-selection" className='block text-sm font-medium text-gray-700'>
+            <label
+              htmlFor='file-folder-selection'
+              className='block text-sm font-medium text-gray-700'
+            >
               Select Files and Folders
             </label>
           </div>
 
-          <div id="file-folder-selection" className='rounded-md border border-gray-200 shadow-sm'>
+          <div id='file-folder-selection' className='rounded-md border border-gray-200 shadow-sm'>
             <FileTree
               items={directoryTree}
               selectedFiles={selectedFiles}

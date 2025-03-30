@@ -179,10 +179,18 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
 
           <div className='mb-4'>
             <div className='mb-1 flex items-center justify-between'>
-              <label htmlFor='processed-content' className='block text-sm font-medium text-gray-700'>Processed Content</label>
+              <label
+                htmlFor='processed-content'
+                className='block text-sm font-medium text-gray-700'
+              >
+                Processed Content
+              </label>
               <div className='text-xs text-gray-500'>Content is ready to be saved</div>
             </div>
-            <div id='processed-content' className='max-h-96 overflow-auto rounded-md border border-gray-300 bg-white p-4 shadow-sm'>
+            <div
+              id='processed-content'
+              className='max-h-96 overflow-auto rounded-md border border-gray-300 bg-white p-4 shadow-sm'
+            >
               <pre className='whitespace-pre-wrap font-mono text-xs leading-5'>
                 {processedResult.content}
               </pre>

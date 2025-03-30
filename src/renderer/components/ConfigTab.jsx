@@ -3,6 +3,77 @@ import PropTypes from 'prop-types';
 import yaml from 'yaml';
 import { yamlArrayToPlainText } from '../../utils/formatters/list-formatter';
 
+// Helper function to update config-related states
+const updateConfigStates = (config, stateSetters, currentStates) => {
+  const {
+    setFileExtensions,
+    setExcludePatterns,
+    setUseCustomExcludes,
+    setUseCustomIncludes,
+    setUseGitignore,
+    setIncludeTreeView,
+    setShowTokenCount
+  } = stateSetters;
+  
+  const {
+    useCustomExcludes,
+    useCustomIncludes,
+    useGitignore,
+    includeTreeView,
+    showTokenCount
+  } = currentStates;
+
+  // Convert arrays to plain text format for easier editing
+  if (config?.include_extensions && Array.isArray(config.include_extensions)) {
+    setFileExtensions(yamlArrayToPlainText(config.include_extensions));
+  } else {
+    setFileExtensions('');
+  }
+
+  // Convert exclude patterns to plain text
+  if (config?.exclude_patterns && Array.isArray(config.exclude_patterns)) {
+    setExcludePatterns(yamlArrayToPlainText(config.exclude_patterns));
+  } else {
+    setExcludePatterns('');
+  }
+
+  // Set checkbox states only if they're different
+  if (
+    config?.use_custom_excludes !== undefined &&
+    useCustomExcludes !== (config.use_custom_excludes !== false)
+  ) {
+    setUseCustomExcludes(config.use_custom_excludes !== false);
+  }
+
+  if (
+    config?.use_custom_includes !== undefined &&
+    useCustomIncludes !== (config.use_custom_includes !== false)
+  ) {
+    setUseCustomIncludes(config.use_custom_includes !== false);
+  }
+
+  if (
+    config?.use_gitignore !== undefined &&
+    useGitignore !== (config.use_gitignore !== false)
+  ) {
+    setUseGitignore(config.use_gitignore !== false);
+  }
+
+  if (
+    config?.include_tree_view !== undefined &&
+    includeTreeView !== (config.include_tree_view === true)
+  ) {
+    setIncludeTreeView(config.include_tree_view === true);
+  }
+
+  if (
+    config?.show_token_count !== undefined &&
+    showTokenCount !== (config.show_token_count === true)
+  ) {
+    setShowTokenCount(config.show_token_count === true);
+  }
+};
+
 const ConfigTab = ({ configContent, onConfigChange }) => {
   const [isSaved, setIsSaved] = useState(false);
   const [useCustomExcludes, setUseCustomExcludes] = useState(true);
@@ -18,62 +89,27 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
     try {
       // Parse the YAML config
       const config = yaml.parse(configContent) || {};
-
-      // Convert arrays to plain text format for easier editing
-      if (config && config.include_extensions && Array.isArray(config.include_extensions)) {
-        setFileExtensions(yamlArrayToPlainText(config.include_extensions));
-      } else {
-        setFileExtensions('');
-      }
-
-      // Convert exclude patterns to plain text
-      if (config && config.exclude_patterns && Array.isArray(config.exclude_patterns)) {
-        setExcludePatterns(yamlArrayToPlainText(config.exclude_patterns));
-      } else {
-        setExcludePatterns('');
-      }
-
-      // Set checkbox states from the same config object only if they're different
-      // This prevents unnecessary re-renders and blinking checkboxes
-      if (
-        config &&
-        config.use_custom_excludes !== undefined &&
-        useCustomExcludes !== (config.use_custom_excludes !== false)
-      ) {
-        setUseCustomExcludes(config.use_custom_excludes !== false);
-      }
-
-      if (
-        config &&
-        config.use_custom_includes !== undefined &&
-        useCustomIncludes !== (config.use_custom_includes !== false)
-      ) {
-        setUseCustomIncludes(config.use_custom_includes !== false);
-      }
-
-      if (
-        config &&
-        config.use_gitignore !== undefined &&
-        useGitignore !== (config.use_gitignore !== false)
-      ) {
-        setUseGitignore(config.use_gitignore !== false);
-      }
-
-      if (
-        config &&
-        config.include_tree_view !== undefined &&
-        includeTreeView !== (config.include_tree_view === true)
-      ) {
-        setIncludeTreeView(config.include_tree_view === true);
-      }
-
-      if (
-        config &&
-        config.show_token_count !== undefined &&
-        showTokenCount !== (config.show_token_count === true)
-      ) {
-        setShowTokenCount(config.show_token_count === true);
-      }
+      
+      // Use helper function to update states
+      updateConfigStates(
+        config,
+        {
+          setFileExtensions,
+          setExcludePatterns,
+          setUseCustomExcludes,
+          setUseCustomIncludes,
+          setUseGitignore,
+          setIncludeTreeView,
+          setShowTokenCount
+        },
+        {
+          useCustomExcludes,
+          useCustomIncludes,
+          useGitignore,
+          includeTreeView,
+          showTokenCount
+        }
+      );
     } catch (error) {
       console.error('Error parsing config:', error);
     }
@@ -200,8 +236,8 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
 
   // Handle folder selection
   const handleFolderSelect = async () => {
-    if (window.electronAPI && window.electronAPI.selectDirectory) {
-      const dirPath = await window.electronAPI.selectDirectory();
+    if (window.electronAPI?.selectDirectory) {
+      const dirPath = await window.electronAPI.selectDirectory?.();
       if (dirPath) {
         // Store the selected path in localStorage for use across the app
         localStorage.setItem('rootPath', dirPath);
