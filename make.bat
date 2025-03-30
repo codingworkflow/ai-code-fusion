@@ -57,6 +57,10 @@ if /i "%1"=="dev" (
   rem Set environment variables
   set NODE_ENV=development
 
+  rem Cleanup
+  echo Cleanup...
+  call npm run clean
+
   rem Build CSS if needed
   if not exist "src\renderer\output.css" (
     echo Building CSS...

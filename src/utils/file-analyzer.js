@@ -1,4 +1,5 @@
 const fs = require('fs');
+// eslint-disable-next-line no-unused-vars
 const path = require('path');
 const { shouldExclude } = require('./filter-utils');
 
@@ -61,7 +62,7 @@ class FileAnalyzer {
     // Convert path to forward slashes for consistent pattern matching
     const normalizedPath = filePath.replace(/\\/g, '/');
 
-    // We use path in other parts of the class (path.extname is called in other places)
+    // Note: path module is used elsewhere in the class for path.extname
 
     // Check if path contains node_modules - explicit check
     if (normalizedPath.split('/').includes('node_modules')) {

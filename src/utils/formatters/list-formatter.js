@@ -73,9 +73,7 @@ export function extractArrayFromYaml(yamlContent, arrayKey) {
   let items = [];
   let inArray = false;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
+  for (const line of lines) {
     // Check if we're starting the array section
     if (line.trim().startsWith(arrayKey + ':')) {
       inArray = true;

@@ -374,12 +374,12 @@ const SourceTab = ({
       {directoryTree.length > 0 ? (
         <div className='mb-6'>
           <div className='mb-2 flex items-center'>
-            <label className='block text-sm font-medium text-gray-700'>
+            <label htmlFor="file-folder-selection" className='block text-sm font-medium text-gray-700'>
               Select Files and Folders
             </label>
           </div>
 
-          <div className='rounded-md border border-gray-200 shadow-sm'>
+          <div id="file-folder-selection" className='rounded-md border border-gray-200 shadow-sm'>
             <FileTree
               items={directoryTree}
               selectedFiles={selectedFiles}

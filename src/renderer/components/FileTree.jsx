@@ -96,12 +96,18 @@ const FileTreeItemComponent = (props) => {
 
   return (
     <div className='my-1'>
-      <div
-        className={`flex cursor-pointer items-center py-1 hover:bg-gray-100 ${
+      <button
+        type="button"
+        className={`flex items-center py-1 hover:bg-gray-100 w-full text-left ${
           checkboxIsSelected ? 'bg-blue-100' : ''
         }`}
         style={{ paddingLeft: `${paddingLeft}px` }}
         onClick={handleSelect}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            handleSelect(e);
+          }
+        }}
       >
         <div className='mr-2 shrink-0'>
           <input
@@ -116,6 +122,7 @@ const FileTreeItemComponent = (props) => {
 
         {isFolder && (
           <button
+            type="button"
             className='mr-1 size-5 shrink-0 rounded text-gray-500 hover:bg-gray-200 focus:outline-none'
             onClick={handleToggle}
             aria-label={isOpen ? 'Collapse folder' : 'Expand folder'}
@@ -132,9 +139,18 @@ const FileTreeItemComponent = (props) => {
           {isFile ? (
             <span className='mr-1 shrink-0 text-gray-500'>📄</span>
           ) : (
-            <span className='mr-1 shrink-0 cursor-pointer text-yellow-500' onClick={handleToggle}>
+            <button 
+              type="button"
+              className='mr-1 shrink-0 text-yellow-500 border-0 bg-transparent p-0'
+              onClick={handleToggle}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  handleToggle(e);
+                }
+              }}
+            >
               {isOpen ? '📂' : '📁'}
-            </span>
+            </button>
           )}
           <span
             className={`truncate ${isFolder ? 'font-semibold hover:underline' : ''}`}
@@ -143,7 +159,7 @@ const FileTreeItemComponent = (props) => {
             {item.name}
           </span>
         </label>
-      </div>
+      </button>
 
       {isFolder && item.children && (
         <div
