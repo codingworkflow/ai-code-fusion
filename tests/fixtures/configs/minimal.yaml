@@ -1,0 +1,9 @@
+# Minimal test configuration
+use_custom_excludes: false
+use_custom_includes: true
+use_gitignore: false
+
+# File extensions to include (with dot)
+include_extensions:
+  - .js
+  - .jsx

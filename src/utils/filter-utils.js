@@ -104,7 +104,7 @@ const shouldExclude = (itemPath, rootPath, excludePatterns, config) => {
     }
 
     // 2. Process custom exclude patterns (highest priority)
-    if (config?.use_custom_excludes !== false && config?.exclude_patterns) {
+    if (config?.use_custom_excludes === true && config?.exclude_patterns) {
       const customExcludes = Array.isArray(config.exclude_patterns) ? config.exclude_patterns : [];
 
       if (

@@ -1,0 +1,31 @@
+# Default test configuration
+use_custom_excludes: true
+use_custom_includes: false
+use_gitignore: true
+include_tree_view: true
+show_token_count: true
+
+# File extensions to include (with dot)
+include_extensions:
+  - .js
+  - .jsx
+  - .json
+  - .md
+  - .txt
+
+# Patterns to exclude (using fnmatch syntax)
+exclude_patterns:
+  # Version Control
+  - ".git"
+  - "**/.git/**"
+  - "**/.git{,/**}"
+  - "**/.svn/**"
+
+  # Dependencies
+  - "**/node_modules/**"
+  - "**/venv/**"
+
+  # Build outputs
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/__pycache__/**"

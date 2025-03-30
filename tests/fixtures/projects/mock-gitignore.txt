@@ -1,0 +1,14 @@
+# Node modules
+node_modules/
+
+# Build directories
+dist/
+!dist/keep-this-file.js
+
+# Logs
+*.log
+!important.log
+
+# Other
+.DS_Store
+.env

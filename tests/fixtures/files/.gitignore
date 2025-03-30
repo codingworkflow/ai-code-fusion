@@ -1,0 +1,19 @@
+# Gitignore file for testing
+
+# Directories
+node_modules/
+dist/
+build/
+coverage/
+
+# Files
+*.log
+.env
+.DS_Store
+
+# Specific files
+config.local.js
+
+# Negated patterns (keep these files)
+!important.log
+!dist/keep-this-file.js

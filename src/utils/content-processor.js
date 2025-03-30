@@ -69,6 +69,11 @@ class ContentProcessor {
 
         try {
           const tokens = parseInt(lines[i + 1].trim());
+          // Skip entries with invalid token counts (NaN)
+          if (isNaN(tokens)) {
+            console.warn(`Skipping entry with invalid token count: ${path}`);
+            continue;
+          }
           // Clean up the path
           const cleanPath = path.replace(/\\/g, '/').trim();
           filesToProcess.push({ path: cleanPath, tokens });

@@ -219,4 +219,90 @@ describe('Binary File Detection', () => {
 
     expect(isBinaryFile('mixed-binary.bin')).toBe(true);
   });
+  
+  test('should identify JPEG files as binary', () => {
+    // Create a JPEG file header
+    const jpegHeader = Buffer.from([
+      0xFF, 0xD8, 0xFF, 0xE0, // JPEG SOI marker and APP0 marker
+      0x00, 0x10, // APP0 length
+      0x4A, 0x46, 0x49, 0x46, 0x00, // 'JFIF\0'
+      0x01, 0x01, // Version
+      0x00, // Units
+      0x00, 0x01, 0x00, 0x01, // Density
+      0x00, 0x00 // Thumbnail
+    ]);
+    
+    mockFileContent(jpegHeader);
+    
+    expect(isBinaryFile('image.jpg')).toBe(true);
+  });
+  
+  test('should identify GIF files as binary', () => {
+    // Create a GIF file header
+    const gifHeader = Buffer.from([
+      0x47, 0x49, 0x46, 0x38, 0x39, 0x61, // 'GIF89a'
+      0x01, 0x00, 0x01, 0x00, // Width and height (1x1)
+      0x80, 0x00, 0x00 // Flags and background color
+    ]);
+    
+    mockFileContent(gifHeader);
+    
+    expect(isBinaryFile('animation.gif')).toBe(true);
+  });
+  
+  test('should identify WebP files as binary', () => {
+    // Create a WebP file header
+    const webpHeader = Buffer.from([
+      0x52, 0x49, 0x46, 0x46, // 'RIFF'
+      0x24, 0x00, 0x00, 0x00, // File size - 4 (36 bytes)
+      0x57, 0x45, 0x42, 0x50, // 'WEBP'
+      0x56, 0x50, 0x38, 0x20 // 'VP8 '
+    ]);
+    
+    mockFileContent(webpHeader);
+    
+    expect(isBinaryFile('image.webp')).toBe(true);
+  });
+  
+  test('should identify SQLite database files as binary', () => {
+    // Create a SQLite database header
+    const sqliteHeader = Buffer.from([
+      0x53, 0x51, 0x4C, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x20, 0x33, 0x00 // 'SQLite format 3\0'
+    ]);
+    
+    mockFileContent(sqliteHeader);
+    
+    expect(isBinaryFile('database.sqlite')).toBe(true);
+  });
+  
+  test('should identify font files as binary', () => {
+    // Create a TTF font header
+    const ttfHeader = Buffer.from([
+      0x00, 0x01, 0x00, 0x00, // TTF version 1.0
+      0x00, 0x04, // Four tables
+      0x00, 0x00, 0x00, 0x00, // Header
+      0x00, 0x00, 0x00, 0x00, // More header data
+      0x00, 0x00, 0x00, 0x00  // More header data
+    ]);
+    
+    mockFileContent(ttfHeader);
+    
+    expect(isBinaryFile('font.ttf')).toBe(true);
+  });
+  
+  test('should identify Office document files as binary', () => {
+    // Create an Office document header (simplified DOCX/ZIP header)
+    const docxHeader = Buffer.from([
+      0x50, 0x4B, 0x03, 0x04, // ZIP signature
+      0x14, 0x00, 0x06, 0x00, // Version and flags
+      0x08, 0x00, 0x00, 0x00, // Compression method and file time
+      0x00, 0x00, 0x00, 0x00, // CRC32
+      0x00, 0x00, 0x00, 0x00, // Compressed size
+      0x00, 0x00, 0x00, 0x00  // Uncompressed size
+    ]);
+    
+    mockFileContent(docxHeader);
+    
+    expect(isBinaryFile('document.docx')).toBe(true);
+  });
 });

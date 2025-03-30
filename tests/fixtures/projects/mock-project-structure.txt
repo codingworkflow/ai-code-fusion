@@ -1,0 +1,23 @@
+/mock-project
+├── src/
+│   ├── index.js
+│   ├── utils/
+│   │   └── helpers.js
+│   └── components/
+│       └── App.jsx
+├── node_modules/
+│   └── react/
+│       └── index.js
+├── dist/
+│   ├── bundle.js
+│   └── keep-this-file.js
+├── public/
+│   ├── index.html
+│   └── logo.png
+├── package.json
+├── .git/
+│   └── index
+├── .gitignore
+├── README.md
+├── debug.log
+└── important.log
