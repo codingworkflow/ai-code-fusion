@@ -395,7 +395,7 @@ ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, option
     let processedFiles = 0;
     let skippedFiles = 0;
 
-    for (const fileInfo of filesInfo || []) {
+    for (const fileInfo of filesInfo ?? []) {
       try {
         if (!fileInfo || !fileInfo.path) {
           console.warn('Skipping invalid file info entry');
