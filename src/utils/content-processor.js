@@ -37,12 +37,8 @@ class ContentProcessor {
       const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
       const tokenCount = this.tokenCounter.countTokens(content);
 
-      // Show token count if requested (default is true)
-      const showTokenCount = options.showTokenCount !== false;
-
-      const headerContent = showTokenCount
-        ? `${relativePath} (${tokenCount} tokens)`
-        : `${relativePath}`;
+      // Always use just the path without token count
+      const headerContent = `${relativePath}`;
 
       const formattedContent =
         `######\n` + `${headerContent}\n` + `######\n\n` + `\`\`\`\n${content}\n\`\`\`\n\n`;

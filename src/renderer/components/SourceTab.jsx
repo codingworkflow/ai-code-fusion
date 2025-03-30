@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
+import yaml from 'yaml';
 import FileTree from './FileTree';
 
 const SourceTab = ({
@@ -12,18 +13,40 @@ const SourceTab = ({
   onFolderSelect,
   onAnalyze,
 }) => {
-  const [supportingText, setSupportingText] = useState('');
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const handleDirectorySelect = async () => {
     await onDirectorySelect();
-    // Update message to make it clear selections are reset
-    setSupportingText(
-      'New directory selected. All previous selections have been cleared. Please select files or folders to analyze.'
-    );
   };
 
-  // No tree view generation needed in SourceTab anymore
+
+  // State to check if we should show token count
+  const [showTokenCount, setShowTokenCount] = useState(true);
+  // State to store the estimated token count
+  const [estimatedTokens, setEstimatedTokens] = useState(0);
+  
+  // Get the config on component mount to see if we should show token count
+  React.useEffect(() => {
+    try {
+      const configContent = localStorage.getItem('configContent');
+      if (configContent) {
+        const config = yaml.parse(configContent);
+        setShowTokenCount(config.show_token_count !== false);
+      }
+    } catch (error) {
+      console.error('Error parsing config for token count visibility:', error);
+    }
+  }, []);
+  
+  // Calculate estimated tokens whenever selected files change
+  React.useEffect(() => {
+    // Simple token estimation based on number of files
+    // In a real implementation, this would need to load file content and do proper counting
+    // Using a higher estimate to better match the actual token count shown in the ProcessedTab
+    const totalEstimate = selectedFiles.length * 800; // Higher estimate to match actual processing
+    setEstimatedTokens(totalEstimate);
+  }, [selectedFiles]);
 
   return (
     <div>
@@ -43,38 +66,29 @@ const SourceTab = ({
           >
             Browse
           </button>
-          {rootPath && (
-            <button
-              onClick={() => {
-                // We're reusing the directory select function, which now properly resets state
-                onDirectorySelect();
-                // Update supporting text to indicate refresh
-                setSupportingText('Directory refreshed. Select files or folders to analyze.');
-              }}
-              className='ml-2 inline-flex items-center rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-              title='Refresh the directory tree with current exclude patterns'
-            >
-              <svg
-                className='size-5'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-                xmlns='http://www.w3.org/2000/svg'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth='2'
-                  d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
-                />
-              </svg>
-            </button>
-          )}
         </div>
       </div>
       
-      {/* Process Files button moved above file tree */}
-      <div className='mb-4 flex justify-end'>
+      {/* Processing Summary and Process Button on same line */}
+      <div className='mb-4 flex justify-between items-center'>
+        <div className='flex space-x-4'>
+          <div className='rounded bg-white p-3 shadow-sm border border-gray-200'>
+            <div className='text-xs text-gray-500'>Selected Files</div>
+            <div className='text-xl font-bold text-blue-600'>
+              {selectedFiles.length}
+            </div>
+          </div>
+
+          {showTokenCount && (
+            <div className='rounded bg-white p-3 shadow-sm border border-gray-200'>
+              <div className='text-xs text-gray-500'>Total Tokens (estimated)</div>
+              <div className='text-xl font-bold text-green-600'>
+                {estimatedTokens.toLocaleString()}
+              </div>
+            </div>
+          )}
+        </div>
+        
         <button
           onClick={() => {
             setIsAnalyzing(true);
@@ -118,81 +132,56 @@ const SourceTab = ({
           )}
         </button>
       </div>
-
-      {supportingText && (
-        <div className='mb-4 rounded-md border border-blue-100 bg-blue-50 p-3'>
-          <div className='flex'>
-            <div className='shrink-0'>
-              <svg
-                className='size-5 text-blue-400'
-                xmlns='http://www.w3.org/2000/svg'
-                viewBox='0 0 20 20'
-                fill='currentColor'
-                aria-hidden='true'
-              >
-                <path
-                  fillRule='evenodd'
-                  d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
-                  clipRule='evenodd'
-                />
-              </svg>
-            </div>
-            <div className='ml-3'>
-              <p className='text-sm text-blue-700'>{supportingText}</p>
-              {directoryTree.length > 0 && (
-                <p className='mt-1 text-xs text-blue-600'>
-                  <span className='font-medium'>Tip:</span> Click on folder names to
-                  expand/collapse. Use checkboxes to select files and folders.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      
+      {/* Refresh button */}
+      <div className='mb-4'>
+        {rootPath && (
+          <button
+            onClick={async () => {
+              // Use the refreshDirectoryTree function exposed by App.jsx
+              if (window.refreshDirectoryTree) {
+                await window.refreshDirectoryTree();
+              }
+            }}
+            className='inline-flex items-center rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+            title='Refresh the file list with current configuration'
+          >
+            <svg
+              className='size-5 mr-2'
+              fill='none'
+              stroke='currentColor'
+              viewBox='0 0 24 24'
+              xmlns='http://www.w3.org/2000/svg'
+            >
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth='2'
+                d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
+              />
+            </svg>
+            Refresh Files
+          </button>
+        )}
+      </div>
 
       {directoryTree.length > 0 ? (
         <div className='mb-6'>
-          <div className='mb-2 flex items-center justify-between'>
+          <div className='mb-2 flex justify-between'>
             <label className='block text-sm font-medium text-gray-700'>
               Select Files and Folders
             </label>
-            <div className='text-sm font-medium text-blue-600'>
-              {selectedFiles.length > 0 ? (
-                <span>
-                  {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
-                </span>
-              ) : (
-                <span>No files selected</span>
-              )}
-            </div>
-          </div>
-
-          {/* Notice about excluded directories */}
-          <div className='mb-3 rounded-md border border-green-100 bg-green-50 p-2 text-sm text-green-800'>
-            <div className='flex'>
-              <div className='shrink-0'>
-                <svg
-                  className='size-5 text-green-500'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                  xmlns='http://www.w3.org/2000/svg'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth='2'
-                    d='M5 13l4 4L19 7'
-                  />
-                </svg>
-              </div>
-              <p className='ml-2'>
-                <span className='font-medium'>Note:</span> Large directories like{' '}
-                <code className='rounded bg-green-100 px-1 text-xs font-mono'>node_modules</code>,{' '}
-                <code className='rounded bg-green-100 px-1 text-xs font-mono'>.git</code>, etc. are
-                excluded based on your configuration, improving performance.
-              </p>
-            </div>
+            {selectedFiles.length > 0 && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  selectedFiles.forEach((file) => onFileSelect(file, false));
+                }}
+                className='text-xs text-blue-600 hover:text-blue-800 hover:underline'
+              >
+                (clear)
+              </button>
+            )}
           </div>
 
           <div className='rounded-md border border-gray-200 shadow-sm'>
@@ -224,29 +213,6 @@ const SourceTab = ({
           <p className='mt-2 text-gray-500'>Loading directory content...</p>
         </div>
       ) : null}
-
-      <div className='mt-6 flex items-center justify-between'>
-        <div className='text-sm text-gray-500'>
-          {selectedFiles.length > 0 ? (
-            <span>
-              {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
-              {/* Add a button to clear selections if needed */}
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  // Call the parent's onFileSelect for each file to deselect it
-                  selectedFiles.forEach((file) => onFileSelect(file, false));
-                }}
-                className='ml-2 text-xs text-blue-600 hover:text-blue-800 hover:underline'
-              >
-                (clear)
-              </button>
-            </span>
-          ) : (
-            <span>No files selected</span>
-          )}
-        </div>
-      </div>
 
       {isAnalyzing && (
         <div className='mt-4 p-4 bg-blue-50 rounded-md border border-blue-100'>

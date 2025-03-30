@@ -84,7 +84,20 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
                 onClick={handleCopy}
                 className='inline-flex items-center rounded-md border border-gray-300 bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
               >
-                {isCopied ? '✓ Copied' : 'Copy Content'}
+                {isCopied ? '✓ Copied' : (
+                  <>
+                    <svg 
+                      className="w-4 h-4 mr-2" 
+                      fill="currentColor" 
+                      viewBox="0 0 16 16" 
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                      <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                    </svg>
+                    Copy Content
+                  </>
+                )}
               </button>
               <button
                 onClick={handleSave}
@@ -111,7 +124,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
           <div className='mt-6'>
             <h3 className='mb-2 text-base font-medium text-gray-900'>Files by Token Count</h3>
             <div className='rounded-md border border-gray-200 shadow-sm'>
-              <div className='max-h-60 overflow-y-auto'>
+              <div className='h-60 max-h-60 overflow-y-auto overflow-x-hidden'>
                 <table className='min-w-full divide-y divide-gray-200'>
                   <thead className='sticky top-0 bg-gray-50'>
                     <tr>
@@ -124,12 +137,20 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
                     </tr>
                   </thead>
                   <tbody className='divide-y divide-gray-200 bg-white'>
-                    {processedResult.filesInfo && processedResult.filesInfo.map((file, index) => (
-                      <tr key={`${file.path}-${index}`} className='hover:bg-gray-50'>
-                        <td className='max-w-md truncate px-3 py-2 font-mono text-sm'>{file.path}</td>
-                        <td className='px-3 py-2 text-right text-sm'>{file.tokens.toLocaleString()}</td>
+                    {processedResult.filesInfo && processedResult.filesInfo.length > 0 ? (
+                      processedResult.filesInfo.map((file, index) => (
+                        <tr key={`${file.path}-${index}`} className='hover:bg-gray-50'>
+                          <td className='max-w-md truncate px-3 py-2 font-mono text-sm'>{file.path}</td>
+                          <td className='px-3 py-2 text-right text-sm'>{file.tokens.toLocaleString()}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="2" className="px-3 py-4 text-center text-sm text-gray-500">
+                          No file data available
+                        </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>

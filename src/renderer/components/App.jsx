@@ -13,27 +13,42 @@ const App = () => {
   // Load config from localStorage or via API, no fallbacks
   const [configContent, setConfigContent] = useState('# Loading configuration...');
   
-  // Use effect to load config properly without fallbacks
+  // Load config from localStorage or default config
   useEffect(() => {
     // First try to load from localStorage
     const savedConfig = localStorage.getItem('configContent');
     if (savedConfig) {
       setConfigContent(savedConfig);
-      return;
+    } else {    
+      // Otherwise load from the main process
+      if (window.electronAPI && window.electronAPI.getDefaultConfig) {
+        window.electronAPI.getDefaultConfig()
+          .then((defaultConfig) => {
+            if (defaultConfig) {
+              setConfigContent(defaultConfig);
+              localStorage.setItem('configContent', defaultConfig);
+            }
+          })
+          .catch((err) => {
+            console.error('Error loading config:', err);
+          });
+      }
     }
     
-    // If not in localStorage, load from the main process
-    if (window.electronAPI && window.electronAPI.getDefaultConfig) {
-      window.electronAPI.getDefaultConfig()
-        .then((defaultConfig) => {
-          if (defaultConfig) {
-            setConfigContent(defaultConfig);
-            localStorage.setItem('configContent', defaultConfig);
-          }
-        })
-        .catch((err) => {
-          console.error('Error loading default config:', err);
-        });
+    // Load rootPath from localStorage if available
+    const savedRootPath = localStorage.getItem('rootPath');
+    if (savedRootPath) {
+      setRootPath(savedRootPath);
+      // Load directory tree for the saved path
+      if (window.electronAPI && window.electronAPI.getDirectoryTree) {
+        window.electronAPI.getDirectoryTree(savedRootPath, localStorage.getItem('configContent'))
+          .then(tree => {
+            setDirectoryTree(tree);
+          })
+          .catch(err => {
+            console.error('Error loading directory tree:', err);
+          });
+      }
     }
   }, []);
 
@@ -41,7 +56,8 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem('configContent', configContent);
   }, [configContent]);
-  const [analysisResult, setAnalysisResult] = useState(null);
+  // eslint-disable-next-line no-unused-vars
+  const [analysisResult, setAnalysisResult] = useState(null); // Used indirectly in handleAnalyze and handleRefreshProcessed
   const [processedResult, setProcessedResult] = useState(null);
 
   const handleTabChange = (tab) => {
@@ -84,6 +100,9 @@ const App = () => {
       setProcessedResult(null);
     }
   };
+  
+  // Expose the tab change function for other components to use
+  window.switchToTab = handleTabChange;
 
   // Function to refresh the directory tree with current config
   const refreshDirectoryTree = async () => {
@@ -106,6 +125,9 @@ const App = () => {
       setDirectoryTree(tree);
     }
   };
+  
+  // Expose the refreshDirectoryTree function to the window object for SourceTab to use
+  window.refreshDirectoryTree = refreshDirectoryTree;
 
   const handleDirectorySelect = async () => {
     const dirPath = await window.electronAPI.selectDirectory();
@@ -117,8 +139,9 @@ const App = () => {
       setAnalysisResult(null);
       setProcessedResult(null);
 
-      // Update rootPath
+      // Update rootPath and save to localStorage
       setRootPath(dirPath);
+      localStorage.setItem('rootPath', dirPath);
 
       // Reset gitignore cache to ensure fresh parsing
       if (window.electronAPI.resetGitignoreCache) {
@@ -204,147 +227,8 @@ const App = () => {
     }
   };
 
-  // Helper function for consistent path normalization
-  const normalizeAndGetRelativePath = (filePath) => {
-    if (!filePath || !rootPath) return '';
-
-    // Get path relative to root
-    const relativePath = filePath.replace(rootPath, '').replace(/\\/g, '/').replace(/^\/+/, '');
-
-    return relativePath;
-  };
-
-  // Helper function to generate tree view of selected files
-  const generateTreeView = () => {
-    if (!selectedFiles.length) return '';
-
-    // Create a mapping of paths to help build the tree
-    const pathMap = new Map();
-
-    // Process selected files to build a tree structure
-    selectedFiles.forEach((filePath) => {
-      // Get relative path using the consistent normalization function
-      const relativePath = normalizeAndGetRelativePath(filePath);
-
-      if (!relativePath) {
-        console.warn(`Skipping invalid path: ${filePath}`);
-        return;
-      }
-
-      const parts = relativePath.split('/');
-
-      // Build tree structure
-      let currentPath = '';
-      parts.forEach((part, index) => {
-        const isFile = index === parts.length - 1;
-        const prevPath = currentPath;
-        currentPath = currentPath ? `${currentPath}/${part}` : part;
-
-        if (!pathMap.has(currentPath)) {
-          pathMap.set(currentPath, {
-            name: part,
-            path: currentPath,
-            isFile,
-            children: [],
-            level: index,
-          });
-
-          // Add to parent's children
-          if (prevPath) {
-            const parent = pathMap.get(prevPath);
-            if (parent) {
-              parent.children.push(pathMap.get(currentPath));
-            }
-          }
-        }
-      });
-    });
-
-    // Find root nodes (level 0)
-    const rootNodes = Array.from(pathMap.values()).filter((node) => node.level === 0);
-
-    // Recursive function to render tree
-    const renderTree = (node, prefix = '', isLast = true) => {
-      const linePrefix = prefix + (isLast ? '└── ' : '├── ');
-      const childPrefix = prefix + (isLast ? '    ' : '│   ');
-
-      let result = linePrefix;
-
-      // Just add the name without icons
-      result += node.name + '\n';
-
-      // Sort children: folders first, then files, both alphabetically
-      const sortedChildren = [...node.children].sort((a, b) => {
-        if (a.isFile !== b.isFile) return a.isFile ? 1 : -1;
-        return a.name.localeCompare(b.name);
-      });
-
-      // Render children
-      sortedChildren.forEach((child) => {
-        // Don't create circular reference that could cause stack overflow
-        const isChildLast = sortedChildren.indexOf(child) === sortedChildren.length - 1;
-        result += renderTree(child, childPrefix, isChildLast);
-      });
-
-      return result;
-    };
-
-    // Generate the tree text without mentioning the root path
-    let treeText = '';
-    rootNodes.forEach((node, index) => {
-      const isLastRoot = index === rootNodes.length - 1;
-      treeText += renderTree(node, '', isLastRoot);
-    });
-
-    return treeText;
-  };
-
-  // Method to process from the Analyze tab
-  const handleProcessDirect = async (treeViewData = null, options = {}) => {
-    try {
-      if (!analysisResult) {
-        throw new Error('No analysis results available');
-      }
-
-      // Try to get the latest options from config
-      try {
-        const configContent = localStorage.getItem('configContent');
-        if (configContent) {
-          const config = yaml.parse(configContent);
-          // If options not explicitly provided, use config defaults
-          if (options.includeTreeView === undefined && config.include_tree_view !== undefined) {
-            options.includeTreeView = config.include_tree_view;
-          }
-          if (options.showTokenCount === undefined && config.show_token_count !== undefined) {
-            options.showTokenCount = config.show_token_count;
-          }
-        }
-      } catch (error) {
-        console.error('Error getting config defaults for processing:', error);
-      }
-
-      // Store processing options
-      setProcessingOptions({ ...processingOptions, ...options });
-
-      // Let the main process handle tree view generation for consistency
-      const treeViewForProcess = null;
-
-      const result = await window.electronAPI.processRepository({
-        rootPath,
-        filesInfo: analysisResult.filesInfo,
-        treeView: treeViewForProcess,
-        options,
-      });
-
-      setProcessedResult(result);
-      setActiveTab('processed');
-      return result;
-    } catch (error) {
-      console.error('Error processing repository:', error);
-      alert(`Error processing repository: ${error.message}`);
-      throw error;
-    }
-  };
+  // Helper function for consistent path normalization (used by handleFolderSelect indirectly)
+  // We'll just use inline path normalization where needed
 
   // Method to reload and reprocess files with the latest content
   const handleRefreshProcessed = async () => {

@@ -2,8 +2,8 @@
 use_custom_excludes: true
 use_custom_includes: true
 use_gitignore: true
-include_tree_view: false
-show_token_count: false
+include_tree_view: true
+show_token_count: true
 
 # File extensions to include (with dot)
 include_extensions:
@@ -59,7 +59,6 @@ exclude_patterns:
   - "**/website/**"
 
   # Build outputs
-  - "**/test/**"
   - "**/dist/**"
   - "**/build/**"
   - "**/__pycache__/**"
@@ -87,8 +86,3 @@ exclude_patterns:
   - "**/COPYING"
   - "**/CODE_OF**"
   - "**/CONTRIBUTING**"
-
-  # Test files
-  - "**/tests/**"
-  - "**/test/**"
-  - "**/__tests__/**"

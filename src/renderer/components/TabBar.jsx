@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 
 const TabBar = ({ activeTab, onTabChange }) => {
   const tabs = [
-    { id: 'config', label: 'Configuration' },
+    { id: 'config', label: 'Start' },
     { id: 'source', label: 'Select Files' },
     { id: 'processed', label: 'Processed Output' },
   ];
@@ -19,6 +19,7 @@ const TabBar = ({ activeTab, onTabChange }) => {
               : 'bg-gray-200 text-gray-700'
           }`}
           onClick={() => onTabChange(tab.id)}
+          data-tab={tab.id}
         >
           {tab.label}
         </button>

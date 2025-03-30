@@ -7,6 +7,7 @@ const { FileAnalyzer } = require('../utils/file-analyzer');
 const { ContentProcessor } = require('../utils/content-processor');
 const { GitignoreParser } = require('../utils/gitignore-parser');
 const { loadDefaultConfig } = require('../utils/config-manager');
+const fnmatch = require('../utils/fnmatch');
 
 // Initialize the gitignore parser
 const gitignoreParser = new GitignoreParser();
@@ -97,23 +98,27 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
 
     // Check if we should use custom excludes (default to true if not specified)
     const useCustomExcludes = config.use_custom_excludes !== false;
-    
+
     // Check if we should use custom includes (default to true if not specified)
     const useCustomIncludes = config.use_custom_includes !== false;
 
     // Check if we should use gitignore (default to true if not specified)
     const useGitignore = config.use_gitignore !== false;
 
-    // Start with default critical patterns
-    excludePatterns = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'];
+    // Start with empty excludePatterns array (no hardcoded patterns)
+    excludePatterns = [];
 
     // Add custom exclude patterns if enabled
     if (useCustomExcludes && config.exclude_patterns && Array.isArray(config.exclude_patterns)) {
       excludePatterns = [...excludePatterns, ...config.exclude_patterns];
     }
-    
+
     // Store include extensions for filtering later (if enabled)
-    if (useCustomIncludes && config.include_extensions && Array.isArray(config.include_extensions)) {
+    if (
+      useCustomIncludes &&
+      config.include_extensions &&
+      Array.isArray(config.include_extensions)
+    ) {
       excludePatterns.includeExtensions = config.include_extensions;
     }
 
@@ -132,101 +137,60 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
     }
   } catch (error) {
     console.error('Error parsing config:', error);
-    // Fall back to default exclude patterns
-    excludePatterns = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'];
+    // Fall back to only hiding .git folder
+    excludePatterns = ['**/.git/**'];
   }
+
+  // Import the fnmatch module
 
   // Helper function to check if a path should be excluded
   const shouldExclude = (itemPath, itemName) => {
-    // Use our consistent path normalization function
-    const normalizedPath = getRelativePath(itemPath, dirPath);
+    try {
+      // Use our consistent path normalization function
+      const normalizedPath = getRelativePath(itemPath, dirPath);
 
-    // Check for common directories to exclude
-    if (['node_modules', '.git', 'dist', 'build'].includes(itemName)) {
-      return true;
-    }
-    
-    // Check if we should filter by file extension
-    if (excludePatterns.includeExtensions && path.extname(itemPath)) {
-      const ext = path.extname(itemPath).toLowerCase();
-      // If we have include extensions defined and this file's extension isn't in the list
-      if (!excludePatterns.includeExtensions.includes(ext)) {
-        return true; // Exclude because extension is not in the include list
+      // Check if we should filter by file extension
+      if (excludePatterns.includeExtensions && path.extname(itemPath)) {
+        const ext = path.extname(itemPath).toLowerCase();
+        // If we have include extensions defined and this file's extension isn't in the list
+        if (!excludePatterns.includeExtensions.includes(ext)) {
+          return true; // Exclude because extension is not in the include list
+        }
       }
-    }
 
-    // Special case for root-level files - check if the file name directly matches a pattern
-    // This ensures patterns like ".env" will match files at the root level
-    const isRootLevelFile = normalizedPath.indexOf('/') === -1;
-
-    // First check if path is in include patterns (negated gitignore patterns)
-    // includePatterns take highest priority
-    if (excludePatterns.includePatterns) {
-      for (const pattern of excludePatterns.includePatterns) {
-        try {
-          // Direct match for simple patterns (especially for root-level files)
-          if (isRootLevelFile && !pattern.includes('/') && !pattern.includes('*')) {
-            if (normalizedPath === pattern) {
-              return false; // Include this file
-            }
-          }
-
-          // Simple pattern matching
-          if (pattern.includes('*')) {
-            // Replace ** with wildcard
-            const regexPattern = pattern
-              .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-              .replace(/\*\*/g, '.*')
-              .replace(/\*/g, '[^/]*')
-              .replace(/\?/g, '[^/]');
-
-            // Match against the pattern
-            const regex = new RegExp(`^${regexPattern}$`);
-            if (regex.test(normalizedPath) || regex.test(itemName)) {
-              // This path explicitly matches an include pattern, so don't exclude it
-              return false;
-            }
-          } else if (normalizedPath === pattern || itemName === pattern) {
+      // First check if path is in include patterns (negated gitignore patterns)
+      // includePatterns take highest priority
+      if (excludePatterns.includePatterns && excludePatterns.includePatterns.length > 0) {
+        for (const pattern of excludePatterns.includePatterns) {
+          // Check both the full path and just the filename for simple patterns
+          if (
+            fnmatch.fnmatch(normalizedPath, pattern) ||
+            (!pattern.includes('/') && fnmatch.fnmatch(itemName, pattern))
+          ) {
+            // This path explicitly matches an include pattern, so don't exclude it
             return false;
           }
-        } catch (error) {
-          console.error(`Error matching include pattern ${pattern}:`, error);
         }
       }
-    }
 
-    // Then check exclude patterns
-    for (const pattern of Array.isArray(excludePatterns) ? excludePatterns : []) {
-      try {
-        // Direct match for simple patterns (especially for root-level files)
-        if (isRootLevelFile && !pattern.includes('/') && !pattern.includes('*')) {
-          if (normalizedPath === pattern) {
-            return true; // Exclude this file
+      // Then check exclude patterns
+      if (Array.isArray(excludePatterns)) {
+        for (const pattern of excludePatterns) {
+          // Check both the full path and just the filename for simple patterns
+          if (
+            fnmatch.fnmatch(normalizedPath, pattern) ||
+            (!pattern.includes('/') && fnmatch.fnmatch(itemName, pattern))
+          ) {
+            return true; // Exclude this item
           }
         }
-
-        // Simple pattern matching
-        if (pattern.includes('*')) {
-          // Replace ** with wildcard
-          const regexPattern = pattern
-            .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-            .replace(/\*\*/g, '.*')
-            .replace(/\*/g, '[^/]*')
-            .replace(/\?/g, '[^/]');
-
-          // Match against the pattern
-          const regex = new RegExp(`^${regexPattern}$`);
-          if (regex.test(normalizedPath) || regex.test(itemName)) {
-            return true;
-          }
-        } else if (normalizedPath === pattern || itemName === pattern) {
-          return true;
-        }
-      } catch (error) {
-        console.error(`Error matching pattern ${pattern}:`, error);
       }
+
+      return false;
+    } catch (error) {
+      console.error(`Error in shouldExclude for ${itemPath}:`, error);
+      return false; // Default to including if there's an error
     }
-    return false;
   };
 
   const walkDirectory = (dir) => {
@@ -399,55 +363,55 @@ ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, option
     if (options.includeTreeView) {
       processedContent += '## File Structure\n\n';
       processedContent += '```\n';
-      
+
       // If treeView was provided, use it, otherwise generate a more complete one
       if (treeView) {
         processedContent += treeView;
       } else {
         // Generate a more structured tree view from filesInfo
         const sortedFiles = [...filesInfo].sort((a, b) => a.path.localeCompare(b.path));
-        
+
         // Build a path tree
         const pathTree = {};
-        sortedFiles.forEach(file => {
+        sortedFiles.forEach((file) => {
           const parts = file.path.split('/');
           let currentLevel = pathTree;
-          
+
           parts.forEach((part, index) => {
             if (!currentLevel[part]) {
               currentLevel[part] = index === parts.length - 1 ? null : {};
             }
-            
+
             if (index < parts.length - 1) {
               currentLevel = currentLevel[part];
             }
           });
         });
-        
+
         // Recursive function to print the tree
         const printTree = (tree, prefix = '', isLast = true) => {
           const entries = Object.entries(tree);
           let result = '';
-          
+
           entries.forEach(([key, value], index) => {
             const isLastItem = index === entries.length - 1;
-            
+
             // Print current level
             result += `${prefix}${isLast ? '└── ' : '├── '}${key}\n`;
-            
+
             // Print children
             if (value !== null) {
               const newPrefix = `${prefix}${isLast ? '    ' : '│   '}`;
               result += printTree(value, newPrefix, isLastItem);
             }
           });
-          
+
           return result;
         };
-        
+
         processedContent += printTree(pathTree);
       }
-      
+
       processedContent += '```\n\n';
       processedContent += '## File Contents\n\n';
     }
@@ -487,18 +451,13 @@ ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, option
     }
 
     processedContent += '\n--END--\n';
-    processedContent += `Total tokens: ${totalTokens}\n`;
-    processedContent += `Processed files: ${processedFiles}\n`;
-
-    if (skippedFiles > 0) {
-      processedContent += `Skipped files: ${skippedFiles}\n`;
-    }
 
     return {
       content: processedContent,
       totalTokens,
       processedFiles,
       skippedFiles,
+      filesInfo: filesInfo, // Add filesInfo to the response
     };
   } catch (error) {
     console.error('Error processing repository:', error);

@@ -16,11 +16,11 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
   useEffect(() => {
     try {
       // Parse the YAML config
-      const config = yaml.parse(configContent);
+      const config = yaml.parse(configContent) || {};
       
       // Construct the file extensions display
       let fileExtText = "# File extensions to include (with dot)\ninclude_extensions:";
-      if (config.include_extensions && Array.isArray(config.include_extensions)) {
+      if (config && config.include_extensions && Array.isArray(config.include_extensions)) {
         config.include_extensions.forEach(ext => {
           fileExtText += `\n  - ${ext}`;
         });
@@ -29,7 +29,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
       
       // Construct the exclude patterns display
       let patternsText = "# Patterns to exclude (using fnmatch syntax)\nexclude_patterns:";
-      if (config.exclude_patterns && Array.isArray(config.exclude_patterns)) {
+      if (config && config.exclude_patterns && Array.isArray(config.exclude_patterns)) {
         config.exclude_patterns.forEach(pattern => {
           patternsText += `\n  - ${pattern}`;
         });
@@ -38,25 +38,27 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
       
       // Set checkbox states from the same config object only if they're different
       // This prevents unnecessary re-renders and blinking checkboxes
-      if (config.use_custom_excludes !== undefined && useCustomExcludes !== (config.use_custom_excludes !== false)) {
+      if (config && config.use_custom_excludes !== undefined && useCustomExcludes !== (config.use_custom_excludes !== false)) {
         setUseCustomExcludes(config.use_custom_excludes !== false);
       }
       
-      if (config.use_custom_includes !== undefined && useCustomIncludes !== (config.use_custom_includes !== false)) {
+      if (config && config.use_custom_includes !== undefined && useCustomIncludes !== (config.use_custom_includes !== false)) {
         setUseCustomIncludes(config.use_custom_includes !== false);
       }
       
-      if (config.use_gitignore !== undefined && useGitignore !== (config.use_gitignore !== false)) {
+      if (config && config.use_gitignore !== undefined && useGitignore !== (config.use_gitignore !== false)) {
         setUseGitignore(config.use_gitignore !== false);
       }
       
-      if (config.include_tree_view !== undefined && includeTreeView !== (config.include_tree_view === true)) {
+      if (config && config.include_tree_view !== undefined && includeTreeView !== (config.include_tree_view === true)) {
         setIncludeTreeView(config.include_tree_view === true);
       }
       
-      if (config.show_token_count !== undefined && showTokenCount !== (config.show_token_count === true)) {
+      if (config && config.show_token_count !== undefined && showTokenCount !== (config.show_token_count === true)) {
         setShowTokenCount(config.show_token_count === true);
       }
+      
+
     } catch (error) {
       console.error('Error parsing config:', error);
     }
@@ -65,8 +67,19 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
   // Auto-save function whenever options change or manual save
   const saveConfig = useCallback(() => {
     try {
-      // Parse the current config
-      const config = yaml.parse(configContent);
+      let config;
+      
+      try {
+        // Parse the current config
+        config = yaml.parse(configContent);
+        // If parsing returns null or undefined, use empty object
+        if (!config) {
+          config = {};
+        }
+      } catch (error) {
+        console.error('Error parsing config content, using empty config:', error);
+        config = {};
+      }
 
       // Update with current values
       config.use_custom_excludes = useCustomExcludes;
@@ -74,6 +87,16 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
       config.use_gitignore = useGitignore;
       config.include_tree_view = includeTreeView;
       config.show_token_count = showTokenCount;
+
+
+      // Make sure include_extensions and exclude_patterns arrays are initialized if not present
+      if (!config.include_extensions || !Array.isArray(config.include_extensions)) {
+        config.include_extensions = [];
+      }
+      
+      if (!config.exclude_patterns || !Array.isArray(config.exclude_patterns)) {
+        config.exclude_patterns = [];
+      }
 
       // Convert back to YAML and save
       const updatedConfig = yaml.stringify(config);
@@ -100,18 +123,64 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
     return () => clearTimeout(timer);
   }, [useCustomExcludes, useCustomIncludes, useGitignore, includeTreeView, showTokenCount, saveConfig]);
 
+  // State to track the current folder path
+  const [folderPath, setFolderPath] = useState(localStorage.getItem('rootPath') || '');
+
+  // Handle folder selection
+  const handleFolderSelect = async () => {
+    if (window.electronAPI && window.electronAPI.selectDirectory) {
+      const dirPath = await window.electronAPI.selectDirectory();
+      if (dirPath) {
+        // Store the selected path in localStorage for use in the Source tab
+        localStorage.setItem('rootPath', dirPath);
+        setFolderPath(dirPath);
+        
+        // Automatically switch to Select Files tab
+        setTimeout(() => {
+          goToSourceTab();
+        }, 500);
+      }
+    }
+  };
+
+  const goToSourceTab = () => {
+    // Switch to the Source tab
+    if (window.switchToTab) {
+      window.switchToTab('source');
+    }
+  };
+
   return (
     <div>
-      {/* Save Config button at top right */}
-      <div className='flex justify-end mb-4'>
-        <button
-          onClick={saveConfig}
-          className='inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
-        >
-          {isSaved ? '✓ Saved' : 'Save Config'}
-        </button>
-      </div>
 
+      {/* Folder selector */}
+      <div className='mb-4'>
+        <label className='mb-1 block text-sm font-medium text-gray-700'>Folder selector</label>
+        <div className='flex'>
+          <input
+            type='text'
+            className='grow rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+            value={folderPath}
+            readOnly
+            placeholder='Select a root folder'
+          />
+          <button
+            onClick={handleFolderSelect}
+            className='ml-2 inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+          >
+            Browse
+          </button>
+          {folderPath && (
+            <button
+              onClick={goToSourceTab}
+              className='ml-2 inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
+            >
+              Select Files
+            </button>
+          )}
+        </div>
+      </div>
+      
       <div className='mb-4'>
         <div className='rounded-md border border-gray-200 bg-gray-50 p-4'>
           <h3 className='mb-2 text-sm font-medium text-gray-700'>Filter Options</h3>
@@ -127,7 +196,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                 
                 // Directly update the config to ensure it persists
                 try {
-                  const config = yaml.parse(configContent);
+                  const config = yaml.parse(configContent) || {};
                   config.use_custom_excludes = newValue;
                   const updatedConfig = yaml.stringify(config);
                   onConfigChange(updatedConfig);
@@ -139,34 +208,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
               className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
             />
             <label htmlFor='use-custom-excludes' className='ml-2 block text-sm text-gray-700'>
-              Use custom exclude patterns
-            </label>
-          </div>
-
-          <div className='mb-2 flex items-center'>
-            <input
-              type='checkbox'
-              id='use-custom-includes'
-              checked={useCustomIncludes}
-              onChange={(e) => {
-                const newValue = e.target.checked;
-                setUseCustomIncludes(newValue);
-                
-                // Directly update the config to ensure it persists
-                try {
-                  const config = yaml.parse(configContent);
-                  config.use_custom_includes = newValue;
-                  const updatedConfig = yaml.stringify(config);
-                  onConfigChange(updatedConfig);
-                  localStorage.setItem('configContent', updatedConfig);
-                } catch (error) {
-                  console.error('Error updating config:', error);
-                }
-              }}
-              className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
-            />
-            <label htmlFor='use-custom-includes' className='ml-2 block text-sm text-gray-700'>
-              Use custom file extensions
+              Use Exclude Patterns
             </label>
           </div>
 
@@ -181,7 +223,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                 
                 // Directly update the config to ensure it persists
                 try {
-                  const config = yaml.parse(configContent);
+                  const config = yaml.parse(configContent) || {};
                   config.use_gitignore = newValue;
                   const updatedConfig = yaml.stringify(config);
                   onConfigChange(updatedConfig);
@@ -194,6 +236,33 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
             />
             <label htmlFor='use-gitignore' className='ml-2 block text-sm text-gray-700'>
               Use .gitignore rules if found
+            </label>
+          </div>
+
+          <div className='mb-2 flex items-center'>
+            <input
+              type='checkbox'
+              id='use-custom-includes'
+              checked={useCustomIncludes}
+              onChange={(e) => {
+                const newValue = e.target.checked;
+                setUseCustomIncludes(newValue);
+                
+                // Directly update the config to ensure it persists
+                try {
+                  const config = yaml.parse(configContent) || {};
+                  config.use_custom_includes = newValue;
+                  const updatedConfig = yaml.stringify(config);
+                  onConfigChange(updatedConfig);
+                  localStorage.setItem('configContent', updatedConfig);
+                } catch (error) {
+                  console.error('Error updating config:', error);
+                }
+              }}
+              className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
+            />
+            <label htmlFor='use-custom-includes' className='ml-2 block text-sm text-gray-700'>
+              Only show file extensions in the list
             </label>
           </div>
           
@@ -209,7 +278,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                 
                 // Directly update the config to ensure it persists
                 try {
-                  const config = yaml.parse(configContent);
+                  const config = yaml.parse(configContent) || {};
                   config.include_tree_view = newValue;
                   const updatedConfig = yaml.stringify(config);
                   onConfigChange(updatedConfig);
@@ -239,7 +308,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                 
                 // Directly update the config to ensure it persists
                 try {
-                  const config = yaml.parse(configContent);
+                  const config = yaml.parse(configContent) || {};
                   config.show_token_count = newValue;
                   const updatedConfig = yaml.stringify(config);
                   onConfigChange(updatedConfig);
@@ -253,9 +322,11 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
               htmlFor='show-token-count'
               className='ml-2 block text-sm text-gray-700'
             >
-              Show token count per file in output
+              Show token count in file selection
             </label>
           </div>
+
+
 
           <p className='mt-2 text-xs text-gray-500'>
             Select which filtering methods to apply when building the file tree. Changes will automatically 
@@ -267,13 +338,16 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
       <div className='mb-4'>
         <div className='mb-1 flex items-center justify-between'>
           <label className='block text-sm font-medium text-gray-700'>Configuration</label>
-          <div className='text-xs text-gray-500'>
-            Edit the configuration to filter which files should be included
-          </div>
+          <button
+            onClick={saveConfig}
+            className='inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
+          >
+            {isSaved ? '✓ Saved' : 'Save Config'}
+          </button>
         </div>
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
           <div>
-            <h4 className='mb-2 text-xs font-medium text-gray-700'>File Extensions</h4>
+            <h4 className='mb-2 text-xs font-medium text-gray-700'>File Extensions to Include</h4>
             <textarea
               className='h-44 w-full rounded-md border border-gray-300 p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
               value={fileExtensions}
@@ -285,7 +359,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                 
                 // Parse and update the config
                 try {
-                  const config = yaml.parse(configContent);
+                  const config = yaml.parse(configContent) || {};
                   config.include_extensions = extensions;
                   const updatedConfig = yaml.stringify(config);
                   onConfigChange(updatedConfig);
@@ -312,7 +386,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                 
                 // Parse and update the config
                 try {
-                  const config = yaml.parse(configContent);
+                  const config = yaml.parse(configContent) || {};
                   config.exclude_patterns = patterns;
                   const updatedConfig = yaml.stringify(config);
                   onConfigChange(updatedConfig);
