@@ -87,14 +87,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
     } catch (error) {
       console.error('Error parsing config:', error);
     }
-  }, [
-    configContent,
-    useCustomExcludes,
-    useCustomIncludes,
-    useGitignore,
-    includeTreeView,
-    showTokenCount,
-  ]);
+  }, [configContent]);
 
   // Auto-save function whenever options change or manual save
   const saveConfig = useCallback(() => {
