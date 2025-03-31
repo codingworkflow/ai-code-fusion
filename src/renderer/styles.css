@@ -48,6 +48,10 @@
   background-color: #e5e7eb;
 }
 
+.dark .tree-line::before {
+  background-color: #4b5563;
+}
+
 .tree-line::after {
   content: '';
   position: absolute;
@@ -56,4 +60,8 @@
   width: 12px;
   height: 1px;
   background-color: #e5e7eb;
+}
+
+.dark .tree-line::after {
+  background-color: #4b5563;
 }

@@ -235,7 +235,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
         <div className='flex'>
           <input
             type='text'
-            className='grow border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 cursor-pointer'
+            className='grow border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 cursor-pointer'
             value={folderPath}
             readOnly
             placeholder='Select a root folder'
@@ -266,11 +266,11 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
       </div>
 
       <div className='mb-4'>
-        <div className='rounded-md border border-gray-200 bg-gray-50 p-4'>
+        <div className='rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4'>
           <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-2'>
             {/* File Filtering section */}
-            <div className='rounded border border-gray-200 bg-white p-4'>
-              <h4 className='mb-2 text-sm font-semibold text-gray-700'>File Filtering</h4>
+            <div className='rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 p-4'>
+              <h4 className='mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300'>File Filtering</h4>
 
               <div className='space-y-2'>
                 <div className='flex items-center'>
@@ -281,7 +281,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                     onChange={(e) => setUseCustomIncludes(e.target.checked)}
                     className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
                   />
-                  <label htmlFor='use-custom-includes' className='ml-2 block text-sm text-gray-700'>
+                  <label htmlFor='use-custom-includes' className='ml-2 block text-sm text-gray-700 dark:text-gray-300'>
                     Filter by file extensions
                   </label>
                 </div>
@@ -294,7 +294,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                     onChange={(e) => setUseCustomExcludes(e.target.checked)}
                     className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
                   />
-                  <label htmlFor='use-custom-excludes' className='ml-2 block text-sm text-gray-700'>
+                  <label htmlFor='use-custom-excludes' className='ml-2 block text-sm text-gray-700 dark:text-gray-300'>
                     Use exclude patterns
                   </label>
                 </div>
@@ -307,7 +307,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                     onChange={(e) => setUseGitignore(e.target.checked)}
                     className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
                   />
-                  <label htmlFor='use-gitignore' className='ml-2 block text-sm text-gray-700'>
+                  <label htmlFor='use-gitignore' className='ml-2 block text-sm text-gray-700 dark:text-gray-300'>
                     Apply .gitignore rules
                   </label>
                 </div>
@@ -315,8 +315,8 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
             </div>
 
             {/* Output Formatting section */}
-            <div className='rounded border border-gray-200 bg-white p-4'>
-              <h4 className='mb-2 text-sm font-semibold text-gray-700'>Output Formatting</h4>
+            <div className='rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 p-4'>
+              <h4 className='mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300'>Output Formatting</h4>
 
               <div className='space-y-2'>
                 <div className='flex items-center'>
@@ -327,7 +327,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                     checked={includeTreeView}
                     onChange={(e) => setIncludeTreeView(e.target.checked)}
                   />
-                  <label htmlFor='include-tree-view' className='ml-2 block text-sm text-gray-700'>
+                  <label htmlFor='include-tree-view' className='ml-2 block text-sm text-gray-700 dark:text-gray-300'>
                     Include file tree in output
                   </label>
                 </div>
@@ -340,7 +340,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
                     checked={showTokenCount}
                     onChange={(e) => setShowTokenCount(e.target.checked)}
                   />
-                  <label htmlFor='show-token-count' className='ml-2 block text-sm text-gray-700'>
+                  <label htmlFor='show-token-count' className='ml-2 block text-sm text-gray-700 dark:text-gray-300'>
                     Display token counts
                   </label>
                 </div>
@@ -348,7 +348,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
             </div>
           </div>
 
-          <p className='mt-3 text-xs text-gray-500'>
+          <p className='mt-3 text-xs text-gray-500 dark:text-gray-400'>
             Changes are automatically saved and will be applied when switching to the Source tab.
             Token count estimates help with optimizing context for large repositories.
           </p>
@@ -366,12 +366,12 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
         </div>
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
           <div>
-            <h4 className='mb-2 text-xs font-medium text-gray-700'>
+            <h4 className='mb-2 text-xs font-medium text-gray-700 dark:text-gray-300'>
               Only process files with these extensions
             </h4>
-            <p className='text-xs text-gray-500 mb-1'>One extension per line (include the dot)</p>
+            <p className='text-xs text-gray-500 dark:text-gray-400 mb-1'>One extension per line (include the dot)</p>
             <textarea
-              className='h-44 w-full border border-gray-300 p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+              className='h-44 w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
               value={fileExtensions}
               placeholder='.py
 .js
@@ -382,10 +382,10 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
             />
           </div>
           <div>
-            <h4 className='mb-2 text-xs font-medium text-gray-700'>Exclude Patterns</h4>
-            <p className='text-xs text-gray-500 mb-1'>One pattern per line (using glob pattern)</p>
+            <h4 className='mb-2 text-xs font-medium text-gray-700 dark:text-gray-300'>Exclude Patterns</h4>
+            <p className='text-xs text-gray-500 dark:text-gray-400 mb-1'>One pattern per line (using glob pattern)</p>
             <textarea
-              className='h-44 w-full border border-gray-300 p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+              className='h-44 w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
               value={excludePatterns}
               placeholder='**/.git/**
 **/node_modules/**
@@ -397,7 +397,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
         </div>
       </div>
 
-      <div className='mt-4 text-xs text-gray-500'>
+      <div className='mt-4 text-xs text-gray-500 dark:text-gray-400'>
         <p>Configure which file types to include and patterns to exclude in the analysis.</p>
       </div>
     </div>

@@ -3,6 +3,8 @@ import TabBar from './TabBar';
 import SourceTab from './SourceTab';
 import ConfigTab from './ConfigTab';
 import ProcessedTab from './ProcessedTab';
+import DarkModeToggle from './DarkModeToggle';
+import { DarkModeProvider } from '../context/DarkModeContext';
 import yaml from 'yaml';
 
 // Helper function to ensure consistent error handling
@@ -493,20 +495,22 @@ const App = () => {
   };
 
   return (
+    <DarkModeProvider>
     <div className='container mx-auto p-4'>
       {/* Tab navigation and content container */}
-      <div className='w-full border border-gray-300 bg-gray-50'>
+      <div className='w-full border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 transition-colors duration-200'>
         {/* Tab Bar and title in the same row */}
-        <div className='w-full border-b border-gray-300 flex justify-between items-center bg-gray-100'>
+        <div className='w-full border-b border-gray-300 dark:border-gray-700 flex justify-between items-center bg-gray-100 dark:bg-gray-800 transition-colors duration-200'>
           <TabBar activeTab={activeTab} onTabChange={handleTabChange} />
-          <div className='flex items-center pr-4'>
+          <div className='flex items-center pr-4 space-x-2'>
+            <DarkModeToggle />
             <button
               onClick={() => {
                 window.electron?.shell?.openExternal?.(
                   'https://github.com/codingworkflow/ai-code-fusion'
                 );
               }}
-              className='flex items-center hover:text-blue-700 cursor-pointer bg-transparent border-0'
+              className='flex items-center hover:text-blue-700 dark:hover:text-blue-500 cursor-pointer bg-transparent border-0 text-gray-900 dark:text-gray-100'
               title='View on GitHub'
             >
               <div className='h-8 w-8 mr-2 flex items-center justify-center'>
@@ -539,9 +543,9 @@ const App = () => {
                 </svg>
               </div>
               <div className='flex items-center'>
-                <h1 className='text-2xl font-bold'>AI Code Fusion</h1>
+                <h1 className='text-2xl font-bold dark:text-white'>AI Code Fusion</h1>
                 <svg
-                  className='ml-2 w-5 h-5 text-gray-600'
+                  className='ml-2 w-5 h-5 text-gray-600 dark:text-gray-400'
                   fill='currentColor'
                   viewBox='0 0 24 24'
                   xmlns='http://www.w3.org/2000/svg'
@@ -554,7 +558,7 @@ const App = () => {
         </div>
 
         {/* Tab content */}
-        <div className='tab-content bg-white p-4 border-t-0'>
+        <div className='tab-content bg-white dark:bg-gray-800 p-4 border-t-0 text-gray-900 dark:text-gray-100 transition-colors duration-200'>
           {activeTab === 'config' && (
             <ConfigTab configContent={configContent} onConfigChange={setConfigContent} />
           )}
@@ -582,6 +586,7 @@ const App = () => {
         </div>
       </div>
     </div>
+    </DarkModeProvider>
   );
 };
 

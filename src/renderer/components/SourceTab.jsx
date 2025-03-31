@@ -187,7 +187,7 @@ const SourceTab = ({
         <div className='flex'>
           <input
             type='text'
-            className='grow border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 cursor-pointer'
+            className='grow border border-gray-300 dark:border-gray-700 dark:bg-gray-700 dark:text-white px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 cursor-pointer'
             value={rootPath}
             readOnly
             placeholder='Select a root folder'
@@ -196,7 +196,7 @@ const SourceTab = ({
           />
           <button
             onClick={handleDirectorySelect}
-            className='ml-2 inline-flex items-center border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+            className='ml-2 inline-flex items-center border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
           >
             <svg
               className='w-4 h-4 mr-1'
@@ -234,7 +234,7 @@ const SourceTab = ({
                   await window.refreshDirectoryTree();
                 }
               }}
-              className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
+              className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
               title='Refresh the file list'
             >
               <svg
@@ -266,7 +266,7 @@ const SourceTab = ({
                 setIsCalculating(false);
                 // No need to clear cache here as we can reuse it later
               }}
-              className='inline-flex items-center border border-transparent bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2'
+              className='inline-flex items-center border border-transparent bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
               title='Clear all selected files'
             >
               <svg
@@ -290,7 +290,7 @@ const SourceTab = ({
 
         <div className='flex items-center space-x-4'>
           <div className='flex items-center'>
-            <span className='text-sm text-gray-500 mr-2'>Files</span>
+            <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Files</span>
             <span className='text-lg font-bold text-blue-600'>{selectedFiles.length}</span>
           </div>
 
@@ -298,7 +298,7 @@ const SourceTab = ({
             <>
               <div className='text-gray-400 mx-1'>|</div>
               <div className='flex items-center'>
-                <span className='text-sm text-gray-500 mr-2'>Tokens</span>
+                <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Tokens</span>
                 <span className='text-lg font-bold text-green-600'>
                   {totalTokens.toLocaleString()}
                   {isCalculating && (
@@ -391,13 +391,13 @@ const SourceTab = ({
           <div className='mb-2 flex items-center'>
             <label
               htmlFor='file-folder-selection'
-              className='block text-sm font-medium text-gray-700'
+              className='block text-sm font-medium text-gray-700 dark:text-gray-300'
             >
               Select Files and Folders
             </label>
           </div>
 
-          <div id='file-folder-selection' className='rounded-md border border-gray-200 shadow-sm'>
+          <div id='file-folder-selection' className='rounded-md border border-gray-200 dark:border-gray-700 shadow-sm'>
             <FileTree
               items={directoryTree}
               selectedFiles={selectedFiles}

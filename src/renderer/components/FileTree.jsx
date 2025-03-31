@@ -81,8 +81,8 @@ const FileTreeItemComponent = (props) => {
     <div className='my-1'>
       <button
         type='button'
-        className={`flex items-center py-1 hover:bg-gray-100 w-full text-left ${
-          checkboxIsSelected ? 'bg-blue-100' : ''
+        className={`flex items-center py-1 hover:bg-gray-100 dark:hover:bg-gray-700 w-full text-left ${
+          checkboxIsSelected ? 'bg-blue-100 dark:bg-blue-900/30' : ''
         }`}
         style={{ paddingLeft: `${paddingLeft}px` }}
         onClick={handleSelect}
@@ -108,7 +108,7 @@ const FileTreeItemComponent = (props) => {
         {isFolder && (
           <button
             type='button'
-            className='mr-1 size-5 shrink-0 rounded text-gray-500 hover:bg-gray-200 focus:outline-none'
+            className='mr-1 size-5 shrink-0 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none'
             onClick={handleToggle}
             aria-label={isOpen ? 'Collapse folder' : 'Expand folder'}
           >
@@ -119,7 +119,7 @@ const FileTreeItemComponent = (props) => {
         <div className='flex grow items-center overflow-hidden'>
           {isFile ? (
             <>
-              <span className='mr-1 shrink-0 text-gray-500' aria-hidden='true'>
+              <span className='mr-1 shrink-0 text-gray-500 dark:text-gray-400' aria-hidden='true'>
                 📄
               </span>
               <span id={`label-${item.path}`} className='truncate' title={item.path}>
@@ -303,8 +303,8 @@ const FileTreeComponent = (props) => {
   };
 
   return (
-    <div className='file-tree rounded-md border border-gray-200'>
-      <div className='flex items-center justify-between border-b border-gray-200 bg-gray-50 p-2'>
+    <div className='file-tree rounded-md border border-gray-200 dark:border-gray-700'>
+      <div className='flex items-center justify-between border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2'>
         <div className='flex items-center'>
           <input
             type='checkbox'
@@ -318,12 +318,12 @@ const FileTreeComponent = (props) => {
           />
           <label
             htmlFor='select-all-checkbox'
-            className='cursor-pointer select-none text-sm font-medium text-gray-700'
+            className='cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300'
           >
             Select All
           </label>
         </div>
-        <span className='text-xs font-medium text-gray-500'>
+        <span className='text-xs font-medium text-gray-500 dark:text-gray-400'>
           {/* Display file count and total files */}
           <span className='font-medium'>{selectedFiles.length}</span> of {totalFiles} files selected
         </span>
@@ -331,9 +331,9 @@ const FileTreeComponent = (props) => {
 
       <div className='max-h-96 overflow-auto p-2'>
         {!items || items.length === 0 ? (
-          <div className='flex flex-col items-center justify-center p-8 text-center text-gray-500'>
+          <div className='flex flex-col items-center justify-center p-8 text-center text-gray-500 dark:text-gray-400'>
             <svg
-              className='mb-4 size-12 text-gray-400'
+              className='mb-4 size-12 text-gray-400 dark:text-gray-500'
               fill='none'
               stroke='currentColor'
               viewBox='0 0 24 24'
