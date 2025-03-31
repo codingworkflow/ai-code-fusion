@@ -13,21 +13,18 @@ const yamlMock = {
         include_extensions: ['.js', '.jsx'],
         use_custom_includes: true,
         use_gitignore: true,
-        exclude_patterns: ['**/node_modules/**']
+        exclude_patterns: ['**/node_modules/**'],
       };
     }
 
     return {
-      default_value: 'mock_value'
+      default_value: 'mock_value',
     };
   }),
   stringify: jest.fn((obj) => {
     // Simple stringification for testing
-    return JSON.stringify(obj, null, 2)
-      .replace(/"/g, '')
-      .replace(/\{/g, '')
-      .replace(/\}/g, '');
-  })
+    return JSON.stringify(obj, null, 2).replace(/"/g, '').replace(/\{/g, '').replace(/\}/g, '');
+  }),
 };
 
 module.exports = yamlMock;

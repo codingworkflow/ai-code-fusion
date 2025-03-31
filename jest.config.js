@@ -11,9 +11,7 @@ module.exports = {
     '^.+\\.(js|jsx)$': 'babel-jest',
   },
   // Needed to transform ESM modules
-  transformIgnorePatterns: [
-    '/node_modules/(?!(yaml)/)'
-  ],
+  transformIgnorePatterns: ['/node_modules/(?!(yaml)/)'],
   // Test match patterns
   testMatch: ['<rootDir>/tests/**/*.{js,jsx,ts,tsx}'],
   // Set verbose mode for more information during test runs

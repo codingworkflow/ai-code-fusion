@@ -13,7 +13,7 @@ jest.mock('path', () => {
         return mockConfigPath;
       }
       return args.join('/');
-    })
+    }),
   };
 });
 
@@ -29,23 +29,23 @@ describe('config-manager', () => {
     # Default configuration
     use_custom_excludes: true
     use_gitignore: true
-    
+
     # Extensions
     include_extensions:
       - .js
       - .jsx
-    
+
     # Patterns
     exclude_patterns:
       - "**/node_modules/**"
       - "**/.git/**"
   `;
-  
+
   const mockConfigObject = {
     use_custom_excludes: true,
     use_gitignore: true,
     include_extensions: ['.js', '.jsx'],
-    exclude_patterns: ['**/node_modules/**', '**/.git/**']
+    exclude_patterns: ['**/node_modules/**', '**/.git/**'],
   };
 
   beforeEach(() => {
@@ -56,10 +56,10 @@ describe('config-manager', () => {
     test('should load default config file correctly', () => {
       // Setup
       fs.readFileSync.mockReturnValue(mockConfigContent);
-      
+
       // Execute
       const result = loadDefaultConfig();
-      
+
       // Verify
       expect(fs.readFileSync).toHaveBeenCalledWith(mockConfigPath, 'utf8');
       expect(result).toBe(mockConfigContent);
@@ -70,10 +70,10 @@ describe('config-manager', () => {
       fs.readFileSync.mockImplementation(() => {
         throw new Error('File not found');
       });
-      
+
       // Execute
       const result = loadDefaultConfig();
-      
+
       // Verify
       expect(fs.readFileSync).toHaveBeenCalledWith(mockConfigPath, 'utf8');
       expect(result).toBe('{}');
@@ -85,10 +85,10 @@ describe('config-manager', () => {
       // Setup
       fs.readFileSync.mockReturnValue(mockConfigContent);
       yaml.parse.mockReturnValue(mockConfigObject);
-      
+
       // Execute
       const result = getDefaultConfigObject();
-      
+
       // Verify
       expect(fs.readFileSync).toHaveBeenCalledWith(mockConfigPath, 'utf8');
       expect(yaml.parse).toHaveBeenCalledWith(mockConfigContent);
@@ -101,10 +101,10 @@ describe('config-manager', () => {
       yaml.parse.mockImplementation(() => {
         throw new Error('Invalid YAML');
       });
-      
+
       // Execute
       const result = getDefaultConfigObject();
-      
+
       // Verify
       expect(fs.readFileSync).toHaveBeenCalledWith(mockConfigPath, 'utf8');
       expect(yaml.parse).toHaveBeenCalledWith(mockConfigContent);
@@ -116,10 +116,10 @@ describe('config-manager', () => {
       fs.readFileSync.mockImplementation(() => {
         throw new Error('File not found');
       });
-      
+
       // Execute
       const result = getDefaultConfigObject();
-      
+
       // Verify
       expect(fs.readFileSync).toHaveBeenCalledWith(mockConfigPath, 'utf8');
       expect(result).toEqual({});

@@ -7,7 +7,7 @@ const { isBinaryFile } = require('../../../src/utils/file-analyzer');
 jest.mock('fs');
 jest.mock('path');
 jest.mock('../../../src/utils/file-analyzer', () => ({
-  isBinaryFile: jest.fn()
+  isBinaryFile: jest.fn(),
 }));
 
 describe('ContentProcessor', () => {
@@ -17,15 +17,15 @@ describe('ContentProcessor', () => {
   beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();
-    
+
     // Create mock token counter
     mockTokenCounter = {
-      countTokens: jest.fn().mockReturnValue(100)
+      countTokens: jest.fn().mockReturnValue(100),
     };
-    
+
     // Create instance with mock
     contentProcessor = new ContentProcessor(mockTokenCounter);
-    
+
     // Setup path mock
     path.extname.mockImplementation((filePath) => {
       const parts = filePath.split('.');
@@ -39,18 +39,18 @@ describe('ContentProcessor', () => {
       const filePath = '/project/src/file.js';
       const relativePath = 'src/file.js';
       const fileContent = 'const x = 10;';
-      
+
       // Mock dependencies
       isBinaryFile.mockReturnValue(false);
       fs.readFileSync.mockReturnValue(fileContent);
-      
+
       // Execute
       const result = contentProcessor.processFile(filePath, relativePath);
-      
+
       // Verify
       expect(isBinaryFile).toHaveBeenCalledWith(filePath);
       expect(fs.readFileSync).toHaveBeenCalledWith(filePath, { encoding: 'utf-8', flag: 'r' });
-      
+
       // Check formatting
       expect(result).toContain('######');
       expect(result).toContain(relativePath);
@@ -62,19 +62,19 @@ describe('ContentProcessor', () => {
       // Setup
       const filePath = '/project/images/logo.png';
       const relativePath = 'images/logo.png';
-      
+
       // Mock dependencies
       isBinaryFile.mockReturnValue(true);
       fs.statSync.mockReturnValue({ size: 1024 });
       path.extname.mockReturnValue('.png');
-      
+
       // Execute
       const result = contentProcessor.processFile(filePath, relativePath);
-      
+
       // Verify
       expect(isBinaryFile).toHaveBeenCalledWith(filePath);
       expect(fs.statSync).toHaveBeenCalledWith(filePath);
-      
+
       // Check formatting
       expect(result).toContain('######');
       expect(result).toContain(`${relativePath} (binary file)`);
@@ -87,20 +87,20 @@ describe('ContentProcessor', () => {
       // Setup
       const filePath = '/project/src/missing.js';
       const relativePath = 'src/missing.js';
-      
+
       // Mock dependencies
       isBinaryFile.mockReturnValue(false);
       fs.readFileSync.mockImplementation(() => {
         throw new Error('File not found');
       });
-      
+
       // Execute
       const result = contentProcessor.processFile(filePath, relativePath);
-      
+
       // Verify
       expect(isBinaryFile).toHaveBeenCalledWith(filePath);
       expect(fs.readFileSync).toHaveBeenCalledWith(filePath, { encoding: 'utf-8', flag: 'r' });
-      
+
       // Should return null on error
       expect(result).toBeNull();
     });
@@ -111,21 +111,21 @@ describe('ContentProcessor', () => {
       const relativePath = 'src/file.js';
       const fileContent = 'const x = 10;';
       const options = {
-        showTokenCount: true
+        showTokenCount: true,
       };
-      
+
       // Mock dependencies
       isBinaryFile.mockReturnValue(false);
       fs.readFileSync.mockReturnValue(fileContent);
       mockTokenCounter.countTokens.mockReturnValue(42);
-      
+
       // Execute
       const result = contentProcessor.processFile(filePath, relativePath, options);
-      
+
       // Verify core behavior
       expect(isBinaryFile).toHaveBeenCalledWith(filePath);
       expect(fs.readFileSync).toHaveBeenCalledWith(filePath, { encoding: 'utf-8', flag: 'r' });
-      
+
       // With mock implementation, just check it returned properly formatted content
       expect(result).toContain('######');
       expect(result).toContain(relativePath);
@@ -143,16 +143,16 @@ describe('ContentProcessor', () => {
 src/utils/helper.js
 50
 Total tokens: 150`;
-      
+
       // Mock dependencies
       fs.readFileSync.mockReturnValue(analysisContent);
-      
+
       // Execute
       const result = contentProcessor.readAnalysisFile(analysisPath);
-      
+
       // Verify
       expect(fs.readFileSync).toHaveBeenCalledWith(analysisPath, { encoding: 'utf-8', flag: 'r' });
-      
+
       // Check parsing
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({ path: 'src/file.js', tokens: 100 });
@@ -166,16 +166,16 @@ Total tokens: 150`;
 not-a-number
 src/utils/helper.js
 50`;
-      
+
       // Mock dependencies
       fs.readFileSync.mockReturnValue(analysisContent);
-      
+
       // Execute
       const result = contentProcessor.readAnalysisFile(analysisPath);
-      
+
       // Verify
       expect(fs.readFileSync).toHaveBeenCalledWith(analysisPath, { encoding: 'utf-8', flag: 'r' });
-      
+
       // Should only include the valid entry
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({ path: 'src/utils/helper.js', tokens: 50 });
@@ -184,18 +184,18 @@ src/utils/helper.js
     test('should handle errors when reading analysis file', () => {
       // Setup
       const analysisPath = '/project/missing.txt';
-      
+
       // Mock dependencies
       fs.readFileSync.mockImplementation(() => {
         throw new Error('File not found');
       });
-      
+
       // Execute
       const result = contentProcessor.readAnalysisFile(analysisPath);
-      
+
       // Verify
       expect(fs.readFileSync).toHaveBeenCalledWith(analysisPath, { encoding: 'utf-8', flag: 'r' });
-      
+
       // Should return empty array on error
       expect(result).toEqual([]);
     });

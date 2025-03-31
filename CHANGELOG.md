@@ -2,20 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v0.1.0] - 2025-03-11
-
-Initial release of the AI Code Fusion application with the following features:
-
-- Visual interface for selecting and analyzing source code directories
-- Custom file inclusion/exclusion patterns
-- Configurable token counting
-- Code content processing for AI systems
-- Multi-platform support (Windows, macOS, Linux)
-- Directory tree visualization
-- File analyzer with token estimation
-- Token counter with multiple models support
-
-## [v0.2.0] - 2025-03-30
+## [v0.2.0] - 2025-03-31
 
 ### Added
 
@@ -35,3 +22,16 @@ Initial release of the AI Code Fusion application with the following features:
 
 - Multiple bug fixes in file selection and processing
 - Added robust testing for file selection edge cases
+
+## [v0.1.0] - 2025-03-11
+
+Initial release of the AI Code Fusion application with the following features:
+
+- Visual interface for selecting and analyzing source code directories
+- Custom file inclusion/exclusion patterns
+- Configurable token counting
+- Code content processing for AI systems
+- Multi-platform support (Windows, macOS, Linux)
+- Directory tree visualization
+- File analyzer with token estimation
+- Token counter with multiple models support

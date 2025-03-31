@@ -397,7 +397,10 @@ const SourceTab = ({
             </label>
           </div>
 
-          <div id='file-folder-selection' className='rounded-md border border-gray-200 dark:border-gray-700 shadow-sm'>
+          <div
+            id='file-folder-selection'
+            className='rounded-md border border-gray-200 dark:border-gray-700 shadow-sm'
+          >
             <FileTree
               items={directoryTree}
               selectedFiles={selectedFiles}

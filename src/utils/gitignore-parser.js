@@ -102,7 +102,7 @@ class GitignoreParser {
     } else {
       // Pattern with wildcards and path separators, but not starting with /
       this._addPattern(result, pattern, isNegated);
-      
+
       // Also add the recursive version for patterns with path separators
       if (pattern.includes('/')) {
         this._addPattern(result, `**/${pattern}`, isNegated);

@@ -1,8 +1,8 @@
 const path = require('path');
-const { 
-  normalizePath, 
-  getRelativePath, 
-  shouldExclude 
+const {
+  normalizePath,
+  getRelativePath,
+  shouldExclude,
 } = require('../../../src/utils/filter-utils');
 
 // Mock path module
@@ -15,15 +15,14 @@ jest.mock('path', () => ({
     }
     return to;
   }),
-  extname: jest.fn().mockImplementation(filePath => {
+  extname: jest.fn().mockImplementation((filePath) => {
     // Extract extension from filename
     const parts = filePath.split('.');
     return parts.length > 1 ? `.${parts[parts.length - 1]}` : '';
-  })
+  }),
 }));
 
 describe('filter-utils', () => {
-  
   describe('normalizePath', () => {
     test('should convert backslashes to forward slashes', () => {
       expect(normalizePath('C:\\path\\to\\file.js')).toBe('C:/path/to/file.js');
@@ -72,14 +71,14 @@ describe('filter-utils', () => {
     test('should not exclude files that match exclude patterns when use_custom_excludes is false', () => {
       const itemPath = '/project/node_modules/package.json';
       const rootPath = '/project';
-      
+
       // When testing custom excludes, gitignore patterns should be empty to isolate the test
       const gitignorePatterns = [];
-      
-      const config = { 
+
+      const config = {
         use_custom_excludes: false, // This is what we're testing - should NOT apply exclude_patterns
-        use_gitignore: false,        // Explicitly disable gitignore to avoid interference
-        exclude_patterns: ['**/node_modules/**'] // This pattern should be ignored due to use_custom_excludes: false
+        use_gitignore: false, // Explicitly disable gitignore to avoid interference
+        exclude_patterns: ['**/node_modules/**'], // This pattern should be ignored due to use_custom_excludes: false
       };
 
       // The function should return false (don't exclude) because use_custom_excludes is false
@@ -90,16 +89,16 @@ describe('filter-utils', () => {
       const itemPath = '/project/src/file.css';
       const rootPath = '/project';
       const excludePatterns = [];
-      const config = { 
+      const config = {
         use_custom_includes: true,
-        include_extensions: ['.js', '.jsx']
+        include_extensions: ['.js', '.jsx'],
       };
 
       // Mock implementation to ensure correct behavior for this test
       jest.spyOn(path, 'extname').mockImplementationOnce(() => '.css');
 
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
-      
+
       // Reset the mock
       path.extname.mockRestore();
     });
@@ -108,9 +107,9 @@ describe('filter-utils', () => {
       const itemPath = '/project/src/file.css';
       const rootPath = '/project';
       const excludePatterns = [];
-      const config = { 
+      const config = {
         use_custom_includes: true,
-        include_extensions: ['.js', '.jsx', '.json']
+        include_extensions: ['.js', '.jsx', '.json'],
       };
 
       // Use a direct mock replacement rather than mockReturnValueOnce
@@ -118,16 +117,18 @@ describe('filter-utils', () => {
       path.extname = jest.fn().mockReturnValue('.css');
 
       // Debug: Log values to understand the issue
-      console.log("Testing file extension exclusion:");
+      console.log('Testing file extension exclusion:');
       console.log(`Path extname returns: ${path.extname(itemPath)}`);
       console.log(`Config includes: ${config.include_extensions}`);
-      console.log(`Should exclude?: ${!config.include_extensions.includes(path.extname(itemPath))}`);
+      console.log(
+        `Should exclude?: ${!config.include_extensions.includes(path.extname(itemPath))}`
+      );
 
       const result = shouldExclude(itemPath, rootPath, excludePatterns, config);
-      
+
       // Restore original function
       path.extname = originalExtname;
-      
+
       expect(result).toBe(true);
     });
 
@@ -135,9 +136,9 @@ describe('filter-utils', () => {
       const itemPath = '/project/src/file.js';
       const rootPath = '/project';
       const excludePatterns = [];
-      const config = { 
+      const config = {
         use_custom_includes: true,
-        include_extensions: ['.js', '.jsx', '.json']
+        include_extensions: ['.js', '.jsx', '.json'],
       };
 
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(false);
@@ -147,9 +148,9 @@ describe('filter-utils', () => {
       const itemPath = '/project/logs/error.log';
       const rootPath = '/project';
       const excludePatterns = ['*.log'];
-      const config = { 
+      const config = {
         use_custom_excludes: false,
-        use_gitignore: true
+        use_gitignore: true,
       };
 
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
@@ -159,9 +160,9 @@ describe('filter-utils', () => {
       const itemPath = '/project/logs/error.log';
       const rootPath = '/project';
       const excludePatterns = ['*.log'];
-      const config = { 
+      const config = {
         use_custom_excludes: false,
-        use_gitignore: false
+        use_gitignore: false,
       };
 
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(false);
@@ -173,12 +174,12 @@ describe('filter-utils', () => {
       // This represents the negated pattern !important.log in gitignore
       const excludePatterns = {
         excludePatterns: ['*.log'],
-        includePatterns: ['important.log']
+        includePatterns: ['important.log'],
       };
-      const config = { 
+      const config = {
         use_custom_excludes: true,
         use_gitignore: true,
-        exclude_patterns: ['important.log'] // explicitly exclude in custom patterns
+        exclude_patterns: ['important.log'], // explicitly exclude in custom patterns
       };
 
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
@@ -190,12 +191,12 @@ describe('filter-utils', () => {
       // This represents the negated pattern !important.log in gitignore
       const excludePatterns = {
         excludePatterns: ['*.log'],
-        includePatterns: ['important.log']
+        includePatterns: ['important.log'],
       };
-      const config = { 
+      const config = {
         use_custom_excludes: true,
         use_gitignore: true,
-        exclude_patterns: ['*.html'] // No explicit exclude for important.log
+        exclude_patterns: ['*.html'], // No explicit exclude for important.log
       };
 
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(false);
@@ -214,8 +215,8 @@ describe('filter-utils', () => {
       const itemPath = null;
       const rootPath = '/project';
       const excludePatterns = ['*.log'];
-      const config = { 
-        use_custom_excludes: true
+      const config = {
+        use_custom_excludes: true,
       };
 
       // Should not throw an error

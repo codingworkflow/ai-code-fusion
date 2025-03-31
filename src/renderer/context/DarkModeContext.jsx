@@ -63,7 +63,7 @@ export const useDarkMode = () => {
   if (context === undefined) {
     // Provide a fallback instead of throwing an error
     console.warn('useDarkMode was called outside of its Provider - using fallback values');
-    
+
     // Return a fallback implementation that doesn't cause the app to crash
     return {
       darkMode: document.documentElement.classList.contains('dark'),
@@ -76,7 +76,7 @@ export const useDarkMode = () => {
           document.documentElement.classList.add('dark');
           localStorage.setItem('darkMode', 'true');
         }
-      }
+      },
     };
   }
   return context;

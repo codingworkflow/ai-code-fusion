@@ -187,7 +187,7 @@ describe('GitignoreParser', () => {
       fs.existsSync.mockImplementation(() => {
         return true; // Both root and nested gitignore files exist
       });
-      
+
       // Different content for different paths
       fs.readFileSync.mockImplementation((path) => {
         if (path === mockGitignorePath) {
@@ -218,7 +218,7 @@ describe('GitignoreParser', () => {
 
       // Parse root gitignore
       const rootResult = gitignoreParser.parseGitignore(mockRootPath);
-      
+
       // Verify root patterns
       expect(rootResult.excludePatterns).toContain('*.log');
       expect(rootResult.excludePatterns).toContain('node_modules/');
@@ -226,7 +226,7 @@ describe('GitignoreParser', () => {
       // Parse src gitignore
       const srcPath = `${mockRootPath}/src`;
       const srcResult = gitignoreParser.parseGitignore(srcPath);
-      
+
       // Verify src patterns - these patterns are added by _processSimplePattern
       expect(srcResult.excludePatterns).toContain('*.test.js');
       expect(srcResult.excludePatterns).toContain('**/*.test.js');
@@ -247,7 +247,7 @@ describe('GitignoreParser', () => {
         **/dist/**
         **/coverage/**
         src/**/temp/*
-        
+
         # Complex glob patterns
         **/*.{js,ts,jsx,tsx}.map
       `);
@@ -258,7 +258,7 @@ describe('GitignoreParser', () => {
       expect(result.excludePatterns).toContain('**/dist/**');
       expect(result.excludePatterns).toContain('**/coverage/**');
       expect(result.excludePatterns).toContain('src/**/temp/*');
-      
+
       // Check complex extension pattern
       expect(result.excludePatterns).toContain('**/*.{js,ts,jsx,tsx}.map');
     });
@@ -336,9 +336,9 @@ describe('GitignoreParser', () => {
       expect(result.excludePatterns).toContain('**/index.js.map');
       expect(result.excludePatterns).toContain('**/output.css');
     });
-    
+
     test('should handle Windows line endings (CRLF)', () => {
-      const content = "*.log\r\nnode_modules/\r\n!important.log\r\n";
+      const content = '*.log\r\nnode_modules/\r\n!important.log\r\n';
 
       const result = gitignoreParser._parseGitignoreContent(content);
 
@@ -348,7 +348,7 @@ describe('GitignoreParser', () => {
       expect(result.includePatterns).toContain('important.log');
     });
   });
-  
+
   describe('Negation and pattern precedence', () => {
     test('should handle overlapping inclusion and exclusion patterns', () => {
       // Setup fs mocks
@@ -356,10 +356,10 @@ describe('GitignoreParser', () => {
       fs.readFileSync.mockReturnValue(`
         # Exclude all logs
         *.log
-        
+
         # But include important logs
         !important.log
-        
+
         # Re-exclude a specific important log
         important-but-secret.log
       `);
@@ -371,20 +371,20 @@ describe('GitignoreParser', () => {
       expect(result.includePatterns).toContain('important.log');
       expect(result.excludePatterns).toContain('important-but-secret.log');
     });
-    
+
     test('should handle complex negation cases with directories', () => {
       // Setup fs mocks
       fs.existsSync.mockReturnValue(true);
       fs.readFileSync.mockReturnValue(`
         # Ignore all of node_modules
         node_modules/
-        
+
         # But include this important package
         !node_modules/important-pkg/
-        
+
         # Exclude tests inside the important package
         node_modules/important-pkg/**/*.test.js
-        
+
         # But include one specific test file
         !node_modules/important-pkg/src/critical.test.js
       `);
@@ -397,7 +397,7 @@ describe('GitignoreParser', () => {
       expect(result.excludePatterns).toContain('node_modules/important-pkg/**/*.test.js');
       expect(result.includePatterns).toContain('node_modules/important-pkg/src/critical.test.js');
     });
-    
+
     test('should correctly normalize path patterns', () => {
       // Setup fs mocks
       fs.existsSync.mockReturnValue(true);
@@ -411,20 +411,20 @@ describe('GitignoreParser', () => {
 
       // Clear cache first to ensure clean state
       gitignoreParser.clearCache();
-      
+
       const result = gitignoreParser.parseGitignore(mockRootPath);
-      
+
       // Check normalized patterns
       expect(result.excludePatterns).toContain('root-only.js');
-      
+
       // Check path patterns
       expect(result.excludePatterns).toContain('src/only-in-src.js');
       expect(result.excludePatterns).toContain('**/src/only-in-src.js');
-      
+
       // Check wildcard paths
       expect(result.excludePatterns).toContain('docs/*.md');
       expect(result.excludePatterns).toContain('**/docs/*.md');
-      
+
       // Check existing recursive patterns
       expect(result.excludePatterns).toContain('**/components/*.jsx');
     });

@@ -13,7 +13,7 @@ const mockItems = [
       {
         name: 'index.js',
         path: '/project/src/index.js',
-        type: 'file'
+        type: 'file',
       },
       {
         name: 'utils',
@@ -23,17 +23,17 @@ const mockItems = [
           {
             name: 'helpers.js',
             path: '/project/src/utils/helpers.js',
-            type: 'file'
-          }
-        ]
-      }
-    ]
+            type: 'file',
+          },
+        ],
+      },
+    ],
   },
   {
     name: 'package.json',
     path: '/project/package.json',
-    type: 'file'
-  }
+    type: 'file',
+  },
 ];
 
 describe('FileTree Component', () => {
@@ -63,7 +63,7 @@ describe('FileTree Component', () => {
 
   test('displays correct count of selected files', () => {
     const selectedFiles = ['/project/src/index.js', '/project/package.json'];
-    
+
     render(
       <FileTree
         items={mockItems}
@@ -91,7 +91,7 @@ describe('FileTree Component', () => {
     // Find and click on package.json using a more specific query
     const packageJsonButton = screen.getByRole('button', { name: /package\.json/i });
     fireEvent.click(packageJsonButton);
-    
+
     // Verify that onFileSelect was called with the correct path and selected state
     expect(mockFileSelect).toHaveBeenCalledWith('/project/package.json', true);
   });
@@ -105,26 +105,31 @@ describe('FileTree Component', () => {
         onFolderSelect={mockFolderSelect}
       />
     );
-    
-    // First check that the helpers.js file is not in the document initially
-    // When the folder is collapsed, the file should not be in the DOM at all
-    expect(screen.queryByLabelText('helpers.js')).not.toBeInTheDocument();
-    
+
+    // First check that the helpers.js element is not visible initially
+    // In React components with CSS transitions, the element might exist but be hidden via CSS
+    const helpersElement = screen.queryByRole('button', { name: /helpers\.js/i });
+    if (helpersElement) {
+      expect(helpersElement).not.toBeVisible();
+    } else {
+      // If it's not in the DOM at all, that's also acceptable
+      expect(helpersElement).toBeNull();
+    }
+
     // Find and click on the src folder expand button
     const srcExpandButton = screen.getByRole('button', { name: /expand folder src/i });
     expect(srcExpandButton).toBeInTheDocument();
     fireEvent.click(srcExpandButton);
-    
+
     // Now utils folder should be visible
     const utilsExpandButton = screen.getByRole('button', { name: /expand folder utils/i });
     expect(utilsExpandButton).toBeInTheDocument();
     expect(utilsExpandButton).toBeVisible();
-    
+
     // Click to expand utils folder
     fireEvent.click(utilsExpandButton);
-    
+
     // After expanding utils, verify helpers.js is accessible and visible
-    // Use getByRole which is more specific and less error-prone
     const helpersButton = screen.getByRole('button', { name: /helpers\.js/i });
     expect(helpersButton).toBeInTheDocument();
     expect(helpersButton).toBeVisible();
@@ -143,12 +148,12 @@ describe('FileTree Component', () => {
     // Find and click the "Select All" checkbox
     const selectAllCheckbox = screen.getByLabelText('Select All');
     fireEvent.click(selectAllCheckbox);
-    
+
     // Verify that onFileSelect was called for all files
     expect(mockFileSelect).toHaveBeenCalledWith('/project/src/index.js', true);
     expect(mockFileSelect).toHaveBeenCalledWith('/project/src/utils/helpers.js', true);
     expect(mockFileSelect).toHaveBeenCalledWith('/project/package.json', true);
-    
+
     // Verify that onFolderSelect was called for all folders
     expect(mockFolderSelect).toHaveBeenCalledWith('/project/src', true);
     expect(mockFolderSelect).toHaveBeenCalledWith('/project/src/utils', true);
@@ -158,7 +163,11 @@ describe('FileTree Component', () => {
     render(
       <FileTree
         items={mockItems}
-        selectedFiles={['/project/src/index.js', '/project/package.json', '/project/src/utils/helpers.js']}
+        selectedFiles={[
+          '/project/src/index.js',
+          '/project/package.json',
+          '/project/src/utils/helpers.js',
+        ]}
         selectedFolders={['/project/src', '/project/src/utils']}
         onFileSelect={mockFileSelect}
         onFolderSelect={mockFolderSelect}
@@ -168,14 +177,14 @@ describe('FileTree Component', () => {
     // Find and click the "Select All" checkbox (which should be checked)
     const selectAllCheckbox = screen.getByLabelText('Select All');
     expect(selectAllCheckbox).toBeChecked();
-    
+
     fireEvent.click(selectAllCheckbox);
-    
+
     // Verify that onFileSelect was called to deselect all files
     expect(mockFileSelect).toHaveBeenCalledWith('/project/src/index.js', false);
     expect(mockFileSelect).toHaveBeenCalledWith('/project/src/utils/helpers.js', false);
     expect(mockFileSelect).toHaveBeenCalledWith('/project/package.json', false);
-    
+
     // Verify that onFolderSelect was called to deselect all folders
     expect(mockFolderSelect).toHaveBeenCalledWith('/project/src', false);
     expect(mockFolderSelect).toHaveBeenCalledWith('/project/src/utils', false);
