@@ -10,19 +10,13 @@ This document provides detailed information for developers working on the AI Cod
 - npm
 - Git
 
-### Development Container (Recommended)
-
-This project includes a development container configuration that provides a consistent, pre-configured development environment.
-
-For detailed instructions on using the dev container, see the [Dev Container Guide](DEV_CONTAINER.md).
-
 ### Platform-Specific Build Instructions
 
 #### Windows
 
 Use the included `make.bat` file for all build commands:
 
-```
+```cmd
 make <command>
 ```
 
@@ -30,7 +24,7 @@ make <command>
 
 Use the included `Makefile`:
 
-```
+```bash
 make <command>
 ```
 
@@ -89,19 +83,20 @@ If you encounter issues with the development server:
 
 1. Clean the build outputs and reinstall dependencies:
 
-   ```
+   ```bash
    make clean
    make fix-deps
    ```
 
 2. Make sure the CSS is built before starting the dev server:
 
-   ```
+   ```bash
    npm run build:css
    ```
 
 3. Start the development server:
-   ```
+
+   ```bash
    npm run dev
    ```
 
@@ -129,28 +124,36 @@ make test-file FILE=src/__tests__/token-counter.test.js
 For project maintainers, follow these steps to create a new release:
 
 1. Ensure all changes are committed to the main branch
-2. Run the release preparation script:
+2. Run the release preparation script using either method:
 
-```bash
+   ```bash
+   # Using the scripts/index.js entry point (recommended)
+   node scripts/index.js release <version>
+
+   # OR using the direct script
    node scripts/prepare-release.js <version>
-```
+   ```
 
-Where `<version>` can be:
+   Where `<version>` can be:
 
-- A specific version number (e.g., `1.0.0`)
-- `patch` - increment the patch version
-- `minor` - increment the minor version
-- `major` - increment the major version
+   - A specific version number (e.g., `1.0.0`)
+   - `patch` - increment the patch version
+   - `minor` - increment the minor version
+   - `major` - increment the major version
 
 3. Enter the changelog entries when prompted
-4. Push the tag to GitHub when prompted
-5. The GitHub Actions workflow will automatically:
-   - Build the application for Windows and Linux
+4. Confirm git tag creation when prompted
+5. Push the changes and tag to GitHub:
+
+   ```bash
+   git push && git push origin v<version>
+   ```
+
+6. The GitHub Actions workflow will automatically:
+   - Build the application for Windows, macOS, and Linux
    - Create a GitHub Release
    - Upload the builds as release assets
-6. Go to the GitHub releases page to review the draft release and publish it
-
-See the [scripts/README.md](../scripts/README.md) file for more details on the release process.
+7. Go to the GitHub releases page to review the draft release and publish it
 
 ## Project Structure
 

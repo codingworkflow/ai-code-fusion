@@ -19,7 +19,7 @@ Note: The SonarQube Scanner is now included as a dependency in the project, so y
 
 2. Edit the `.env` file and set your SonarQube server URL, authentication token, and project key:
 
-   ```
+   ```bash
    SONAR_URL=http://your-sonarqube-server:9000
    SONAR_TOKEN=your-sonar-auth-token
    SONAR_PROJECT_KEY=ai-code-fusion

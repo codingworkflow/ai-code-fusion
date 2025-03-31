@@ -14,7 +14,7 @@ A desktop application for preparing and optimizing code repositories for AI proc
 
 ### Download
 
-Download the latest version for your platform from the [Releases page](https://github.com/user/repo/releases).
+Download the latest version for your platform from the [Releases page](https://github.com/codingworkflow/ai-code-fusion/releases).
 
 ### Windows
 
@@ -36,45 +36,41 @@ Download the latest version for your platform from the [Releases page](https://g
 
 ## Usage Guide
 
-### 1. Configuration
+### 1. Start and Filters
 
-Configure file filtering to include or exclude specific file types and patterns.
+The application now features both Dark and Light modes for improved user experience.
+![Start Panel Dark Mode](assets/ai_code_fusion_1.jpg)
 
-![Config Panel](assets/ai_code_fusion_1.jpg)
+![Start Panel Light Mode](assets/ai_code_fusion_2.jpg)
 
-- Set file extensions to include (e.g., `.js`, `.py`, `.cpp`)
-- Define patterns to exclude (e.g., `node_modules`, `.git`, `build`)
-- Choose your token counting model based on your target AI system
+Extended file filtering options:
+
+- Exclude specific file types and patterns (using glob patterns) to remove build folders, venv, node_modules, .git from tree view and file selection
+- Automatically exclude files based on .gitignore files in your repository
+- Reduce selection to only the file extensions you specify
+- Display token count in real-time during selection (can be disabled for very large repositories)
+- Include file tree in output (recommended for better context in AI models)
 
 ### 2. File Selection
 
-Select files and directories to analyze and process.
-
-![Source Panel](assets/ai_code_fusion_2.jpg)
-
-- Browse and select your root project directory
-- Use the tree view to select specific files or folders
-- See file counts and sizes in real-time
-
-### 3. Token Analysis
-
-Get accurate token estimations before processing.
+Select specific files and directories to analyze and process.
 
 ![Analysis Panel](assets/ai_code_fusion_3.jpg)
 
-- View token counts per file and total
-- See character and line counts
-- Get estimations for different AI models
+- Browse and select your root project directory
+- Use the tree view to select specific files or folders
+- See file counts and token sizes in real-time (when token display is enabled)
 
-### 4. Final Processing
+### 3. Final Processing
 
 Generate the processed output ready for use with AI systems.
 
 ![Processing  Panel](assets/ai_code_fusion_4.jpg)
 
-- Get the final processed content
-- Copy directly to clipboard
-- Export to file if needed
+- View the final processed content ready for AI systems
+- Copy content directly to clipboard for immediate use
+- Export to file for later reference
+- Review files by token count to help identify large files you may want to exclude
 
 ## Building from Source
 
@@ -88,8 +84,8 @@ Generate the processed output ready for use with AI systems.
 
 ```bash
 # Clone the repository
-git clone https://github.com/user/repo.git
-cd repo
+git clone https://github.com/codingworkflow/ai-code-fusion
+cd ai-code-fusion
 
 # Install dependencies
 make setup
