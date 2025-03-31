@@ -97,9 +97,6 @@ describe('FileTree Component', () => {
   });
 
   test('toggles folder expansion when folder is clicked', () => {
-    // Import testing library for visibility queries
-    const { render, screen, fireEvent } = require('@testing-library/react');
-    
     render(
       <FileTree
         items={mockItems}
@@ -109,32 +106,28 @@ describe('FileTree Component', () => {
       />
     );
     
-    // Helper function to recursively render the full tree for debugging
-    const renderFullTree = () => {
-      // Expand all folders
-      const expandButtons = screen.getAllByRole('button', { name: /expand folder/i });
-      expandButtons.forEach(button => {
-        fireEvent.click(button);
-      });
-    };
+    // First check that the helpers.js file is not in the document initially
+    // When the folder is collapsed, the file should not be in the DOM at all
+    expect(screen.queryByLabelText('helpers.js')).not.toBeInTheDocument();
     
-    // First, check if the utils folder is accessible after expanding src
+    // Find and click on the src folder expand button
     const srcExpandButton = screen.getByRole('button', { name: /expand folder src/i });
     expect(srcExpandButton).toBeInTheDocument();
-    
-    // Click to expand src folder
     fireEvent.click(srcExpandButton);
     
     // Now utils folder should be visible
     const utilsExpandButton = screen.getByRole('button', { name: /expand folder utils/i });
     expect(utilsExpandButton).toBeInTheDocument();
+    expect(utilsExpandButton).toBeVisible();
     
     // Click to expand utils folder
     fireEvent.click(utilsExpandButton);
     
-    // After expanding utils, verify helpers.js is accessible
-    const helpersButton = screen.getByText('helpers.js');
+    // After expanding utils, verify helpers.js is accessible and visible
+    // Use getByRole which is more specific and less error-prone
+    const helpersButton = screen.getByRole('button', { name: /helpers\.js/i });
     expect(helpersButton).toBeInTheDocument();
+    expect(helpersButton).toBeVisible();
   });
 
   test('selects all files when "Select All" is clicked', () => {

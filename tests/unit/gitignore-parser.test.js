@@ -1,5 +1,5 @@
 const fs = require('fs');
-const path = require('path');
+const path = require('path'); // Add missing path import
 const { GitignoreParser } = require('../../src/utils/gitignore-parser');
 
 // Mock fs and path modules
@@ -184,7 +184,7 @@ describe('GitignoreParser', () => {
 
     test('should handle nested gitignore files through cache keys', () => {
       // Setup fs mocks
-      fs.existsSync.mockImplementation((path) => {
+      fs.existsSync.mockImplementation(() => {
         return true; // Both root and nested gitignore files exist
       });
       

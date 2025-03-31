@@ -4,7 +4,6 @@ const {
   getRelativePath, 
   shouldExclude 
 } = require('../../../src/utils/filter-utils');
-const fnmatch = require('../../../src/utils/fnmatch');
 
 // Mock path module
 jest.mock('path', () => ({
@@ -15,6 +14,11 @@ jest.mock('path', () => ({
       return to.substring(from.length).replace(/^\//, '');
     }
     return to;
+  }),
+  extname: jest.fn().mockImplementation(filePath => {
+    // Extract extension from filename
+    const parts = filePath.split('.');
+    return parts.length > 1 ? `.${parts[parts.length - 1]}` : '';
   })
 }));
 
@@ -40,14 +44,14 @@ describe('filter-utils', () => {
 
   describe('getRelativePath', () => {
     test('should get path relative to root', () => {
-      path.relative.mockImplementationOnce((from, to) => 'src/file.js');
+      path.relative.mockImplementationOnce(() => 'src/file.js');
       const result = getRelativePath('/root/src/file.js', '/root');
       expect(result).toBe('src/file.js');
       expect(path.relative).toHaveBeenCalledWith('/root', '/root/src/file.js');
     });
 
     test('should normalize the result', () => {
-      path.relative.mockImplementationOnce((from, to) => 'src\\file.js');
+      path.relative.mockImplementationOnce(() => 'src\\file.js');
       const result = getRelativePath('/root/src/file.js', '/root');
       expect(result).toBe('src/file.js');
     });
@@ -68,14 +72,17 @@ describe('filter-utils', () => {
     test('should not exclude files that match exclude patterns when use_custom_excludes is false', () => {
       const itemPath = '/project/node_modules/package.json';
       const rootPath = '/project';
-      // Empty array for gitignore patterns - this parameter represents gitignore patterns, not custom excludes
+      
+      // When testing custom excludes, gitignore patterns should be empty to isolate the test
       const gitignorePatterns = [];
+      
       const config = { 
-        use_custom_excludes: false,
-        // Put the exclude pattern in the config object where it belongs
-        exclude_patterns: ['**/node_modules/**']
+        use_custom_excludes: false, // This is what we're testing - should NOT apply exclude_patterns
+        use_gitignore: false,        // Explicitly disable gitignore to avoid interference
+        exclude_patterns: ['**/node_modules/**'] // This pattern should be ignored due to use_custom_excludes: false
       };
 
+      // The function should return false (don't exclude) because use_custom_excludes is false
       expect(shouldExclude(itemPath, rootPath, gitignorePatterns, config)).toBe(false);
     });
 
@@ -89,7 +96,7 @@ describe('filter-utils', () => {
       };
 
       // Mock implementation to ensure correct behavior for this test
-      jest.spyOn(path, 'extname').mockImplementationOnce((file) => '.css');
+      jest.spyOn(path, 'extname').mockImplementationOnce(() => '.css');
 
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
       
@@ -106,7 +113,22 @@ describe('filter-utils', () => {
         include_extensions: ['.js', '.jsx', '.json']
       };
 
-      expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
+      // Use a direct mock replacement rather than mockReturnValueOnce
+      const originalExtname = path.extname;
+      path.extname = jest.fn().mockReturnValue('.css');
+
+      // Debug: Log values to understand the issue
+      console.log("Testing file extension exclusion:");
+      console.log(`Path extname returns: ${path.extname(itemPath)}`);
+      console.log(`Config includes: ${config.include_extensions}`);
+      console.log(`Should exclude?: ${!config.include_extensions.includes(path.extname(itemPath))}`);
+
+      const result = shouldExclude(itemPath, rootPath, excludePatterns, config);
+      
+      // Restore original function
+      path.extname = originalExtname;
+      
+      expect(result).toBe(true);
     });
 
     test('should include files with matching extensions when use_custom_includes is true', () => {

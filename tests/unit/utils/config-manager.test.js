@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 const yaml = require('yaml');
 
 // Mock path BEFORE requiring the module under test

@@ -1,7 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import ConfigTab from '../../../src/renderer/components/ConfigTab';
-import * as listFormatter from '../../../src/utils/formatters/list-formatter';
 
 // Mock the list formatter
 jest.mock('../../../src/utils/formatters/list-formatter', () => ({
