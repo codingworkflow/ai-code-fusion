@@ -46,6 +46,9 @@ make build-win
 # Build for Linux
 make build-linux
 
+# Build for Mac
+make build-mac
+
 # Run tests
 make test
 

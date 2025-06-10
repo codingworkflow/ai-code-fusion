@@ -5,8 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { promisify } = require('util');
-const rimraf = promisify(require('rimraf'));
+const { rimraf } = require('rimraf');
 
 // Asset paths relative to project root
 const assetPaths = [
