@@ -4,6 +4,16 @@ const fs = require('fs');
 const path = require('path');
 const sonarqubeScanner = require('sonarqube-scanner');
 
+function redactUrlForLogs(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    const portSegment = parsed.port ? `:${parsed.port}` : '';
+    return `${parsed.protocol}//<redacted-host>${portSegment}`;
+  } catch (_error) {
+    return '<redacted-url>';
+  }
+}
+
 function parseEnvValue(rawValue) {
   const value = rawValue.trim();
   if (
@@ -260,7 +270,7 @@ try {
 }
 
 console.log('Starting SonarQube scan...');
-console.log(`SonarQube Server: ${sonarUrl}`);
+console.log(`SonarQube Server: ${redactUrlForLogs(sonarUrl)}`);
 if (!sonarToken) {
   console.log('SONAR_TOKEN not set; attempting unauthenticated scan');
 }
