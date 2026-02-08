@@ -14,34 +14,48 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
 
   const handleSave = async () => {
     setIsSaving(true);
-    await onSave();
-    setTimeout(() => {
-      setIsSaving(false);
-    }, 1000);
+    try {
+      await onSave();
+    } catch (error) {
+      console.error('Failed to save:', error);
+    } finally {
+      setTimeout(() => {
+        setIsSaving(false);
+      }, 1000);
+    }
   };
 
   const handleRefresh = async () => {
     if (onRefresh) {
       setIsRefreshing(true);
-      await onRefresh();
-      setTimeout(() => {
-        setIsRefreshing(false);
-      }, 1000);
+      try {
+        await onRefresh();
+      } catch (error) {
+        console.error('Failed to refresh:', error);
+      } finally {
+        setTimeout(() => {
+          setIsRefreshing(false);
+        }, 1000);
+      }
     }
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (processedResult) {
-      navigator.clipboard.writeText(processedResult.content);
-      setIsCopied(true);
-      setTimeout(() => {
-        setIsCopied(false);
-      }, 2000);
+      try {
+        await navigator.clipboard.writeText(processedResult.content);
+        setIsCopied(true);
+        setTimeout(() => {
+          setIsCopied(false);
+        }, 2000);
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
+      }
     }
   };
 
   return (
-    <div>
+    <div className='flex h-full min-h-0 flex-col'>
       {processedResult ? (
         <>
           {/* Action buttons with processing stats in the center */}
@@ -103,7 +117,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
             <div className='flex items-center'>
               <div className='flex items-center'>
                 <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Files</span>
-                <span className='text-lg font-bold text-blue-600'>
+                <span className='text-lg font-bold text-blue-600 dark:text-blue-400'>
                   {processedResult.processedFiles}
                 </span>
               </div>
@@ -112,7 +126,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
 
               <div className='flex items-center'>
                 <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Tokens</span>
-                <span className='text-lg font-bold text-green-600'>
+                <span className='text-lg font-bold text-green-600 dark:text-green-400'>
                   {processedResult.totalTokens.toLocaleString()}
                 </span>
               </div>
@@ -122,7 +136,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
                   <div className='text-gray-400 mx-3'>|</div>
                   <div className='flex items-center'>
                     <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Skipped</span>
-                    <span className='text-lg font-bold text-amber-600'>
+                    <span className='text-lg font-bold text-amber-600 dark:text-amber-400'>
                       {processedResult.skippedFiles}
                     </span>
                   </div>
@@ -133,7 +147,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
             <div className='flex space-x-2'>
               <button
                 onClick={handleCopy}
-                className='inline-flex items-center border border-gray-300 bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
+                className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
               >
                 {isCopied ? (
                   '✓ Copied'
@@ -183,7 +197,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
             </div>
           </div>
 
-          <div className='mb-4'>
+          <div className='mb-4 flex min-h-0 flex-1 flex-col'>
             <div className='mb-1 flex items-center justify-between'>
               <label
                 htmlFor='processed-content'
@@ -197,7 +211,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
             </div>
             <div
               id='processed-content'
-              className='max-h-[45vh] min-h-48 overflow-auto rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 p-4 shadow-sm'
+              className='min-h-48 min-h-0 flex-1 overflow-auto rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 p-4 shadow-sm'
             >
               <pre className='whitespace-pre-wrap font-mono text-xs leading-5 dark:text-white'>
                 {processedResult.content}
@@ -212,7 +226,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
             </h3>
             <div className='rounded-md border border-gray-200 dark:border-gray-700 shadow-sm'>
               <div className='h-[35vh] min-h-48 max-h-[45vh] overflow-y-auto overflow-x-hidden'>
-                <table className='min-w-full divide-y divide-gray-200'>
+                <table className='min-w-full divide-y divide-gray-200 dark:divide-gray-700'>
                   <thead className='sticky top-0 bg-gray-50 dark:bg-gray-800'>
                     <tr>
                       <th className='px-3 py-1 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400'>

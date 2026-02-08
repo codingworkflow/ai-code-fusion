@@ -12,6 +12,7 @@ import type {
   DirectoryTreeItem,
   ProcessRepositoryOptions,
   ProcessRepositoryResult,
+  TabId,
 } from '../../types/ipc';
 
 // Helper function to ensure consistent error handling
@@ -19,8 +20,6 @@ const ensureError = (error: unknown): Error => {
   if (error instanceof Error) return error;
   return new Error(String(error));
 };
-
-type TabId = 'config' | 'source' | 'processed';
 
 type ProcessingOptions = {
   showTokenCount: boolean;
@@ -578,7 +577,12 @@ const App = () => {
           </div>
 
           {/* Tab content */}
-          <div className='flex-1 min-h-0 overflow-y-auto bg-white dark:bg-gray-800 p-4 border-t-0 text-gray-900 dark:text-gray-100 transition-colors duration-200'>
+          <div
+            role='tabpanel'
+            id={`tabpanel-${activeTab}`}
+            aria-labelledby={`tab-${activeTab}`}
+            className='flex-1 min-h-0 overflow-y-auto bg-white dark:bg-gray-800 p-4 border-t-0 text-gray-900 dark:text-gray-100 transition-colors duration-200'
+          >
             {activeTab === 'config' && (
               <ConfigTab configContent={configContent} onConfigChange={setConfigContent} />
             )}

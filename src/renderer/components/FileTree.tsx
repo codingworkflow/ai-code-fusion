@@ -1,7 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import type { DirectoryTreeItem } from '../../types/ipc';
-
-type SelectionHandler = (path: string, isSelected: boolean) => void;
+import type { DirectoryTreeItem, SelectionHandler } from '../../types/ipc';
 
 type FileTreeItemProps = {
   item: DirectoryTreeItem;
