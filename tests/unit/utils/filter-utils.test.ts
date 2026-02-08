@@ -120,6 +120,18 @@ describe('filter-utils', () => {
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(false);
     });
 
+    test('should treat include_extensions as case-insensitive', () => {
+      const itemPath = '/project/src/FILE.JS';
+      const rootPath = '/project';
+      const excludePatterns = [];
+      const config = {
+        use_custom_includes: true,
+        include_extensions: ['.Js'],
+      };
+
+      expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(false);
+    });
+
     test('should apply include extension filtering by default when use_custom_includes is undefined', () => {
       const itemPath = '/project/src/file.css';
       const rootPath = '/project';
@@ -153,6 +165,17 @@ describe('filter-utils', () => {
       };
 
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(false);
+    });
+
+    test('should apply gitignore excludes by default when use_gitignore is undefined', () => {
+      const itemPath = '/project/logs/error.log';
+      const rootPath = '/project';
+      const excludePatterns = ['*.log'];
+      const config = {
+        use_custom_excludes: false,
+      };
+
+      expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
     });
 
     test('should apply custom excludes by default when use_custom_excludes is undefined', () => {
