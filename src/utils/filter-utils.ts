@@ -10,14 +10,18 @@ export const getRelativePath = (filePath: string, rootPath: string): string =>
   normalizePath(path.relative(rootPath, filePath));
 
 const shouldExcludeByExtension = (itemPath: string, config?: ConfigObject): boolean => {
+  const useCustomIncludes = config?.use_custom_includes !== false;
+
   if (
-    config?.use_custom_includes &&
+    useCustomIncludes &&
     config?.include_extensions &&
     Array.isArray(config.include_extensions) &&
+    config.include_extensions.length > 0 &&
     path.extname(itemPath)
   ) {
     const ext = path.extname(itemPath).toLowerCase();
-    return !config.include_extensions.includes(ext);
+    const includeExtensions = config.include_extensions.map((includeExt) => includeExt.toLowerCase());
+    return !includeExtensions.includes(ext);
   }
 
   return false;
@@ -66,19 +70,16 @@ export const shouldExclude = (
   try {
     const itemName = path.basename(itemPath);
     const normalizedPath = getRelativePath(itemPath, rootPath);
+    const useCustomExcludes = config?.use_custom_excludes !== false;
+    const customExcludes =
+      useCustomExcludes && Array.isArray(config?.exclude_patterns) ? config.exclude_patterns : [];
 
     if (shouldExcludeByExtension(itemPath, config)) {
       return true;
     }
 
-    if (config?.use_custom_excludes === true && config?.exclude_patterns) {
-      const customExcludes = Array.isArray(config.exclude_patterns) ? config.exclude_patterns : [];
-      if (
-        customExcludes.length > 0 &&
-        matchesExcludePatterns(normalizedPath, itemName, customExcludes)
-      ) {
-        return true;
-      }
+    if (customExcludes.length > 0 && matchesExcludePatterns(normalizedPath, itemName, customExcludes)) {
+      return true;
     }
 
     if (config?.use_gitignore !== false) {
@@ -91,7 +92,7 @@ export const shouldExclude = (
       }
 
       const gitignoreExcludes = Array.isArray(excludePatterns)
-        ? excludePatterns.filter((pattern) => !(config?.exclude_patterns || []).includes(pattern))
+        ? excludePatterns.filter((pattern) => !customExcludes.includes(pattern))
         : [];
 
       if (

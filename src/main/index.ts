@@ -101,6 +101,8 @@ app.on('activate', () => {
 
 // IPC Event Handlers
 
+type FilterPatternBundle = string[] & { includePatterns?: string[]; includeExtensions?: string[] };
+
 // Select directory dialog
 ipcMain.handle('dialog:selectDirectory', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow ?? undefined, {
@@ -123,8 +125,7 @@ ipcMain.handle(
   // in the UI tree view. This is critical for performance with large repositories.
 
   // Parse config to get settings and exclude patterns
-  let excludePatterns: (string[] & { includePatterns?: string[]; includeExtensions?: string[] }) =
-    [''];
+  let excludePatterns: FilterPatternBundle = [];
   try {
     const config = (configContent
       ? (yaml.parse(configContent) as ConfigObject)

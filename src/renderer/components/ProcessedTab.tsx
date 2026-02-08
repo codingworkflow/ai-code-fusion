@@ -197,7 +197,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
             </div>
             <div
               id='processed-content'
-              className='max-h-96 overflow-auto rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 p-4 shadow-sm'
+              className='max-h-[45vh] min-h-48 overflow-auto rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 p-4 shadow-sm'
             >
               <pre className='whitespace-pre-wrap font-mono text-xs leading-5 dark:text-white'>
                 {processedResult.content}
@@ -211,7 +211,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
               Files by Token Count
             </h3>
             <div className='rounded-md border border-gray-200 dark:border-gray-700 shadow-sm'>
-              <div className='h-60 max-h-60 overflow-y-auto overflow-x-hidden'>
+              <div className='h-[35vh] min-h-48 max-h-[45vh] overflow-y-auto overflow-x-hidden'>
                 <table className='min-w-full divide-y divide-gray-200'>
                   <thead className='sticky top-0 bg-gray-50 dark:bg-gray-800'>
                     <tr>

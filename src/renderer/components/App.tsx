@@ -512,9 +512,9 @@ const App = () => {
 
   return (
     <DarkModeProvider>
-      <div className='container mx-auto p-4'>
+      <div className='mx-auto flex h-screen w-full max-w-screen-2xl flex-col p-4'>
         {/* Tab navigation and content container */}
-        <div className='w-full border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 transition-colors duration-200'>
+        <div className='flex min-h-0 w-full flex-1 flex-col border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 transition-colors duration-200'>
           {/* Tab Bar and title in the same row */}
           <div className='w-full border-b border-gray-300 dark:border-gray-700 flex justify-between items-center bg-gray-100 dark:bg-gray-800 transition-colors duration-200'>
             <TabBar activeTab={activeTab} onTabChange={handleTabChange} />
@@ -578,7 +578,7 @@ const App = () => {
           </div>
 
           {/* Tab content */}
-          <div className='tab-content bg-white dark:bg-gray-800 p-4 border-t-0 text-gray-900 dark:text-gray-100 transition-colors duration-200'>
+          <div className='flex-1 min-h-0 overflow-y-auto bg-white dark:bg-gray-800 p-4 border-t-0 text-gray-900 dark:text-gray-100 transition-colors duration-200'>
             {activeTab === 'config' && (
               <ConfigTab configContent={configContent} onConfigChange={setConfigContent} />
             )}
