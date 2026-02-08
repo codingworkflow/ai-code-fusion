@@ -1,3 +1,7 @@
+export type TabId = 'config' | 'source' | 'processed';
+
+export type SelectionHandler = (path: string, isSelected: boolean) => void;
+
 export interface ConfigObject {
   include_extensions?: string[];
   exclude_patterns?: string[];

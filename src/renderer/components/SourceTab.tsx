@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import yaml from 'yaml';
 import FileTree from './FileTree';
-import type { CountFilesTokensResult, DirectoryTreeItem } from '../../types/ipc';
-
-type SelectionHandler = (path: string, isSelected: boolean) => void;
+import type { CountFilesTokensResult, DirectoryTreeItem, SelectionHandler } from '../../types/ipc';
 
 type SourceTabProps = {
   rootPath: string;
@@ -44,8 +42,8 @@ const updateTokenCache = (
   });
 };
 
-const getProcessButtonClass = (rootPath: string, selectedFiles: string[], isAnalyzing: boolean) => {
-  const isDisabled = !rootPath || selectedFiles.length === 0 || isAnalyzing;
+const getProcessButtonClass = (rootPath: string, hasSelection: boolean, isAnalyzing: boolean) => {
+  const isDisabled = !rootPath || !hasSelection || isAnalyzing;
 
   const baseClass =
     'inline-flex items-center border border-transparent px-5 py-2 text-sm font-medium text-white shadow-sm';
@@ -211,7 +209,7 @@ const SourceTab = ({
         </div>
       </div>
 
-      <div className='mb-4 flex justify-between items-center'>
+      <div className='mb-4 flex flex-wrap items-center gap-3'>
         {rootPath && (
           <div className='flex space-x-2'>
             <button
@@ -249,6 +247,7 @@ const SourceTab = ({
             <button
               onClick={() => {
                 selectedFiles.forEach((filePath) => onFileSelect(filePath, false));
+                selectedFolders.forEach((folderPath) => onFolderSelect(folderPath, false));
                 setTotalTokens(0);
                 if (pendingCalculationRef.current !== null) {
                   window.clearTimeout(pendingCalculationRef.current);
@@ -278,10 +277,10 @@ const SourceTab = ({
           </div>
         )}
 
-        <div className='flex items-center space-x-4'>
+        <div className='ml-auto flex items-center space-x-4'>
           <div className='flex items-center'>
             <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Files</span>
-            <span className='text-lg font-bold text-blue-600'>{selectedFiles.length}</span>
+            <span className='text-lg font-bold text-blue-600 dark:text-blue-400'>{selectedFiles.length}</span>
           </div>
 
           {showTokenCount && (
@@ -289,7 +288,7 @@ const SourceTab = ({
               <div className='text-gray-400 mx-1'>|</div>
               <div className='flex items-center'>
                 <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Tokens</span>
-                <span className='text-lg font-bold text-green-600'>
+                <span className='text-lg font-bold text-green-600 dark:text-green-400'>
                   {totalTokens.toLocaleString()}
                   {isCalculating && (
                     <svg
@@ -330,8 +329,8 @@ const SourceTab = ({
                 setIsAnalyzing(false);
               });
           }}
-          disabled={!rootPath || selectedFiles.length === 0 || isAnalyzing}
-          className={getProcessButtonClass(rootPath, selectedFiles, isAnalyzing)}
+          disabled={!rootPath || (selectedFiles.length === 0 && selectedFolders.length === 0) || isAnalyzing}
+          className={getProcessButtonClass(rootPath, selectedFiles.length > 0 || selectedFolders.length > 0, isAnalyzing)}
         >
           {isAnalyzing ? (
             <>
@@ -404,7 +403,7 @@ const SourceTab = ({
           </div>
         </div>
       ) : rootPath ? (
-        <div className='mb-6 rounded-md border border-gray-200 bg-gray-50 p-8 text-center'>
+        <div className='mb-6 rounded-md border border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800'>
           <svg
             className='mx-auto size-12 text-gray-400'
             fill='none'
@@ -419,13 +418,13 @@ const SourceTab = ({
               d='M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z'
             ></path>
           </svg>
-          <p className='mt-2 text-gray-500'>Loading directory content...</p>
+          <p className='mt-2 text-gray-500 dark:text-gray-400'>Loading directory content...</p>
         </div>
       ) : null}
 
       {isAnalyzing && (
-        <div className='mt-4 p-4 bg-blue-50 rounded-md border border-blue-100'>
-          <div className='flex items-center justify-center text-blue-700'>
+        <div className='mt-4 p-4 bg-blue-50 rounded-md border border-blue-100 dark:border-blue-800 dark:bg-blue-900/30'>
+          <div className='flex items-center justify-center text-blue-700 dark:text-blue-300'>
             <svg
               className='animate-spin -ml-1 mr-3 h-5 w-5'
               xmlns='http://www.w3.org/2000/svg'

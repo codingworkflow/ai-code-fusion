@@ -73,3 +73,6 @@ start/*
 src/renderer/bundle.js.LICENSE.txt
 src/renderer/bundle.js.map
 src/renderer/bundle.js
+
+# Test artifacts
+/test-results
