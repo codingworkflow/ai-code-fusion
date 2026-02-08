@@ -90,13 +90,12 @@ function resolveCommand(command, localCandidates = []) {
   return null;
 }
 
-function runCommand(command, args = [], options = {}) {
-  assertAllowedExecutable(command);
+function sanitizeArgs(args = []) {
   if (!Array.isArray(args)) {
     throw new Error('Command arguments must be an array');
   }
 
-  const sanitizedArgs = args.map((arg) => {
+  return args.map((arg) => {
     if (typeof arg !== 'string') {
       throw new Error('Command arguments must be strings');
     }
@@ -110,25 +109,25 @@ function runCommand(command, args = [], options = {}) {
     }
     return arg;
   });
-  const commandLine = [command, ...sanitizedArgs].join(' ');
-  console.log(`Running: ${commandLine}`);
+}
 
-  const result = spawnSync(command, args, {
-    cwd: utils.ROOT_DIR,
-    stdio: 'inherit',
-    env: { ...process.env, ...(options.env || {}) },
-    shell: false,
-  });
+function withExecutablePath(baseEnv, executablePath) {
+  if (!executablePath || executablePath === path.basename(executablePath)) {
+    return baseEnv;
+  }
 
+  const binDir = path.dirname(executablePath);
+  return { ...baseEnv, PATH: `${binDir}${path.delimiter}${baseEnv.PATH || ''}` };
+}
+
+function assertProcessResult(result, commandLabel, commandLine) {
   if (result.error) {
-    throw new Error(`Failed to start command '${command}': ${result.error.message}`);
+    throw new Error(`Failed to start command '${commandLabel}': ${result.error.message}`);
   }
 
   if (result.status !== 0) {
     throw new Error(`Command failed (${result.status}): ${commandLine}`);
   }
-
-  return true;
 }
 
 function getNpxCommand() {
@@ -155,18 +154,22 @@ async function runGitleaks() {
   if (!gitleaksPath) {
     throw new Error('gitleaks not found in PATH or ./bin (install gitleaks first)');
   }
+  assertAllowedExecutable(gitleaksPath);
 
   const reportPath = path.join(GITLEAKS_DIR, 'gitleaks-report.json');
+  const args = ['detect', '--source', '.', '--report-format', 'json', '--report-path', reportPath];
+  const commandName = process.platform === 'win32' ? 'gitleaks.exe' : 'gitleaks';
+  const env = withExecutablePath({ ...process.env }, gitleaksPath);
+  const commandLine = [commandName, ...sanitizeArgs(args)].join(' ');
 
-  runCommand(gitleaksPath, [
-    'detect',
-    '--source',
-    '.',
-    '--report-format',
-    'json',
-    '--report-path',
-    reportPath,
-  ]);
+  console.log(`Running: ${commandLine}`);
+  const result = spawnSync(commandName, args, {
+    cwd: utils.ROOT_DIR,
+    stdio: 'inherit',
+    env,
+    shell: false,
+  });
+  assertProcessResult(result, commandName, commandLine);
 
   console.log(`Gitleaks report written to: ${reportPath}`);
   return reportPath;
@@ -179,8 +182,22 @@ async function runSbom() {
   const syftPath = resolveCommand('syft', [path.join('bin', 'syft'), path.join('bin', 'syft.exe')]);
 
   if (syftPath) {
+    assertAllowedExecutable(syftPath);
     try {
-      runCommand(syftPath, ['dir:.', '-o', `cyclonedx-json=${reportPath}`]);
+      const args = ['dir:.', '-o', `cyclonedx-json=${reportPath}`];
+      const commandName = process.platform === 'win32' ? 'syft.exe' : 'syft';
+      const env = withExecutablePath({ ...process.env }, syftPath);
+      const commandLine = [commandName, ...sanitizeArgs(args)].join(' ');
+
+      console.log(`Running: ${commandLine}`);
+      const result = spawnSync(commandName, args, {
+        cwd: utils.ROOT_DIR,
+        stdio: 'inherit',
+        env,
+        shell: false,
+      });
+      assertProcessResult(result, commandName, commandLine);
+
       console.log(`SBOM generated with syft: ${reportPath}`);
       return reportPath;
     } catch (error) {
@@ -192,17 +209,27 @@ async function runSbom() {
   if (!hasCommand(npxCommand)) {
     throw new Error('npx is required for SBOM fallback but was not found');
   }
-
-  runCommand(npxCommand, [
+  assertAllowedExecutable(npxCommand);
+  const args = [
     '--yes',
     '@cyclonedx/cyclonedx-npm',
     '--ignore-npm-errors',
     '--package-lock-only',
     '--output-format',
-    'JSON',
+    'json',
     '--output-file',
     reportPath,
-  ]);
+  ];
+  const commandLine = [npxCommand, ...sanitizeArgs(args)].join(' ');
+
+  console.log(`Running: ${commandLine}`);
+  const result = spawnSync(npxCommand, args, {
+    cwd: utils.ROOT_DIR,
+    stdio: 'inherit',
+    env: { ...process.env },
+    shell: false,
+  });
+  assertProcessResult(result, npxCommand, commandLine);
 
   console.log(`SBOM generated with cyclonedx-npm: ${reportPath}`);
   return reportPath;
@@ -318,6 +345,7 @@ async function runRenovate(extraArgs = []) {
   if (!hasCommand(npxCommand)) {
     throw new Error('npx not found; install Node.js and npm');
   }
+  assertAllowedExecutable(npxCommand);
 
   const { token, source } = resolveRenovateToken();
   if (!token) {
@@ -353,8 +381,16 @@ async function runRenovate(extraArgs = []) {
   if (!explicitRepo) {
     args.push(repoSlug);
   }
+  const commandLine = [npxCommand, ...sanitizeArgs(args)].join(' ');
 
-  runCommand(npxCommand, args, { env: addTokenToRenovateEnv(token) });
+  console.log(`Running: ${commandLine}`);
+  const result = spawnSync(npxCommand, args, {
+    cwd: utils.ROOT_DIR,
+    stdio: 'inherit',
+    env: { ...process.env, ...addTokenToRenovateEnv(token) },
+    shell: false,
+  });
+  assertProcessResult(result, npxCommand, commandLine);
 }
 
 async function runRenovateLocal(extraArgs = []) {
@@ -366,6 +402,7 @@ async function runRenovateLocal(extraArgs = []) {
   if (!hasCommand(npxCommand)) {
     throw new Error('npx not found; install Node.js and npm');
   }
+  assertAllowedExecutable(npxCommand);
 
   const { token, source } = resolveRenovateToken();
   const env = addTokenToRenovateEnv(token);
@@ -397,8 +434,16 @@ async function runRenovateLocal(extraArgs = []) {
   if (extraArgs.length > 0) {
     args.push(...extraArgs);
   }
+  const commandLine = [npxCommand, ...sanitizeArgs(args)].join(' ');
 
-  runCommand(npxCommand, args, { env });
+  console.log(`Running: ${commandLine}`);
+  const result = spawnSync(npxCommand, args, {
+    cwd: utils.ROOT_DIR,
+    stdio: 'inherit',
+    env: { ...process.env, ...env },
+    shell: false,
+  });
+  assertProcessResult(result, npxCommand, commandLine);
 
   console.log(`Renovate local report written to: ${reportPath}`);
   return reportPath;
@@ -416,12 +461,24 @@ async function runMendScan() {
       'mend-scan not found in PATH or ~/.mend-unified-agent/bin (install Mend Unified Agent first)'
     );
   }
+  assertAllowedExecutable(mendPath);
 
   const pkg = readPackageMetadata();
   const project = process.env.MEND_PROJECT || process.env.BINARY_NAME || pkg.name || 'ai-code-fusion';
   const version = process.env.MEND_PROJECT_VERSION || process.env.VERSION || pkg.version || '0.0.0';
+  const commandName = process.platform === 'win32' ? 'mend-scan.exe' : 'mend-scan';
+  const args = ['scan', '--project', project, '--version', version];
+  const env = withExecutablePath({ ...process.env }, mendPath);
+  const commandLine = [commandName, ...sanitizeArgs(args)].join(' ');
 
-  runCommand(mendPath, ['scan', '--project', project, '--version', version]);
+  console.log(`Running: ${commandLine}`);
+  const result = spawnSync(commandName, args, {
+    cwd: utils.ROOT_DIR,
+    stdio: 'inherit',
+    env,
+    shell: false,
+  });
+  assertProcessResult(result, commandName, commandLine);
   console.log('Mend scan completed successfully');
 }
 
