@@ -58,7 +58,6 @@ describe('filter-utils', () => {
 
   describe('shouldExclude', () => {
     // Test cases for different combinations of config settings
-
     test('should exclude files that match exclude patterns when use_custom_excludes is true', () => {
       const itemPath = '/project/node_modules/package.json';
       const rootPath = '/project';
@@ -94,13 +93,7 @@ describe('filter-utils', () => {
         include_extensions: ['.js', '.jsx'],
       };
 
-      // Mock implementation to ensure correct behavior for this test
-      jest.spyOn(path, 'extname').mockImplementationOnce(() => '.css');
-
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
-
-      // Reset the mock
-      path.extname.mockRestore();
     });
 
     test('should exclude files with non-matching extensions when use_custom_includes is true', () => {
@@ -112,24 +105,7 @@ describe('filter-utils', () => {
         include_extensions: ['.js', '.jsx', '.json'],
       };
 
-      // Use a direct mock replacement rather than mockReturnValueOnce
-      const originalExtname = path.extname;
-      path.extname = jest.fn().mockReturnValue('.css');
-
-      // Debug: Log values to understand the issue
-      console.log('Testing file extension exclusion:');
-      console.log(`Path extname returns: ${path.extname(itemPath)}`);
-      console.log(`Config includes: ${config.include_extensions}`);
-      console.log(
-        `Should exclude?: ${!config.include_extensions.includes(path.extname(itemPath))}`
-      );
-
-      const result = shouldExclude(itemPath, rootPath, excludePatterns, config);
-
-      // Restore original function
-      path.extname = originalExtname;
-
-      expect(result).toBe(true);
+      expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
     });
 
     test('should include files with matching extensions when use_custom_includes is true', () => {
@@ -142,6 +118,17 @@ describe('filter-utils', () => {
       };
 
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(false);
+    });
+
+    test('should apply include extension filtering by default when use_custom_includes is undefined', () => {
+      const itemPath = '/project/src/file.css';
+      const rootPath = '/project';
+      const excludePatterns = [];
+      const config = {
+        include_extensions: ['.js', '.ts'],
+      };
+
+      expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
     });
 
     test('should exclude files that match gitignore patterns when use_gitignore is true', () => {
@@ -166,6 +153,17 @@ describe('filter-utils', () => {
       };
 
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(false);
+    });
+
+    test('should apply custom excludes by default when use_custom_excludes is undefined', () => {
+      const itemPath = '/project/build/output.log';
+      const rootPath = '/project';
+      const excludePatterns = [];
+      const config = {
+        exclude_patterns: ['**/*.log'],
+      };
+
+      expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
     });
 
     test('should handle precedence of custom excludes over gitignore includes', () => {
@@ -200,6 +198,19 @@ describe('filter-utils', () => {
       };
 
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(false);
+    });
+
+    test('should keep gitignore excludes active when custom excludes are disabled', () => {
+      const itemPath = '/project/dist/main.js';
+      const rootPath = '/project';
+      const excludePatterns = ['**/dist/**'];
+      const config = {
+        use_custom_excludes: false,
+        use_gitignore: true,
+        exclude_patterns: ['**/dist/**'],
+      };
+
+      expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
     });
 
     test('should handle empty patterns', () => {
