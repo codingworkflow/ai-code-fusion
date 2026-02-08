@@ -20,7 +20,7 @@
       "groupName": "test tooling"
     },
     {
-      "matchPackagePatterns": ["^webpack", "^babel", "^eslint", "^prettier"],
+      "matchPackagePatterns": ["^webpack", "^@babel/", "^babel", "^eslint", "^prettier"],
       "groupName": "build tooling"
     }
   ]
