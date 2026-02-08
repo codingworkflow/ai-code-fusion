@@ -2,6 +2,8 @@
 use_custom_excludes: true
 use_custom_includes: false
 use_gitignore: true
+enable_secret_scanning: true
+exclude_suspicious_files: true
 include_tree_view: true
 show_token_count: true
 

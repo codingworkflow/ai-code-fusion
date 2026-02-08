@@ -8,6 +8,8 @@ export interface ConfigObject {
   use_custom_excludes?: boolean;
   use_custom_includes?: boolean;
   use_gitignore?: boolean;
+  enable_secret_scanning?: boolean;
+  exclude_suspicious_files?: boolean;
   include_tree_view?: boolean;
   show_token_count?: boolean;
 }

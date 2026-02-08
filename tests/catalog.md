@@ -19,6 +19,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | `tests/unit/gitignore-parser.test.ts`        | `src/utils/gitignore-parser.ts`         | Pattern parsing, negation behavior, caching, nested path handling                |
 | `tests/unit/binary-detection.test.ts`        | `src/utils/binary-detection.ts`         | Binary signature detection, control-char thresholds, fallback-on-error behavior  |
 | `tests/unit/utils/filter-utils.test.ts`      | `src/utils/filter-utils.ts`             | Path normalization, extension filtering, custom excludes, gitignore precedence   |
+| `tests/unit/utils/secret-scanner.test.ts`    | `src/utils/secret-scanner.ts`           | Sensitive path detection, secret-pattern scanning, default-on safety toggles     |
 | `tests/unit/utils/fnmatch.test.ts`           | `src/utils/fnmatch.ts`                  | Glob semantics: wildcards, classes, double-star, braces, path anchors            |
 | `tests/unit/utils/content-processor.test.ts` | `src/utils/content-processor.ts`        | Content assembly, binary skip logic, malformed input handling                    |
 | `tests/unit/utils/config-manager.test.ts`    | `src/utils/config-manager.ts`           | Default config load, parse failures, graceful fallback behavior                  |

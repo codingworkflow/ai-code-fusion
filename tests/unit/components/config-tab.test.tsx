@@ -17,6 +17,8 @@ jest.mock('yaml', () => ({
         use_custom_excludes: true,
         use_gitignore: true,
         use_custom_includes: true,
+        enable_secret_scanning: true,
+        exclude_suspicious_files: true,
       };
     }
     return {};
@@ -69,6 +71,8 @@ describe('ConfigTab', () => {
     expect(screen.getByLabelText('Filter by file extensions')).toBeChecked();
     expect(screen.getByLabelText('Use exclude patterns')).toBeChecked();
     expect(screen.getByLabelText('Apply .gitignore rules')).toBeChecked();
+    expect(screen.getByLabelText('Scan content for secrets')).toBeChecked();
+    expect(screen.getByLabelText('Exclude suspicious files')).toBeChecked();
 
     // Check textareas
     const extensionsTextarea = screen.getByPlaceholderText(/\.py/);
