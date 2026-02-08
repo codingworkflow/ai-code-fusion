@@ -62,7 +62,6 @@ $RECYCLE.BIN/
 ._*
 
 # Environment variables and local config
-.env
 .env.local
 .env.*
 .scannerwork/

@@ -1,5 +1,5 @@
 module.exports = {
-  content: ['./src/renderer/**/*.{js,jsx}', './src/renderer/index.html'],
+  content: ['./src/renderer/**/*.{js,jsx,ts,tsx}', './src/renderer/index.html'],
   darkMode: 'class',
   theme: {
     extend: {},
