@@ -6,29 +6,28 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
-  packages: read
+  contents: read
 
 jobs:
   build-windows:
     runs-on: windows-latest
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
         with:
-          node-version: 18
+          node-version: 20
+          package-manager-cache: false
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Prepare build
         run: node scripts/prepare-build.js windows
-
-      - name: Build CSS
-        run: npm run build:css
 
       - name: Build Webpack
         run: npm run build:webpack
@@ -39,25 +38,32 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Windows Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: windows-artifacts
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            dist/*.msi
+            dist/latest*.yml
+            dist/*.blockmap
           retention-days: 5
 
   build-linux:
     runs-on: ubuntu-latest
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
         with:
-          node-version: 18
+          node-version: 20
+          package-manager-cache: false
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Install required system packages
         run: |
@@ -91,9 +97,6 @@ jobs:
             fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
           "
 
-      - name: Build CSS
-        run: npm run build:css
-
       - name: Build Webpack
         run: npm run build:webpack
 
@@ -103,31 +106,35 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Linux Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: linux-artifacts
-          path: dist/*.AppImage
+          path: |
+            dist/*.AppImage
+            dist/*.AppImage.zsync
+            dist/latest*.yml
+            dist/*.blockmap
           retention-days: 5
 
   build-macos:
     runs-on: macos-latest
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
         with:
-          node-version: 18
+          node-version: 20
+          package-manager-cache: false
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Prepare build
         run: node scripts/prepare-build.js mac
-
-      - name: Build CSS
-        run: npm run build:css
 
       - name: Build Webpack
         run: npm run build:webpack
@@ -138,22 +145,27 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload macOS Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: macos-artifacts
           path: |
             dist/*.dmg
             dist/*.zip
+            dist/latest*.yml
+            dist/*.blockmap
           retention-days: 5
 
   create-release:
     needs: [build-windows, build-linux, build-macos]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Get version from tag
         id: get_version
@@ -161,7 +173,7 @@ jobs:
 
       - name: Get Changelog Entry
         id: changelog_reader
-        uses: mindsers/changelog-reader-action@v2
+        uses: mindsers/changelog-reader-action@32aa5b4c155d76c94e4ec883a223c947b2f02656
         with:
           validation_level: warn
           path: ./CHANGELOG.md
@@ -169,30 +181,30 @@ jobs:
         continue-on-error: true
 
       - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
           name: windows-artifacts
           path: artifacts
 
       - name: Download Linux artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
           name: linux-artifacts
           path: artifacts
 
       - name: Download macOS artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
           name: macos-artifacts
           path: artifacts
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090
         with:
           name: Release ${{ steps.get_version.outputs.VERSION }}
           body: ${{ steps.changelog_reader.outputs.changes || 'No changelog provided' }}
           draft: true
           files: |
-            artifacts/*
+            artifacts/**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

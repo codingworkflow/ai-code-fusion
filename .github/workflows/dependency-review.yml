@@ -1,0 +1,27 @@
+# Dependency Review Action
+#
+# This Action scans dependency manifest files changed in pull requests
+# and surfaces vulnerable or policy-violating dependencies.
+name: 'Dependency review'
+
+on:
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: 'Dependency Review'
+        uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261
+        with:
+          comment-summary-in-pr: always
