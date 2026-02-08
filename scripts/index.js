@@ -21,6 +21,7 @@ const utils = require('./lib/utils');
 const build = require('./lib/build');
 const dev = require('./lib/dev');
 const release = require('./lib/release');
+const security = require('./lib/security');
 
 // Get the command from first argument
 const [command, ...args] = process.argv.slice(2);
@@ -123,6 +124,41 @@ async function executeCommand() {
         await utils.runNpmScript('lint');
         await utils.runNpmScript('test');
         console.log('All validations passed!');
+        break;
+
+      case 'qa':
+        console.log('Running QA checks (lint + test + security)...');
+        await utils.runNpmScript('lint');
+        await utils.runNpmScript('test');
+        await security.runSecurity();
+        console.log('QA checks completed successfully');
+        break;
+
+      // Security automation commands
+      case 'security':
+        await security.runSecurity();
+        break;
+
+      case 'gitleaks':
+        await security.runGitleaks();
+        break;
+
+      case 'sbom':
+        await security.runSbom();
+        break;
+
+      case 'renovate':
+        await security.runRenovate(args);
+        break;
+
+      case 'renovate-local':
+      case 'renovate:local':
+        await security.runRenovateLocal(args);
+        break;
+
+      case 'mend-scan':
+      case 'mend:scan':
+        await security.runMendScan();
         break;
 
       // Asset management commands

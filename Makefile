@@ -5,7 +5,9 @@
 # Make these targets phony (they don't create files with these names)
 .PHONY: all setup dev clean clean-all build build-win build-linux \
         build-mac build-mac-arm build-mac-universal \
-        test css css-watch lint format validate setup-hooks sonar icons sample-logo release
+        test css css-watch lint format validate qa setup-hooks sonar \
+        security gitleaks sbom renovate renovate-local mend-scan \
+        icons sample-logo release
 
 # Set executable permissions for scripts
 setup-scripts:
@@ -63,11 +65,32 @@ format: setup-scripts
 validate: setup-scripts
 	@node scripts/index.js validate
 
+qa: setup-scripts
+	@node scripts/index.js qa
+
 setup-hooks: setup-scripts
 	@node scripts/index.js hooks
 
 sonar: setup-scripts
 	@node scripts/index.js sonar
+
+security: setup-scripts
+	@node scripts/index.js security
+
+gitleaks: setup-scripts
+	@node scripts/index.js gitleaks
+
+sbom: setup-scripts
+	@node scripts/index.js sbom
+
+renovate: setup-scripts
+	@node scripts/index.js renovate
+
+renovate-local: setup-scripts
+	@node scripts/index.js renovate-local
+
+mend-scan: setup-scripts
+	@node scripts/index.js mend-scan
 
 release: setup-scripts
 	@node scripts/index.js release $(VERSION)
