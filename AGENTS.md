@@ -15,6 +15,7 @@ Lightweight rules for automated agents and contributors in this repository.
 - If UI behavior/layout is changed, also run:
   - `npm run qa:screenshot`
 - Do not mark work complete while required CI checks are failing.
+- Use `tests/catalog.md` as the source of truth for test targets and use cases.
 
 ## `.env` Policy (Local-Only)
 
