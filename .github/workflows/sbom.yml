@@ -27,10 +27,17 @@ jobs:
           package-manager-cache: false
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --ignore-scripts
+          else
+            npm install --ignore-scripts --no-audit --no-fund
+          fi
 
       - name: Generate CycloneDX SBOM
-        run: npm run sbom
+        run: |
+          mkdir -p dist/security/sbom
+          npx --yes @cyclonedx/cyclonedx-npm --output-format json --output-file dist/security/sbom/sbom.cyclonedx.json
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f

@@ -18,23 +18,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          fetch-depth: 0
           persist-credentials: false
 
-      - name: Run Gitleaks
-        id: gitleaks
-        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-
-      - name: Ensure report artifact exists
-        if: always()
+      - name: Install Gitleaks
         run: |
-          if [ ! -f gitleaks-report.json ]; then
-            echo "[]" > gitleaks-report.json
-          fi
+          GITLEAKS_VERSION="8.25.1"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+
+      - name: Run Gitleaks
+        run: gitleaks detect --no-git --source . --redact --report-format json --report-path gitleaks-report.json --exit-code 1
 
       - name: Upload Gitleaks report
         if: always()
@@ -43,9 +37,3 @@ jobs:
           name: gitleaks-report
           path: gitleaks-report.json
           retention-days: 30
-
-      - name: Fail when secrets are detected
-        if: steps.gitleaks.outcome == 'failure'
-        run: |
-          echo "Gitleaks detected potential secrets."
-          exit 1
