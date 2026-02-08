@@ -1,13 +1,21 @@
-const fs = require('fs');
-const path = require('path');
-const { isBinaryFile } = require('./file-analyzer');
+import fs from 'fs';
+import path from 'path';
+import { isBinaryFile } from './file-analyzer';
+import type { TokenCounter } from './token-counter';
 
-class ContentProcessor {
-  constructor(tokenCounter) {
+interface AnalysisEntry {
+  path: string;
+  tokens: number;
+}
+
+export class ContentProcessor {
+  private tokenCounter: TokenCounter;
+
+  constructor(tokenCounter: TokenCounter) {
     this.tokenCounter = tokenCounter;
   }
 
-  processFile(filePath, relativePath) {
+  processFile(filePath: string, relativePath: string): string | null {
     try {
       // For binary files, show a note instead of content
       if (isBinaryFile(filePath)) {
@@ -20,13 +28,13 @@ class ContentProcessor {
         const headerContent = `${relativePath} (binary file)`;
 
         const formattedContent =
-          `######\n` +
+          '######\n' +
           `${headerContent}\n` +
-          `######\n\n` +
-          `[BINARY FILE]\n` +
+          '######\n\n' +
+          '[BINARY FILE]\n' +
           `File Type: ${path.extname(filePath).replace('.', '').toUpperCase()}\n` +
           `Size: ${fileSizeInKB} KB\n\n` +
-          `Note: Binary files are included in the file tree but not processed for content.\n\n`;
+          'Note: Binary files are included in the file tree but not processed for content.\n\n';
 
         return formattedContent;
       }
@@ -40,7 +48,7 @@ class ContentProcessor {
       const headerContent = `${relativePath}`;
 
       const formattedContent =
-        `######\n` + `${headerContent}\n` + `######\n\n` + `\`\`\`\n${content}\n\`\`\`\n\n`;
+        '######\n' + `${headerContent}\n` + '######\n\n' + `\`\`\`\n${content}\n\`\`\`\n\n`;
 
       return formattedContent;
     } catch (error) {
@@ -49,8 +57,8 @@ class ContentProcessor {
     }
   }
 
-  readAnalysisFile(analysisPath) {
-    const filesToProcess = [];
+  readAnalysisFile(analysisPath: string): AnalysisEntry[] {
+    const filesToProcess: AnalysisEntry[] = [];
 
     try {
       const content = fs.readFileSync(analysisPath, { encoding: 'utf-8', flag: 'r' });
@@ -62,8 +70,8 @@ class ContentProcessor {
           break;
         }
 
-        const path = lines[i].trim();
-        if (path.startsWith('Total tokens:')) {
+        const linePath = lines[i].trim();
+        if (linePath.startsWith('Total tokens:')) {
           break;
         }
 
@@ -71,11 +79,11 @@ class ContentProcessor {
           const tokens = parseInt(lines[i + 1].trim());
           // Skip entries with invalid token counts (NaN)
           if (isNaN(tokens)) {
-            console.warn(`Skipping entry with invalid token count: ${path}`);
+            console.warn(`Skipping entry with invalid token count: ${linePath}`);
             continue;
           }
           // Clean up the path
-          const cleanPath = path.replace(/\\/g, '/').trim();
+          const cleanPath = linePath.replace(/\\/g, '/').trim();
           filesToProcess.push({ path: cleanPath, tokens });
         } catch (error) {
           console.warn(`Failed to parse line ${i}:`, error);
@@ -89,5 +97,3 @@ class ContentProcessor {
     return filesToProcess;
   }
 }
-
-module.exports = { ContentProcessor };

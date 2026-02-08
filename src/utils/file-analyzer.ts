@@ -1,15 +1,18 @@
-const fs = require('fs');
-// eslint-disable-next-line no-unused-vars
-const path = require('path');
-const filterUtils = require('./filter-utils');
+import fs from 'fs';
+import path from 'path';
+import { shouldExclude } from './filter-utils';
+import type { ConfigObject } from '../types/ipc';
+import type { TokenCounter } from './token-counter';
+import type { GitignorePatterns } from './gitignore-parser';
 
 // Helper function to check if a file is a binary file by examining content
-const isBinaryFile = (filePath) => {
+export const isBinaryFile = (filePath: string): boolean => {
   try {
     // Read the first 4KB of the file to check for binary content
-    const buffer = Buffer.alloc(4096);
+    const buffer = Buffer.alloc(4096, 0x20);
     const fd = fs.openSync(filePath, 'r');
-    const bytesRead = fs.readSync(fd, buffer, 0, 4096, 0);
+    const bytesReadRaw = fs.readSync(fd, buffer, 0, 4096, 0);
+    const bytesRead = typeof bytesReadRaw === 'number' ? bytesReadRaw : 0;
     fs.closeSync(fd);
 
     if (bytesRead === 0) {
@@ -45,7 +48,16 @@ const isBinaryFile = (filePath) => {
 };
 
 class FileAnalyzer {
-  constructor(config, tokenCounter, options = {}) {
+  private config: ConfigObject;
+  private tokenCounter: TokenCounter;
+  private useGitignore: boolean;
+  private gitignorePatterns: GitignorePatterns;
+
+  constructor(
+    config: ConfigObject,
+    tokenCounter: TokenCounter,
+    options: { useGitignore?: boolean; gitignorePatterns?: GitignorePatterns } = {}
+  ) {
     this.config = config;
     this.tokenCounter = tokenCounter;
     this.useGitignore = options.useGitignore || false;
@@ -55,7 +67,7 @@ class FileAnalyzer {
     };
   }
 
-  shouldProcessFile(filePath) {
+  shouldProcessFile(filePath: string): boolean {
     // Convert path to forward slashes for consistent pattern matching
     const normalizedPath = filePath.replace(/\\/g, '/');
     const ext = path.extname(filePath);
@@ -78,7 +90,7 @@ class FileAnalyzer {
     }
 
     // 2. Build patterns array with proper structure and priority
-    const patterns = [];
+    const patterns: string[] & { includePatterns?: string[] } = [];
 
     // Add custom exclude patterns (highest priority)
     if (
@@ -100,7 +112,7 @@ class FileAnalyzer {
     }
 
     // 3. Use the shouldExclude utility for consistent pattern matching
-    if (filterUtils.shouldExclude(filePath, '', patterns, this.config)) {
+    if (shouldExclude(filePath, '', patterns, this.config)) {
       return false; // File should be excluded based on pattern matching
     }
 
@@ -108,7 +120,7 @@ class FileAnalyzer {
     return true;
   }
 
-  analyzeFile(filePath) {
+  analyzeFile(filePath: string): number | null {
     try {
       // Skip binary files completely
       if (isBinaryFile(filePath)) {
@@ -125,7 +137,7 @@ class FileAnalyzer {
     }
   }
 
-  createAnalysis() {
+  createAnalysis(): { filesInfo: Array<{ path: string; tokens: number }>; totalTokens: number } {
     const totalTokens = 0;
     const filesInfo = [];
 
@@ -139,10 +151,10 @@ class FileAnalyzer {
   }
 
   // Additional method to check if file should be processed before reading it
-  shouldReadFile(filePath) {
+  shouldReadFile(filePath: string): boolean {
     // Skip binary files completely
     return !isBinaryFile(filePath);
   }
 }
 
-module.exports = { FileAnalyzer, isBinaryFile };
+export { FileAnalyzer };

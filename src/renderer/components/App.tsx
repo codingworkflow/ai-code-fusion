@@ -6,18 +6,39 @@ import ProcessedTab from './ProcessedTab';
 import DarkModeToggle from './DarkModeToggle';
 import { DarkModeProvider } from '../context/DarkModeContext';
 import yaml from 'yaml';
+import type {
+  AnalyzeRepositoryResult,
+  ConfigObject,
+  DirectoryTreeItem,
+  ProcessRepositoryOptions,
+  ProcessRepositoryResult,
+} from '../../types/ipc';
 
 // Helper function to ensure consistent error handling
-const ensureError = (error) => {
+const ensureError = (error: unknown): Error => {
   if (error instanceof Error) return error;
   return new Error(String(error));
 };
 
+type TabId = 'config' | 'source' | 'processed';
+
+type ProcessingOptions = {
+  showTokenCount: boolean;
+  includeTreeView: boolean;
+};
+
 const App = () => {
-  const [activeTab, setActiveTab] = useState('config');
+  const [activeTab, setActiveTab] = useState<TabId>('config');
   const [rootPath, setRootPath] = useState('');
-  const [directoryTree, setDirectoryTree] = useState([]);
-  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [directoryTree, setDirectoryTree] = useState<DirectoryTreeItem[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
+  const [, setAnalysisResult] = useState<AnalyzeRepositoryResult | null>(null);
+  const [processedResult, setProcessedResult] = useState<ProcessRepositoryResult | null>(null);
+  const [processingOptions, setProcessingOptions] = useState<ProcessingOptions>({
+    showTokenCount: false,
+    includeTreeView: false,
+  });
   // Load config from localStorage or via API, no fallbacks
   const [configContent, setConfigContent] = useState('# Loading configuration...');
 
@@ -51,7 +72,7 @@ const App = () => {
         window.electronAPI
           .getDirectoryTree?.(savedRootPath, localStorage.getItem('configContent'))
           .then((tree) => {
-            setDirectoryTree(tree);
+            setDirectoryTree(tree ?? []);
           })
           .catch((err) => {
             console.error('Error loading directory tree:', err);
@@ -63,10 +84,10 @@ const App = () => {
   // Setup path change listener to keep all components in sync
   useEffect(() => {
     // Create a function to check for rootPath changes
-    const handleStorageChange = (e) => {
-      if (e.key === 'rootPath' && e.newValue !== rootPath) {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'rootPath' && event.newValue && event.newValue !== rootPath) {
         // Update our internal state with the new path
-        setRootPath(e.newValue);
+        setRootPath(event.newValue);
       }
     };
 
@@ -92,16 +113,8 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem('configContent', configContent);
   }, [configContent]);
-  /* This state is used indirectly via setAnalysisResult to track analysis results.
-     Although the variable is not directly read, the state updates are important
-     for component lifecycle and data flow (e.g., used in handleRefreshProcessed).
-     SonarQube flags this as unused, but removing it would break functionality.
-     SONARQUBE-IGNORE: Necessary React state with side effects */
-  // eslint-disable-next-line no-unused-vars
-  const [analysisResult, setAnalysisResult] = useState(null);
-  const [processedResult, setProcessedResult] = useState(null);
 
-  const handleTabChange = (tab) => {
+  const handleTabChange = (tab: TabId) => {
     if (activeTab === tab) return; // Don't do anything if clicking the same tab
 
     // Save current tab configuration to localStorage for all components to access
@@ -109,7 +122,7 @@ const App = () => {
 
     // When switching tabs, try to do so with consistent state
     try {
-      const config = yaml.parse(configContent) || {};
+      const config = (yaml.parse(configContent) || {}) as ConfigObject;
 
       // Make sure arrays are initialized to avoid issues
       if (!config.include_extensions) config.include_extensions = [];
@@ -167,7 +180,7 @@ const App = () => {
 
       // Get fresh directory tree
       const tree = await window.electronAPI?.getDirectoryTree?.(rootPath, configContent);
-      setDirectoryTree(tree);
+      setDirectoryTree(tree ?? []);
     }
   };
 
@@ -196,15 +209,9 @@ const App = () => {
 
       // Get fresh directory tree
       const tree = await window.electronAPI?.getDirectoryTree?.(dirPath, configContent);
-      setDirectoryTree(tree);
+      setDirectoryTree(tree ?? []);
     }
   };
-
-  // Create state for processing options
-  const [processingOptions, setProcessingOptions] = useState({
-    showTokenCount: false,
-    includeTreeView: false,
-  });
 
   // Process files directly from Source to Processed Output
   const handleAnalyze = async () => {
@@ -233,8 +240,12 @@ const App = () => {
         throw new Error('No valid files selected');
       }
 
+      if (!window.electronAPI?.analyzeRepository || !window.electronAPI?.processRepository) {
+        throw new Error('Electron API is not available.');
+      }
+
       // Apply current config before analyzing
-      const currentAnalysisResult = await window.electronAPI?.analyzeRepository?.({
+      const currentAnalysisResult = await window.electronAPI.analyzeRepository({
         rootPath,
         configContent,
         selectedFiles: validFiles, // Use validated files only
@@ -244,9 +255,12 @@ const App = () => {
       setAnalysisResult(currentAnalysisResult);
 
       // Read options from config
-      let options = {};
+      const options: ProcessRepositoryOptions['options'] = {
+        showTokenCount: false,
+        includeTreeView: false,
+      };
       try {
-        const config = yaml.parse(configContent);
+        const config = (yaml.parse(configContent) || {}) as ConfigObject;
         options.showTokenCount = config.show_token_count === true;
         options.includeTreeView = config.include_tree_view === true;
       } catch (error) {
@@ -254,10 +268,9 @@ const App = () => {
       }
 
       // Process directly without going to analyze tab
-      const result = await window.electronAPI?.processRepository?.({
+      const result = await window.electronAPI.processRepository({
         rootPath,
-        // Now using a conditional expression to meet SonarQube's preference
-        filesInfo: currentAnalysisResult?.filesInfo ?? [],
+        filesInfo: currentAnalysisResult.filesInfo ?? [],
         treeView: null, // Let the main process handle tree generation
         options,
       });
@@ -295,10 +308,14 @@ const App = () => {
         return null;
       }
 
+      if (!window.electronAPI?.analyzeRepository || !window.electronAPI?.processRepository) {
+        throw new Error('Electron API is not available.');
+      }
+
       console.log('Reloading and processing files...');
 
       // Run a fresh analysis to re-read all files from disk
-      const currentReanalysisResult = await window.electronAPI?.analyzeRepository?.({
+      const currentReanalysisResult = await window.electronAPI.analyzeRepository({
         rootPath,
         configContent,
         selectedFiles: selectedFiles,
@@ -308,11 +325,11 @@ const App = () => {
       setAnalysisResult(currentReanalysisResult);
 
       // Get the latest config options
-      let options = { ...processingOptions };
+      const options: ProcessRepositoryOptions['options'] = { ...processingOptions };
       try {
         const configStr = localStorage.getItem('configContent');
         if (configStr) {
-          const config = yaml.parse(configStr);
+          const config = (yaml.parse(configStr) || {}) as ConfigObject;
           options.showTokenCount = config.show_token_count === true;
           options.includeTreeView = config.include_tree_view === true;
         }
@@ -323,10 +340,9 @@ const App = () => {
       console.log('Processing with fresh analysis and options:', options);
 
       // Process with the fresh analysis
-      const result = await window.electronAPI?.processRepository?.({
+      const result = await window.electronAPI.processRepository({
         rootPath,
-        // Now using a conditional expression to meet SonarQube's preference
-        filesInfo: currentReanalysisResult?.filesInfo ?? [],
+        filesInfo: currentReanalysisResult.filesInfo ?? [],
         treeView: null, // Let server generate
         options,
       });
@@ -367,7 +383,7 @@ const App = () => {
   };
 
   // Utility function for path validation
-  const isValidFilePath = (filePath) => {
+  const isValidFilePath = (filePath: string): boolean => {
     // Check if file path exists and is within the current root path
     if (!filePath || !rootPath) return false;
 
@@ -375,7 +391,7 @@ const App = () => {
     return filePath.startsWith(rootPath);
   };
 
-  const handleFileSelect = (filePath, isSelected) => {
+  const handleFileSelect = (filePath: string, isSelected: boolean) => {
     // Validate file path before selection
     if (isSelected && !isValidFilePath(filePath)) {
       console.warn(`Attempted to select an invalid file: ${filePath}`);
@@ -392,10 +408,7 @@ const App = () => {
     }
   };
 
-  // Track selected folders separately from selected files
-  const [selectedFolders, setSelectedFolders] = useState([]);
-
-  const handleFolderSelect = (folderPath, isSelected) => {
+  const handleFolderSelect = (folderPath: string, isSelected: boolean) => {
     // Validate folder path before selection
     if (isSelected && (!folderPath || !rootPath || !folderPath.startsWith(rootPath))) {
       console.warn(`Attempted to select an invalid folder: ${folderPath}`);
@@ -403,14 +416,17 @@ const App = () => {
     }
 
     // Find the folder in the directory tree
-    const findFolder = (items, path) => {
+    const findFolder = (
+      items: DirectoryTreeItem[] | undefined,
+      targetPath: string
+    ): DirectoryTreeItem | null => {
       for (const item of items ?? []) {
-        if (item?.path === path) {
+        if (item.path === targetPath) {
           return item;
         }
 
-        if (item?.type === 'directory' && item?.children) {
-          const found = findFolder(item?.children, path);
+        if (item.type === 'directory' && item.children) {
+          const found = findFolder(item.children, targetPath);
           if (found) {
             return found;
           }
@@ -421,16 +437,16 @@ const App = () => {
     };
 
     // Get all sub-folders in the folder recursively
-    const getAllSubFolders = (folder) => {
-      if (!folder?.children) return [];
+    const getAllSubFolders = (folder: DirectoryTreeItem): string[] => {
+      if (!folder.children) return [];
 
-      let folders = [];
+      let folders: string[] = [];
 
-      for (const item of folder?.children ?? []) {
-        if (item?.type === 'directory') {
+      for (const item of folder.children ?? []) {
+        if (item.type === 'directory') {
           // Validate each folder is within current root
-          if (item?.path?.startsWith(rootPath)) {
-            folders.push(item?.path);
+          if (item.path.startsWith(rootPath)) {
+            folders.push(item.path);
             folders = [...folders, ...getAllSubFolders(item)];
           }
         }
@@ -440,18 +456,18 @@ const App = () => {
     };
 
     // Get all files in the folder recursively
-    const getAllFiles = (folder) => {
-      if (!folder?.children) return [];
+    const getAllFiles = (folder: DirectoryTreeItem): string[] => {
+      if (!folder.children) return [];
 
-      let files = [];
+      let files: string[] = [];
 
-      for (const item of folder?.children ?? []) {
-        if (item?.type === 'file') {
+      for (const item of folder.children ?? []) {
+        if (item.type === 'file') {
           // Validate each file is within current root
-          if (item?.path?.startsWith(rootPath)) {
-            files.push(item?.path);
+          if (item.path.startsWith(rootPath)) {
+            files.push(item.path);
           }
-        } else if (item?.type === 'directory') {
+        } else if (item.type === 'directory') {
           files = [...files, ...getAllFiles(item)];
         }
       }
@@ -519,10 +535,14 @@ const App = () => {
                     src='icon.png'
                     alt='AI Code Fusion'
                     className='h-8 w-8'
-                    onError={(e) => {
+                    onError={(event: React.SyntheticEvent<HTMLImageElement, Event>) => {
                       console.error('Failed to load icon.png');
-                      e.target.style.display = 'none';
-                      e.target.nextElementSibling.style.display = 'block';
+                      const image = event.currentTarget;
+                      image.style.display = 'none';
+                      const fallbackIcon = image.nextElementSibling as HTMLElement | null;
+                      if (fallbackIcon) {
+                        fallbackIcon.style.display = 'block';
+                      }
                     }}
                   />
                   {/* Fallback icon */}

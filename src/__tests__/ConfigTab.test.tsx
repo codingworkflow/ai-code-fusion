@@ -14,15 +14,15 @@ describe('ConfigTab', () => {
   test('renders textarea with config content', () => {
     render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
 
-    const textarea = screen.getByRole('textbox');
-    expect(textarea).toBeInTheDocument();
+    const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
+    expect(textarea).toBeTruthy();
     expect(textarea.value).toBe(mockConfigContent);
   });
 
   test('calls onConfigChange when content changes', () => {
     render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
 
-    const textarea = screen.getByRole('textbox');
+    const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: 'New config content' } });
 
     expect(mockOnConfigChange).toHaveBeenCalledWith('New config content');

@@ -1,12 +1,19 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+
+export interface GitignorePatterns {
+  excludePatterns: string[];
+  includePatterns: string[];
+}
 
 /**
  * A utility class for parsing and applying gitignore rules.
  */
-class GitignoreParser {
+export class GitignoreParser {
+  private cache: Map<string, GitignorePatterns>;
+
   constructor() {
-    this.cache = new Map();
+    this.cache = new Map<string, GitignorePatterns>();
   }
 
   /**
@@ -21,7 +28,7 @@ class GitignoreParser {
    * @param {string} rootPath - The root path of the repository
    * @returns {Object} - Object with include and exclude patterns
    */
-  parseGitignore(rootPath) {
+  parseGitignore(rootPath: string): GitignorePatterns {
     // Check if we have a cached result for this root path
     if (this.cache.has(rootPath)) {
       return this.cache.get(rootPath);
@@ -30,7 +37,7 @@ class GitignoreParser {
     const gitignorePath = path.join(rootPath, '.gitignore');
 
     // Default result with empty pattern arrays
-    const defaultResult = {
+    const defaultResult: GitignorePatterns = {
       excludePatterns: [],
       includePatterns: [],
     };
@@ -59,7 +66,7 @@ class GitignoreParser {
   }
 
   // Helper methods for _parseGitignoreContent
-  _addPattern(result, pattern, isNegated) {
+  private _addPattern(result: GitignorePatterns, pattern: string, isNegated: boolean): void {
     if (!pattern) return;
     if (isNegated) {
       result.includePatterns.push(pattern);
@@ -68,7 +75,11 @@ class GitignoreParser {
     }
   }
 
-  _processSimplePattern(result, pattern, isNegated) {
+  private _processSimplePattern(
+    result: GitignorePatterns,
+    pattern: string,
+    isNegated: boolean
+  ): void {
     // Simple pattern like *.log or node_modules
     const isDir = pattern.endsWith('/');
     const rootPattern = pattern;
@@ -82,7 +93,11 @@ class GitignoreParser {
     }
   }
 
-  _processPathPattern(result, pattern, isNegated) {
+  private _processPathPattern(
+    result: GitignorePatterns,
+    pattern: string,
+    isNegated: boolean
+  ): void {
     if (pattern.startsWith('/')) {
       // Remove leading slash
       pattern = pattern.substring(1);
@@ -115,8 +130,8 @@ class GitignoreParser {
    * @param {string} content - The content of the .gitignore file
    * @returns {Object} - Object with include and exclude patterns
    */
-  _parseGitignoreContent(content) {
-    const result = {
+  _parseGitignoreContent(content: string): GitignorePatterns {
+    const result: GitignorePatterns = {
       excludePatterns: [],
       includePatterns: [],
     };
@@ -131,7 +146,7 @@ class GitignoreParser {
 
       // Handle negated patterns
       const isNegated = trimmedLine.startsWith('!');
-      let pattern = isNegated ? trimmedLine.substring(1).trim() : trimmedLine;
+      const pattern = isNegated ? trimmedLine.substring(1).trim() : trimmedLine;
 
       // Skip if pattern is empty after processing
       if (!pattern) continue;
@@ -160,5 +175,3 @@ class GitignoreParser {
     return result;
   }
 }
-
-module.exports = { GitignoreParser };

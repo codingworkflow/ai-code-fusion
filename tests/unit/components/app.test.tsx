@@ -76,7 +76,12 @@ jest.mock('../../../src/renderer/components/SourceTab', () => {
         <button data-testid='select-directory-btn' onClick={onDirectorySelect}>
           Select Directory
         </button>
-        <button data-testid='analyze-btn' onClick={onAnalyze}>
+        <button
+          data-testid='analyze-btn'
+          onClick={() => {
+            Promise.resolve(onAnalyze()).catch(() => {});
+          }}
+        >
           Analyze
         </button>
         <div data-testid='selected-files-count'>{selectedFiles.length}</div>
@@ -184,19 +189,19 @@ window.electron = {
   },
 };
 
-// Mock localStorage with a proper implementation
-const localStorageMock = (() => {
-  let store = {};
-  return {
-    getItem: jest.fn((key) => store[key] || null),
-    setItem: jest.fn((key, value) => {
-      store[key] = value.toString();
-    }),
-    clear: jest.fn(() => {
-      store = {};
-    }),
-  };
-})();
+// Mock localStorage with a resettable in-memory store
+let localStorageStore = {};
+const localStorageMock = {
+  getItem: jest.fn((key) =>
+    Object.prototype.hasOwnProperty.call(localStorageStore, key) ? localStorageStore[key] : null
+  ),
+  setItem: jest.fn((key, value) => {
+    localStorageStore[key] = value.toString();
+  }),
+  clear: jest.fn(() => {
+    localStorageStore = {};
+  }),
+};
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
 });
@@ -208,6 +213,16 @@ window.alert = jest.fn();
 describe('App Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    localStorageStore = {};
+    localStorage.getItem.mockImplementation((key) =>
+      Object.prototype.hasOwnProperty.call(localStorageStore, key) ? localStorageStore[key] : null
+    );
+    localStorage.setItem.mockImplementation((key, value) => {
+      localStorageStore[key] = value.toString();
+    });
+    localStorage.clear.mockImplementation(() => {
+      localStorageStore = {};
+    });
     localStorage.clear();
   });
 

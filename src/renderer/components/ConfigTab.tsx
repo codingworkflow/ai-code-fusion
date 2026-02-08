@@ -1,10 +1,28 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import PropTypes from 'prop-types';
+import React, { useCallback, useEffect, useState } from 'react';
 import yaml from 'yaml';
 import { yamlArrayToPlainText } from '../../utils/formatters/list-formatter';
+import type { ConfigObject } from '../../types/ipc';
+
+type ConfigTabProps = {
+  configContent: string;
+  onConfigChange: (config: string) => void;
+};
+
+type ConfigStateSetters = {
+  setFileExtensions: React.Dispatch<React.SetStateAction<string>>;
+  setExcludePatterns: React.Dispatch<React.SetStateAction<string>>;
+  setUseCustomExcludes: React.Dispatch<React.SetStateAction<boolean>>;
+  setUseCustomIncludes: React.Dispatch<React.SetStateAction<boolean>>;
+  setUseGitignore: React.Dispatch<React.SetStateAction<boolean>>;
+  setIncludeTreeView: React.Dispatch<React.SetStateAction<boolean>>;
+  setShowTokenCount: React.Dispatch<React.SetStateAction<boolean>>;
+};
 
 // Helper functions for extension and pattern handling to reduce complexity
-const processExtensions = (config, setFileExtensions) => {
+const processExtensions = (
+  config: ConfigObject,
+  setFileExtensions: React.Dispatch<React.SetStateAction<string>>
+) => {
   setFileExtensions(
     config?.include_extensions && Array.isArray(config.include_extensions)
       ? yamlArrayToPlainText(config.include_extensions)
@@ -12,7 +30,10 @@ const processExtensions = (config, setFileExtensions) => {
   );
 };
 
-const processPatterns = (config, setExcludePatterns) => {
+const processPatterns = (
+  config: ConfigObject,
+  setExcludePatterns: React.Dispatch<React.SetStateAction<string>>
+) => {
   setExcludePatterns(
     config?.exclude_patterns && Array.isArray(config.exclude_patterns)
       ? yamlArrayToPlainText(config.exclude_patterns)
@@ -21,7 +42,7 @@ const processPatterns = (config, setExcludePatterns) => {
 };
 
 // Helper function to update config-related states
-const updateConfigStates = (config, stateSetters) => {
+const updateConfigStates = (config: ConfigObject, stateSetters: ConfigStateSetters) => {
   const {
     setFileExtensions,
     setExcludePatterns,
@@ -58,7 +79,7 @@ const updateConfigStates = (config, stateSetters) => {
   }
 };
 
-const ConfigTab = ({ configContent, onConfigChange }) => {
+const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
   const [isSaved, setIsSaved] = useState(false);
   const [useCustomExcludes, setUseCustomExcludes] = useState(true);
   const [useCustomIncludes, setUseCustomIncludes] = useState(true);
@@ -72,7 +93,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
   useEffect(() => {
     try {
       // Parse the YAML config
-      const config = yaml.parse(configContent) || {};
+      const config = (yaml.parse(configContent) || {}) as ConfigObject;
 
       // Use helper function to update states
       updateConfigStates(config, {
@@ -92,11 +113,11 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
   // Auto-save function whenever options change or manual save
   const saveConfig = useCallback(() => {
     try {
-      let config;
+      let config: ConfigObject;
 
       try {
         // Parse the current config
-        config = yaml.parse(configContent);
+        config = yaml.parse(configContent) as ConfigObject;
         // If parsing returns null or undefined, use empty object
         if (!config) {
           config = {};
@@ -168,7 +189,7 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
   ]);
 
   // State to track the current folder path
-  const [folderPath, setFolderPath] = useState(localStorage.getItem('rootPath') || '');
+  const [folderPath, setFolderPath] = useState<string>(localStorage.getItem('rootPath') || '');
 
   // Listen for path changes from other components
   useEffect(() => {
@@ -187,9 +208,11 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
     const pathCheckInterval = setInterval(checkForPathChanges, 500);
 
     // Listen for custom events
-    const handleRootPathChanged = (e) => {
-      if (e.detail && e.detail !== folderPath) {
-        setFolderPath(e.detail);
+    const handleRootPathChanged = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      const detail = customEvent.detail;
+      if (detail && detail !== folderPath) {
+        setFolderPath(detail);
       }
     };
 
@@ -427,11 +450,6 @@ const ConfigTab = ({ configContent, onConfigChange }) => {
       </div>
     </div>
   );
-};
-
-ConfigTab.propTypes = {
-  configContent: PropTypes.string.isRequired,
-  onConfigChange: PropTypes.func.isRequired,
 };
 
 export default ConfigTab;

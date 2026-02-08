@@ -32,8 +32,31 @@ window.electronAPI = {
     totalTokens: 0,
     processedFiles: 0,
     skippedFiles: 0,
+    filesInfo: [],
+  }),
+  getDefaultConfig: jest.fn().mockResolvedValue(''),
+  getAssetPath: jest.fn().mockResolvedValue(null),
+  countFilesTokens: jest.fn().mockResolvedValue({
+    results: {},
+    stats: {},
   }),
 };
+
+if (!window.matchMedia) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: jest.fn().mockImplementation((query) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    })),
+  });
+}
 
 // Mock fs module functions that we use in various tests
 jest.mock('fs', () => ({

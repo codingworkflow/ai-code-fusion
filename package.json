@@ -2,27 +2,29 @@
   "name": "ai-code-fusion",
   "version": "0.2.0",
   "description": "AI Code Fusion",
-  "main": "src/main/index.js",
+  "main": "build/ts/main/index.js",
   "scripts": {
     "start": "node scripts/index.js dev",
     "postinstall": "electron-builder install-app-deps && electron-rebuild",
     "rebuild": "electron-rebuild",
     "build": "node scripts/index.js build",
+    "build:ts": "tsc -p tsconfig.build.json",
+    "watch:ts": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "prebuild:webpack": "node scripts/ensure-build-dirs.js",
     "build:webpack": "cross-env NODE_ENV=production webpack --mode production",
     "prewatch:webpack": "node scripts/ensure-build-dirs.js",
     "watch:webpack": "cross-env NODE_ENV=development webpack --mode development --watch",
-    "predev": "node scripts/clean-dev-assets.js",
-    "dev": "concurrently \"npm run watch:webpack\" \"npm run watch:css\" \"node scripts/index.js dev\"",
+    "predev": "npm run build:ts && node scripts/clean-dev-assets.js",
+    "dev": "node scripts/index.js dev",
     "clear-assets": "rimraf src/renderer/bundle.js src/renderer/bundle.js.map src/renderer/bundle.js.LICENSE.txt src/renderer/output.css",
-    "lint": "eslint src tests --ext .js,.jsx --cache",
-    "lint:tests": "eslint tests --ext .js,.jsx --cache",
-    "format": "prettier --write \"**/*.{js,jsx,json,md,html,css}\"",
+    "lint": "eslint src tests --ext .js,.jsx,.ts,.tsx --cache",
+    "lint:tests": "eslint tests --ext .js,.jsx,.ts,.tsx --cache",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,html,css}\"",
     "test": "jest --config jest.config.js --passWithNoTests",
     "test:watch": "jest --watch --config jest.config.js --passWithNoTests",
-    "test:gitignore": "jest --config jest.config.js --testMatch=\"**/tests/unit/gitignore-parser.test.js\" --verbose",
-    "test:binary": "jest --config jest.config.js --testMatch=\"**/tests/unit/binary-detection.test.js\" --verbose",
-    "test:patterns": "jest --config jest.config.js --testMatch=\"**/tests/**/*pattern*.test.js\" --verbose",
+    "test:gitignore": "jest --config jest.config.js --testMatch=\"**/tests/unit/gitignore-parser.test.{js,ts}\" --verbose",
+    "test:binary": "jest --config jest.config.js --testMatch=\"**/tests/unit/binary-detection.test.{js,ts}\" --verbose",
+    "test:patterns": "jest --config jest.config.js --testMatch=\"**/tests/**/*pattern*.test.{js,ts}\" --verbose",
     "test:lint": "npm run test && npm run lint:tests",
     "watch:css": "npx tailwindcss -i ./src/renderer/styles.css -o ./src/renderer/output.css --watch",
     "build:css": "npx tailwindcss -i ./src/renderer/styles.css -o ./src/renderer/output.css",
@@ -31,17 +33,20 @@
     "release": "node scripts/index.js release",
     "clean": "node scripts/index.js clean",
     "setup": "node scripts/index.js setup",
-    "prebuild:win": "node scripts/prepare-build.js windows",
+    "prebuild:win": "npm run build:ts && node scripts/prepare-build.js windows",
     "build:win": "cross-env NODE_ENV=production electron-builder --win",
+    "prebuild:mac": "npm run build:ts && node scripts/prepare-build.js mac",
     "build:mac": "cross-env NODE_ENV=production electron-builder --mac",
+    "prebuild:mac-arm": "npm run build:ts && node scripts/prepare-build.js mac",
     "build:mac-arm": "cross-env NODE_ENV=production electron-builder --mac --arm64",
+    "prebuild:mac-universal": "npm run build:ts && node scripts/prepare-build.js mac",
     "build:mac-universal": "cross-env NODE_ENV=production electron-builder --mac --universal",
     "build:linux": "cross-env NODE_ENV=production electron-builder --linux"
   },
   "author": "AI Code Fusion <m@codingworkflow.com>",
   "license": "GPL-3.0",
   "lint-staged": {
-    "{src,tests}/**/*.{js,jsx}": [
+    "{src,tests}/**/*.{js,jsx,ts,tsx}": [
       "eslint --fix"
     ],
     "*.{json,md,html,css}": [
@@ -55,6 +60,7 @@
     },
     "files": [
       "src/**/*",
+      "build/ts/**/*",
       "package.json",
       "node_modules/**/*"
     ],
@@ -62,7 +68,7 @@
       "build/Release/*.node"
     ],
     "extraMetadata": {
-      "main": "src/main/index.js"
+      "main": "build/ts/main/index.js"
     },
     "asar": true,
     "icon": "src/assets/icon.ico",
@@ -101,7 +107,6 @@
     "minimatch": "^9.0.3",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
-    "prop-types": "^15.8.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.0",
@@ -113,11 +118,18 @@
     "@babel/plugin-transform-modules-commonjs": "^7.26.3",
     "@babel/preset-env": "^7.26.9",
     "@babel/preset-react": "^7.26.3",
+    "@babel/preset-typescript": "^7.26.0",
     "@electron/rebuild": "^3.6.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.13.4",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
     "@jest/globals": "^29.7.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^14.3.1",
     "@testing-library/user-event": "^14.6.1",
+    "@typescript-eslint/eslint-plugin": "^8.24.0",
+    "@typescript-eslint/parser": "^8.24.0",
     "autoprefixer": "^10.4.17",
     "babel-jest": "^29.7.0",
     "babel-loader": "^9.1.3",
@@ -146,6 +158,7 @@
     "style-loader": "^3.3.4",
     "sonarqube-scanner": "^3.3.0",
     "tailwindcss": "^3.4.1",
+    "typescript": "^5.7.3",
     "webpack": "^5.90.1",
     "webpack-cli": "^5.1.4"
   }
