@@ -184,19 +184,19 @@ jobs:
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
           name: windows-artifacts
-          path: artifacts
+          path: artifacts/windows
 
       - name: Download Linux artifacts
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
           name: linux-artifacts
-          path: artifacts
+          path: artifacts/linux
 
       - name: Download macOS artifacts
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
           name: macos-artifacts
-          path: artifacts
+          path: artifacts/macos
 
       - name: Create Release
         uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090
