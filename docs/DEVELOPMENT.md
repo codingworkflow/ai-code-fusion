@@ -94,5 +94,3 @@ node scripts/index.js release <version>
 ```
 
 Where `<version>` is a semantic version (`1.2.3`) or one of `patch`, `minor`, `major`.
-
-For update metadata and signing rollout planning, see `docs/UPDATES_AND_SIGNING.md`.
