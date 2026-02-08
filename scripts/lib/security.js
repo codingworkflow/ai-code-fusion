@@ -12,6 +12,17 @@ const SECURITY_DIR = path.join(utils.ROOT_DIR, 'dist', 'security');
 const GITLEAKS_DIR = path.join(SECURITY_DIR, 'gitleaks');
 const SBOM_DIR = path.join(SECURITY_DIR, 'sbom');
 const RENOVATE_DIR = path.join(SECURITY_DIR, 'renovate');
+const SAFE_COMMAND_PATTERN = /^[A-Za-z0-9._/\-]+$/;
+
+function assertSafeCommand(command) {
+  if (typeof command !== 'string' || command.length === 0) {
+    throw new Error('Command must be a non-empty string');
+  }
+
+  if (!SAFE_COMMAND_PATTERN.test(command) || command.includes('..')) {
+    throw new Error(`Unsafe command rejected: ${command}`);
+  }
+}
 
 function ensureSecurityDirs() {
   utils.ensureDir(SECURITY_DIR);
@@ -21,14 +32,16 @@ function ensureSecurityDirs() {
 }
 
 function hasCommand(command) {
-  const checkCommand = process.platform === 'win32' ? `where ${command}` : `command -v ${command}`;
+  assertSafeCommand(command);
+  const checker = process.platform === 'win32' ? 'where' : 'which';
 
-  try {
-    execSync(checkCommand, { stdio: 'ignore' });
-    return true;
-  } catch (_error) {
-    return false;
-  }
+  const result = spawnSync(checker, [command], {
+    stdio: 'ignore',
+    cwd: utils.ROOT_DIR,
+    shell: false,
+  });
+
+  return result.status === 0;
 }
 
 function getCommandCandidates(command) {
@@ -57,7 +70,19 @@ function resolveCommand(command, localCandidates = []) {
 }
 
 function runCommand(command, args = [], options = {}) {
+  assertSafeCommand(command);
+  if (!Array.isArray(args)) {
+    throw new Error('Command arguments must be an array');
+  }
+
   const sanitizedArgs = args.map((arg) => {
+    if (typeof arg !== 'string') {
+      throw new Error('Command arguments must be strings');
+    }
+    if (arg.includes('\0')) {
+      throw new Error('Command arguments may not include null bytes');
+    }
+
     if (/^--token=/.test(arg) || /^--\w*token=/.test(arg)) {
       const [key] = arg.split('=');
       return `${key}=***`;
