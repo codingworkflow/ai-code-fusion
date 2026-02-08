@@ -13,6 +13,18 @@ const GITLEAKS_DIR = path.join(SECURITY_DIR, 'gitleaks');
 const SBOM_DIR = path.join(SECURITY_DIR, 'sbom');
 const RENOVATE_DIR = path.join(SECURITY_DIR, 'renovate');
 const SAFE_COMMAND_PATTERN = /^[A-Za-z0-9._/\-]+$/;
+const ALLOWED_EXECUTABLES = new Set([
+  'gh',
+  'gh.exe',
+  'gitleaks',
+  'gitleaks.exe',
+  'mend-scan',
+  'mend-scan.exe',
+  'npx',
+  'npx.cmd',
+  'syft',
+  'syft.exe',
+]);
 
 function assertSafeCommand(command) {
   if (typeof command !== 'string' || command.length === 0) {
@@ -21,6 +33,15 @@ function assertSafeCommand(command) {
 
   if (!SAFE_COMMAND_PATTERN.test(command) || command.includes('..')) {
     throw new Error(`Unsafe command rejected: ${command}`);
+  }
+}
+
+function assertAllowedExecutable(command) {
+  assertSafeCommand(command);
+  const baseName = path.basename(command).toLowerCase();
+
+  if (!ALLOWED_EXECUTABLES.has(baseName)) {
+    throw new Error(`Executable not allowed: ${baseName}`);
   }
 }
 
@@ -70,7 +91,7 @@ function resolveCommand(command, localCandidates = []) {
 }
 
 function runCommand(command, args = [], options = {}) {
-  assertSafeCommand(command);
+  assertAllowedExecutable(command);
   if (!Array.isArray(args)) {
     throw new Error('Command arguments must be an array');
   }
