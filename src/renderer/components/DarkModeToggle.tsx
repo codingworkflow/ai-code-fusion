@@ -9,6 +9,7 @@ const DarkModeToggle = () => {
       onClick={toggleDarkMode}
       className='p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700'
       title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+      aria-label={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
     >
       {darkMode ? (
         // Sun icon for light mode

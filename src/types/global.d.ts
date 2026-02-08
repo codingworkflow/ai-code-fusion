@@ -1,9 +1,9 @@
-import type { ElectronApi } from './ipc';
+import type { ElectronApi, TabId } from './ipc';
 
 declare global {
   interface Window {
     electronAPI?: ElectronApi;
-    switchToTab?: (tab: 'config' | 'source' | 'processed') => void;
+    switchToTab?: (tab: TabId) => void;
     refreshDirectoryTree?: () => Promise<void>;
     electron?: {
       shell?: {
