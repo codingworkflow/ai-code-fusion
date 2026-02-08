@@ -1,5 +1,10 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+set -e
+
 # Run lint-staged (works on both Windows with Git Bash and Linux)
 npx lint-staged
+
+# Block commits that introduce secrets.
+npm run gitleaks
