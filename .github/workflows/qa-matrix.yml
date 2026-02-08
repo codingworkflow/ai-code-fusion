@@ -1,0 +1,71 @@
+name: QA Matrix
+
+on:
+  pull_request:
+    branches: ['main']
+  push:
+    branches: ['main']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    name: QA (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
+        with:
+          node-version: 20
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit and integration tests
+        run: npm test -- --runInBand
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Build CSS
+        run: npm run build:css
+
+      - name: Build renderer bundle
+        run: npm run build:webpack
+
+      - name: Install Playwright browser (Linux)
+        if: runner.os == 'Linux'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright browser (Windows/macOS)
+        if: runner.os != 'Linux'
+        run: npx playwright install chromium
+
+      - name: Capture UI screenshot
+        run: npm run qa:screenshot
+        env:
+          UI_SCREENSHOT_NAME: ui-${{ runner.os }}.png
+
+      - name: Upload UI screenshot
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: ui-screenshot-${{ runner.os }}
+          path: dist/qa/screenshots/*.png
+          if-no-files-found: error
+          retention-days: 14

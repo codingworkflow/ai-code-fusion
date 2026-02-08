@@ -176,7 +176,7 @@ const SourceTab = ({
   }, []);
 
   return (
-    <div>
+    <div className='flex h-full min-h-0 flex-col'>
       <div className='mb-4'>
         <div className='flex'>
           <input
@@ -380,7 +380,7 @@ const SourceTab = ({
       </div>
 
       {directoryTree.length > 0 ? (
-        <div className='mb-6'>
+        <div className='mb-6 flex min-h-0 flex-1 flex-col'>
           <div className='mb-2 flex items-center'>
             <label
               htmlFor='file-folder-selection'
@@ -392,7 +392,7 @@ const SourceTab = ({
 
           <div
             id='file-folder-selection'
-            className='rounded-md border border-gray-200 dark:border-gray-700 shadow-sm'
+            className='flex min-h-0 flex-1 rounded-md border border-gray-200 dark:border-gray-700 shadow-sm'
           >
             <FileTree
               items={directoryTree}

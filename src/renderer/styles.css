@@ -21,10 +21,6 @@
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.tab-content {
-  min-height: 500px;
-}
-
 /* Folder and file icons styling */
 .folder-icon,
 .file-icon {

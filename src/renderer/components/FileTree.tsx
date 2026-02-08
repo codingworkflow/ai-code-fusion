@@ -272,7 +272,7 @@ const FileTreeComponent = ({
   };
 
   return (
-    <div className='file-tree rounded-md border border-gray-200 dark:border-gray-700'>
+    <div className='file-tree flex min-h-0 flex-1 flex-col rounded-md border border-gray-200 dark:border-gray-700'>
       <div className='flex items-center justify-between border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2'>
         <div className='flex items-center'>
           <input
@@ -297,7 +297,7 @@ const FileTreeComponent = ({
         </span>
       </div>
 
-      <div className='max-h-96 overflow-auto p-2'>
+      <div className='flex-1 min-h-0 overflow-auto p-2'>
         {items.length === 0 ? (
           <div className='flex flex-col items-center justify-center p-8 text-center text-gray-500 dark:text-gray-400'>
             <svg
