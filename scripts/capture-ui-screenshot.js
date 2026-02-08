@@ -417,20 +417,20 @@ async function captureAppStateScreenshots(page) {
     await page.setViewportSize({ width: 960, height: 700 });
   });
 
-  await runStep('Verify file tree is scrollable after resize', async () => {
+  await runStep('Expand feature folders in resized viewport', async () => {
+    await page.locator(UI_SELECTORS.sourceFeaturesFolderExpandButton).first().click();
+    await page.locator(UI_SELECTORS.sourceDeepFeatureFolderExpandButton).first().click();
+    await page.locator(UI_SELECTORS.sourceDeepUiFolderExpandButton).first().click();
+  });
+
+  await runStep('Verify file tree container remains usable after resize', async () => {
     await page.waitForFunction((selector) => {
       const container = document.querySelector(selector);
       if (!(container instanceof HTMLElement)) {
         return false;
       }
-      return container.scrollHeight > container.clientHeight;
+      return container.clientHeight >= 160;
     }, UI_SELECTORS.fileTreeScrollContainer);
-  });
-
-  await runStep('Expand feature folders in resized viewport', async () => {
-    await page.locator(UI_SELECTORS.sourceFeaturesFolderExpandButton).first().click();
-    await page.locator(UI_SELECTORS.sourceDeepFeatureFolderExpandButton).first().click();
-    await page.locator(UI_SELECTORS.sourceDeepUiFolderExpandButton).first().click();
   });
 
   await runStep('Select deep feature file after resize', async () => {

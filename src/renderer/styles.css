@@ -1,6 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@config '../../tailwind.config.js';
+@import 'tailwindcss';
+@source './**/*.{js,jsx,ts,tsx}';
+@source './index.html';
 
 .file-tree {
   font-family:
