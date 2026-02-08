@@ -61,8 +61,12 @@ async function setupProject() {
   console.log('Setting up the project...');
 
   try {
-    // Install dependencies
-    runNpm('install');
+    // Install dependencies using lockfile when available
+    if (fileExists(path.join(ROOT_DIR, 'package-lock.json'))) {
+      runNpm('ci');
+    } else {
+      runNpm('install');
+    }
 
     // Build CSS
     runNpmScript('build:css');
@@ -224,6 +228,13 @@ function printHelp() {
   console.log('  lint                 - Run linter');
   console.log('  format               - Format code');
   console.log('  validate             - Run all code quality checks');
+  console.log('  qa                   - Run lint + tests + security checks');
+  console.log('  security             - Run security checks (gitleaks + sbom)');
+  console.log('  gitleaks             - Run gitleaks secret scan');
+  console.log('  sbom                 - Generate CycloneDX SBOM');
+  console.log('  renovate             - Run Renovate against repository');
+  console.log('  renovate-local       - Run Renovate local dry-run report');
+  console.log('  mend-scan            - Run Mend Unified Agent scan');
   console.log('  sonar                - Run SonarQube analysis');
   console.log('');
   console.log('Release:');
