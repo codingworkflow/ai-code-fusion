@@ -1,13 +1,24 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol } = require('electron');
-const path = require('path');
-const fs = require('fs');
-const yaml = require('yaml');
-const { TokenCounter } = require('../utils/token-counter');
-const { FileAnalyzer, isBinaryFile } = require('../utils/file-analyzer');
-const { ContentProcessor } = require('../utils/content-processor');
-const { GitignoreParser } = require('../utils/gitignore-parser');
-const { loadDefaultConfig } = require('../utils/config-manager');
-const { shouldExclude, getRelativePath, normalizePath } = require('../utils/filter-utils');
+import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron';
+import fs from 'fs';
+import path from 'path';
+import yaml from 'yaml';
+import { loadDefaultConfig } from '../utils/config-manager';
+import { ContentProcessor } from '../utils/content-processor';
+import { FileAnalyzer, isBinaryFile } from '../utils/file-analyzer';
+import { normalizePath, getRelativePath, shouldExclude } from '../utils/filter-utils';
+import { GitignoreParser } from '../utils/gitignore-parser';
+import { TokenCounter } from '../utils/token-counter';
+import type {
+  AnalyzeRepositoryOptions,
+  AnalyzeRepositoryResult,
+  ConfigObject,
+  CountFilesTokensResult,
+  DirectoryTreeItem,
+  FileInfo,
+  ProcessRepositoryOptions,
+  ProcessRepositoryResult,
+  SaveFileOptions,
+} from '../types/ipc';
 
 // Initialize the gitignore parser
 const gitignoreParser = new GitignoreParser();
@@ -16,7 +27,12 @@ const gitignoreParser = new GitignoreParser();
 const tokenCounter = new TokenCounter();
 
 // Keep a global reference of the window object to avoid garbage collection
-let mainWindow;
+let mainWindow: BrowserWindow | null = null;
+
+const APP_ROOT = path.resolve(__dirname, '../../..');
+const RENDERER_INDEX_PATH = path.join(APP_ROOT, 'src', 'renderer', 'index.html');
+const ASSETS_DIR = path.join(APP_ROOT, 'src', 'assets');
+const PUBLIC_ASSETS_DIR = path.join(APP_ROOT, 'public', 'assets');
 
 // Set environment
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -33,7 +49,7 @@ async function createWindow() {
       additionalArguments: [`--app-dev-mode=${isDevelopment ? 'true' : 'false'}`],
     },
     autoHideMenuBar: true, // Hide the menu bar by default
-    icon: path.join(__dirname, '../assets/icon.ico'), // Set the application icon
+    icon: path.join(ASSETS_DIR, 'icon.ico'), // Set the application icon
   });
 
   // Hide the menu bar completely in all modes
@@ -41,17 +57,11 @@ async function createWindow() {
 
   // Load the index.html file
   if (isDevelopment) {
-    await mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    await mainWindow.loadFile(RENDERER_INDEX_PATH);
     mainWindow.webContents.openDevTools();
   } else {
-    await mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    await mainWindow.loadFile(RENDERER_INDEX_PATH);
   }
-
-  // Set up protocol for the public assets folder
-  protocol.registerFileProtocol('assets', (request) => {
-    const url = request.url.slice(9); // Remove 'assets://' prefix
-    return { path: path.normalize(`${__dirname}/../../public/assets/${url}`) };
-  });
 
   // Window closed event
   mainWindow.on('closed', () => {
@@ -67,13 +77,13 @@ if (process.platform === 'win32') {
 // Create window when Electron is ready
 app.whenReady().then(() => {
   // Register assets protocol
-  protocol.registerFileProtocol('assets', (request) => {
+  protocol.registerFileProtocol('assets', (request, callback) => {
     const url = request.url.replace('assets://', '');
-    const assetPath = path.normalize(path.join(__dirname, '../../public/assets', url));
-    return { path: assetPath };
+    const assetPath = path.normalize(path.join(PUBLIC_ASSETS_DIR, url));
+    callback({ path: assetPath });
   });
 
-  createWindow();
+  void createWindow();
 });
 
 // Quit when all windows are closed
@@ -93,7 +103,7 @@ app.on('activate', () => {
 
 // Select directory dialog
 ipcMain.handle('dialog:selectDirectory', async () => {
-  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow ?? undefined, {
     properties: ['openDirectory'],
   });
 
@@ -105,15 +115,20 @@ ipcMain.handle('dialog:selectDirectory', async () => {
 });
 
 // Get directory tree
-ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
+ipcMain.handle(
+  'fs:getDirectoryTree',
+  async (_event, dirPath: string, configContent?: string | null) => {
   // IMPORTANT: This function applies exclude patterns to the directory tree,
   // preventing node_modules, .git, and other large directories from being included
   // in the UI tree view. This is critical for performance with large repositories.
 
   // Parse config to get settings and exclude patterns
-  let excludePatterns;
+  let excludePatterns: (string[] & { includePatterns?: string[]; includeExtensions?: string[] }) =
+    [''];
   try {
-    const config = configContent ? yaml.parse(configContent) : { exclude_patterns: [] };
+    const config = (configContent
+      ? (yaml.parse(configContent) as ConfigObject)
+      : ({ exclude_patterns: [] } as ConfigObject)) || { exclude_patterns: [] };
 
     // Check if we should use custom excludes (default to true if not specified)
     const useCustomExcludes = config.use_custom_excludes !== false;
@@ -125,8 +140,6 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
     const useGitignore = config.use_gitignore !== false;
 
     // Start with empty excludePatterns array (no hardcoded patterns)
-    excludePatterns = [''];
-
     // Add custom exclude patterns if enabled
     if (useCustomExcludes && config.exclude_patterns && Array.isArray(config.exclude_patterns)) {
       excludePatterns = [...excludePatterns, ...config.exclude_patterns];
@@ -163,16 +176,18 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
   // Import the fnmatch module
 
   // Get the config for filtering
-  const config = configContent ? yaml.parse(configContent) : { exclude_patterns: [] };
+  const config = (configContent
+    ? (yaml.parse(configContent) as ConfigObject)
+    : ({ exclude_patterns: [] } as ConfigObject)) || { exclude_patterns: [] };
 
   // Use the shared shouldExclude function from filter-utils
-  const localShouldExclude = (itemPath) => {
+  const localShouldExclude = (itemPath: string) => {
     return shouldExclude(itemPath, dirPath, excludePatterns, config);
   };
 
-  const walkDirectory = (dir) => {
+  const walkDirectory = (dir: string): DirectoryTreeItem[] => {
     const items = fs.readdirSync(dir);
-    const result = [];
+    const result: DirectoryTreeItem[] = [];
 
     for (const item of items) {
       try {
@@ -230,15 +245,21 @@ ipcMain.handle('fs:getDirectoryTree', async (_, dirPath, configContent) => {
     console.error('Error getting directory tree:', error);
     return [];
   }
-});
+  }
+);
 
 // Use the imported normalizePath from filter-utils
 
 // Analyze repository
-ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFiles }) => {
+ipcMain.handle(
+  'repo:analyze',
+  async (
+    _event,
+    { rootPath, configContent, selectedFiles }: AnalyzeRepositoryOptions
+  ): Promise<AnalyzeRepositoryResult> => {
   try {
-    const config = yaml.parse(configContent);
-    const tokenCounter = new TokenCounter();
+    const config = (yaml.parse(configContent) || {}) as ConfigObject;
+    const localTokenCounter = new TokenCounter();
 
     // Process gitignore if enabled
     let gitignorePatterns = { excludePatterns: [], includePatterns: [] };
@@ -247,13 +268,13 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
     }
 
     // Create a file analyzer instance with the appropriate settings
-    const fileAnalyzer = new FileAnalyzer(config, tokenCounter, {
+    const fileAnalyzer = new FileAnalyzer(config, localTokenCounter, {
       useGitignore: config.use_gitignore === true,
       gitignorePatterns: gitignorePatterns,
     });
 
     // If selectedFiles is provided, only analyze those files
-    const filesInfo = [];
+    const filesInfo: FileInfo[] = [];
     let totalTokens = 0;
     let skippedBinaryFiles = 0;
 
@@ -268,14 +289,13 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
       const relativePath = getRelativePath(filePath, rootPath);
 
       // For binary files, record them as skipped but don't prevent selection
-      let isBinary = false;
-      if (!fileAnalyzer.shouldReadFile(filePath)) {
+      const binaryFile = isBinaryFile(filePath);
+      if (binaryFile) {
         console.log(`Binary file detected (will skip processing): ${relativePath}`);
-        isBinary = true;
         skippedBinaryFiles++;
       }
 
-      if (isBinary) {
+      if (binaryFile) {
         // For binary files, add to filesInfo but with zero tokens and a flag
         filesInfo.push({
           path: relativePath,
@@ -310,10 +330,11 @@ ipcMain.handle('repo:analyze', async (_, { rootPath, configContent, selectedFile
     console.error('Error analyzing repository:', error);
     throw error;
   }
-});
+  }
+);
 
 // Helper function to generate tree view from filesInfo
-function generateTreeView(filesInfo) {
+function generateTreeView(filesInfo: FileInfo[]): string {
   if (!filesInfo || !Array.isArray(filesInfo)) {
     return '';
   }
@@ -322,12 +343,15 @@ function generateTreeView(filesInfo) {
   const sortedFiles = [...filesInfo].sort((a, b) => a.path.localeCompare(b.path));
 
   // Build a path tree
-  const pathTree = {};
+  interface PathTree {
+    [key: string]: PathTree | null;
+  }
+  const pathTree: PathTree = {};
   sortedFiles.forEach((file) => {
     if (!file || !file.path) return;
 
     const parts = file.path.split('/');
-    let currentLevel = pathTree;
+    let currentLevel: PathTree = pathTree;
 
     parts.forEach((part, index) => {
       if (!currentLevel[part]) {
@@ -335,13 +359,16 @@ function generateTreeView(filesInfo) {
       }
 
       if (index < parts.length - 1) {
-        currentLevel = currentLevel[part];
+        const nextLevel = currentLevel[part];
+        if (nextLevel) {
+          currentLevel = nextLevel;
+        }
       }
     });
   });
 
   // Recursive function to print the tree
-  const printTree = (tree, prefix = '', isLast = true) => {
+  const printTree = (tree: PathTree, prefix = '', isLast = true): string => {
     const entries = Object.entries(tree);
     let result = '';
 
@@ -365,7 +392,12 @@ function generateTreeView(filesInfo) {
 }
 
 // Process repository
-ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, options = {} }) => {
+ipcMain.handle(
+  'repo:process',
+  async (
+    _event,
+    { rootPath, filesInfo, treeView, options = {} }: ProcessRepositoryOptions
+  ): Promise<ProcessRepositoryResult> => {
   try {
     const tokenCounter = new TokenCounter();
     const contentProcessor = new ContentProcessor(tokenCounter);
@@ -419,7 +451,7 @@ ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, option
         }
 
         if (fs.existsSync(fullPath)) {
-          const content = contentProcessor.processFile(fullPath, filePath, processingOptions);
+          const content = contentProcessor.processFile(fullPath, filePath);
 
           if (content) {
             processedContent += content;
@@ -449,10 +481,11 @@ ipcMain.handle('repo:process', async (_, { rootPath, filesInfo, treeView, option
     console.error('Error processing repository:', error);
     throw error;
   }
-});
+  }
+);
 
 // Save output to file
-ipcMain.handle('fs:saveFile', async (_, { content, defaultPath }) => {
+ipcMain.handle('fs:saveFile', async (_event, { content, defaultPath }: SaveFileOptions) => {
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
     defaultPath,
     filters: [
@@ -487,9 +520,9 @@ ipcMain.handle('config:getDefault', async () => {
 });
 
 // Get path to an asset
-ipcMain.handle('assets:getPath', (_, assetName) => {
+ipcMain.handle('assets:getPath', (_event, assetName: string) => {
   try {
-    const assetPath = path.join(__dirname, '..', 'assets', assetName);
+    const assetPath = path.join(ASSETS_DIR, assetName);
     if (fs.existsSync(assetPath)) {
       return assetPath;
     }
@@ -502,10 +535,12 @@ ipcMain.handle('assets:getPath', (_, assetName) => {
 });
 
 // Count tokens for multiple files in a single call
-ipcMain.handle('tokens:countFiles', async (_, filePaths) => {
+ipcMain.handle(
+  'tokens:countFiles',
+  async (_event, filePaths: string[]): Promise<CountFilesTokensResult> => {
   try {
-    const results = {};
-    const stats = {};
+    const results: Record<string, number> = {};
+    const stats: Record<string, { size: number; mtime: number }> = {};
 
     // Process each file
     for (const filePath of filePaths) {
@@ -548,4 +583,5 @@ ipcMain.handle('tokens:countFiles', async (_, filePaths) => {
     console.error(`Error counting tokens for files:`, error);
     return { results: {}, stats: {} };
   }
-});
+  }
+);

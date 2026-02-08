@@ -1,81 +1,84 @@
-import React, { useState } from 'react';
-import PropTypes from 'prop-types';
+import React, { useMemo, useState } from 'react';
+import type { DirectoryTreeItem } from '../../types/ipc';
 
-// Define item prop shape for reuse
-const ItemPropType = PropTypes.shape({
-  name: PropTypes.string.isRequired,
-  path: PropTypes.string.isRequired,
-  type: PropTypes.string.isRequired,
-  children: PropTypes.array,
-});
+type SelectionHandler = (path: string, isSelected: boolean) => void;
 
-// Helper function to check if item is selected
-const getSelectionStatus = (item, selectedFiles, selectedFolders) => {
-  if (!item) return false;
+type FileTreeItemProps = {
+  item: DirectoryTreeItem;
+  level?: number;
+  selectedFiles: string[];
+  selectedFolders?: string[];
+  onFileSelect: SelectionHandler;
+  onFolderSelect: SelectionHandler;
+};
 
-  const isFile = item.type === 'file';
-  const isFolder = item.type === 'directory';
+type FileTreeProps = {
+  items?: DirectoryTreeItem[];
+  selectedFiles: string[];
+  selectedFolders?: string[];
+  onFileSelect: SelectionHandler;
+  onFolderSelect: SelectionHandler;
+};
 
-  if (isFile) {
+const getSelectionStatus = (
+  item: DirectoryTreeItem,
+  selectedFiles: string[],
+  selectedFolders: string[]
+): boolean => {
+  if (item.type === 'file') {
     return selectedFiles.includes(item.path);
   }
 
-  if (isFolder && selectedFolders) {
-    return selectedFolders.includes(item.path);
-  }
-
-  return false;
+  return selectedFolders.includes(item.path);
 };
 
-// Create the FileTreeItem component
-const FileTreeItemComponent = (props) => {
-  const {
-    item,
-    level = 0,
-    selectedFiles,
-    selectedFolders = [],
-    onFileSelect,
-    onFolderSelect,
-  } = props;
-
-  // Use direct properties instead of nested ternary
-  const isFile = item?.type === 'file';
-  const isFolder = item?.type === 'directory';
-
-  // Use helper function instead of nested ternary
+const FileTreeItemComponent = ({
+  item,
+  level = 0,
+  selectedFiles,
+  selectedFolders = [],
+  onFileSelect,
+  onFolderSelect,
+}: FileTreeItemProps) => {
+  const isFile = item.type === 'file';
+  const isFolder = item.type === 'directory';
   const checkboxIsSelected = getSelectionStatus(item, selectedFiles, selectedFolders);
-
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleToggle = (e) => {
-    e.stopPropagation();
-    setIsOpen(!isOpen);
+  const handleToggle = (event: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
+    event.stopPropagation();
+    setIsOpen((prev) => !prev);
   };
 
-  const handleSelect = (e) => {
-    e.stopPropagation();
+  const handleSelect = (event: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
+    event.stopPropagation();
     const newIsSelected = !checkboxIsSelected;
 
     if (isFile) {
       onFileSelect(item.path, newIsSelected);
-    } else if (isFolder) {
+      return;
+    }
+
+    if (isFolder) {
       onFolderSelect(item.path, newIsSelected);
     }
   };
 
-  const handleCheckboxChange = (e) => {
-    e.stopPropagation();
-    const newIsSelected = e.target.checked;
+  const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    event.stopPropagation();
+    const newIsSelected = event.target.checked;
 
     if (isFile) {
       onFileSelect(item.path, newIsSelected);
-    } else if (isFolder) {
+      return;
+    }
+
+    if (isFolder) {
       onFolderSelect(item.path, newIsSelected);
     }
   };
 
-  // Calculate proper padding for different levels
-  const paddingLeft = level * 16; // 16px per level
+  const paddingLeft = level * 16;
 
   return (
     <div className='my-1'>
@@ -86,9 +89,9 @@ const FileTreeItemComponent = (props) => {
         }`}
         style={{ paddingLeft: `${paddingLeft}px` }}
         onClick={handleSelect}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            handleSelect(e);
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            handleSelect(event);
           }
         }}
       >
@@ -96,10 +99,9 @@ const FileTreeItemComponent = (props) => {
           <input
             type='checkbox'
             id={`checkbox-${item.path}`}
-            // Use the directly derived prop value instead of local state
             checked={checkboxIsSelected}
             onChange={handleCheckboxChange}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
             aria-labelledby={`label-${item.path}`}
             className='size-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500'
           />
@@ -135,11 +137,11 @@ const FileTreeItemComponent = (props) => {
                 type='button'
                 className='mr-1 flex items-center text-left border-0 bg-transparent p-0 cursor-pointer'
                 onClick={handleToggle}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleToggle(e);
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    handleToggle(event);
                   }
                 }}
                 aria-expanded={isOpen}
@@ -164,12 +166,8 @@ const FileTreeItemComponent = (props) => {
         </div>
       </button>
 
-      {isFolder && item.children && (
-        <div
-          className={`overflow-hidden transition-all duration-200 ${
-            isOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
-          }`}
-        >
+      {isFolder && isOpen && item.children && (
+        <div className='overflow-hidden transition-all duration-200 max-h-screen opacity-100'>
           {item.children.map((child) => (
             <FileTreeItem
               key={child.path}
@@ -187,119 +185,90 @@ const FileTreeItemComponent = (props) => {
   );
 };
 
-// Define prop types for FileTreeItemComponent
-FileTreeItemComponent.propTypes = {
-  item: ItemPropType.isRequired,
-  level: PropTypes.number,
-  selectedFiles: PropTypes.arrayOf(PropTypes.string).isRequired,
-  selectedFolders: PropTypes.arrayOf(PropTypes.string),
-  onFileSelect: PropTypes.func.isRequired,
-  onFolderSelect: PropTypes.func.isRequired,
-};
-
-FileTreeItemComponent.defaultProps = {
-  level: 0,
-  selectedFolders: [],
-};
-
-// Memoize the component and set display name
 const FileTreeItem = React.memo(FileTreeItemComponent);
 FileTreeItem.displayName = 'FileTreeItem';
 
-// Create the FileTree component
-const FileTreeComponent = (props) => {
-  const { items = [], selectedFiles, selectedFolders = [], onFileSelect, onFolderSelect } = props;
+const countTotalFiles = (itemsToCount: DirectoryTreeItem[]): number => {
+  let count = 0;
 
-  // Function to select/deselect all files
-  const totalFiles = React.useMemo(() => {
-    const countTotalFiles = (itemsToCount) => {
-      if (!itemsToCount || itemsToCount.length === 0) return 0;
+  for (const item of itemsToCount) {
+    if (item.type === 'file') {
+      count += 1;
+    } else if (item.children) {
+      count += countTotalFiles(item.children);
+    }
+  }
 
-      let count = 0;
-      for (const item of itemsToCount) {
-        if (item.type === 'file') {
-          count++;
-        } else if (item.type === 'directory' && item.children) {
-          count += countTotalFiles(item.children);
-        }
-      }
-      return count;
-    };
+  return count;
+};
 
-    return countTotalFiles(items);
-  }, [items]);
+const collectFilePaths = (itemsToSearch: DirectoryTreeItem[], target: Set<string>) => {
+  for (const item of itemsToSearch) {
+    if (item.type === 'file') {
+      target.add(item.path);
+    } else if (item.children) {
+      collectFilePaths(item.children, target);
+    }
+  }
+};
 
-  // Determine if all files are selected - now with additional check for empty tree
-  const selectAllChecked = React.useMemo(() => {
+const getAllPaths = (itemsToProcess: DirectoryTreeItem[]): { files: string[]; folders: string[] } => {
+  const result = { files: [] as string[], folders: [] as string[] };
+
+  for (const item of itemsToProcess) {
+    if (item.type === 'file') {
+      result.files.push(item.path);
+      continue;
+    }
+
+    result.folders.push(item.path);
+    if (item.children) {
+      const subPaths = getAllPaths(item.children);
+      result.files.push(...subPaths.files);
+      result.folders.push(...subPaths.folders);
+    }
+  }
+
+  return result;
+};
+
+const FileTreeComponent = ({
+  items = [],
+  selectedFiles,
+  selectedFolders = [],
+  onFileSelect,
+  onFolderSelect,
+}: FileTreeProps) => {
+  const totalFiles = useMemo(() => countTotalFiles(items), [items]);
+
+  const selectAllChecked = useMemo(() => {
     if (totalFiles === 0) return false;
 
-    // If we have selected files but the count doesn't match, we may need to verify
-    // that the selected files are actually in the current tree
     if (selectedFiles.length > 0 && selectedFiles.length !== totalFiles) {
-      // Count how many of the selected files are actually in the current tree
-      const validFilePaths = new Set();
-
-      // Function to collect all valid file paths in the tree
-      const collectFilePaths = (itemsToSearch) => {
-        itemsToSearch.forEach((item) => {
-          if (item.type === 'file') {
-            validFilePaths.add(item.path);
-          } else if (item.type === 'directory' && item.children) {
-            collectFilePaths(item.children);
-          }
-        });
-      };
-
-      // Build our set of valid file paths
-      collectFilePaths(items);
-
-      // Count only selected files that exist in the current tree
-      const validSelectedFilesCount = selectedFiles.filter((path) =>
-        validFilePaths.has(path)
+      const validFilePaths = new Set<string>();
+      collectFilePaths(items, validFilePaths);
+      const validSelectedFilesCount = selectedFiles.filter((filePath) =>
+        validFilePaths.has(filePath)
       ).length;
-
-      // If all files in the tree are selected, return true
       if (validSelectedFilesCount === totalFiles) {
         return true;
       }
     }
 
-    // Standard check
     return selectedFiles.length === totalFiles;
-  }, [selectedFiles, totalFiles, items]);
+  }, [items, selectedFiles, totalFiles]);
 
-  // Handle select all toggle
   const handleSelectAllToggle = () => {
-    // Get all file and folder paths
-    const getAllPaths = (itemsToProcess) => {
-      if (!itemsToProcess || itemsToProcess.length === 0) return { files: [], folders: [] };
-
-      let result = { files: [], folders: [] };
-
-      for (const item of itemsToProcess) {
-        if (item.type === 'file') {
-          result.files.push(item.path);
-        } else if (item.type === 'directory') {
-          result.folders.push(item.path);
-          const subPaths = getAllPaths(item.children);
-          result.files = [...result.files, ...subPaths.files];
-          result.folders = [...result.folders, ...subPaths.folders];
-        }
-      }
-      return result;
-    };
-
     const allPaths = getAllPaths(items);
 
     if (selectAllChecked) {
-      // Deselect all files
-      allPaths.files.forEach((path) => onFileSelect(path, false));
-      allPaths.folders.forEach((path) => onFolderSelect(path, false));
-    } else {
-      // Select all files
-      allPaths.files.forEach((path) => onFileSelect(path, true));
-      allPaths.folders.forEach((path) => onFolderSelect(path, true));
+      allPaths.files.forEach((filePath) => onFileSelect(filePath, false));
+      allPaths.folders.forEach((folderPath) => onFolderSelect(folderPath, false));
+      return;
     }
+
+    allPaths.files.forEach((filePath) => onFileSelect(filePath, true));
+    allPaths.folders.forEach((folderPath) => onFolderSelect(folderPath, true));
   };
 
   return (
@@ -310,9 +279,9 @@ const FileTreeComponent = (props) => {
             type='checkbox'
             checked={selectAllChecked}
             onChange={handleSelectAllToggle}
-            disabled={!items || items.length === 0}
+            disabled={items.length === 0}
             className={`mr-2 size-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${
-              !items || items.length === 0 ? 'cursor-not-allowed opacity-50' : ''
+              items.length === 0 ? 'cursor-not-allowed opacity-50' : ''
             }`}
             id='select-all-checkbox'
           />
@@ -324,13 +293,12 @@ const FileTreeComponent = (props) => {
           </label>
         </div>
         <span className='text-xs font-medium text-gray-500 dark:text-gray-400'>
-          {/* Display file count and total files */}
           <span className='font-medium'>{selectedFiles.length}</span> of {totalFiles} files selected
         </span>
       </div>
 
       <div className='max-h-96 overflow-auto p-2'>
-        {!items || items.length === 0 ? (
+        {items.length === 0 ? (
           <div className='flex flex-col items-center justify-center p-8 text-center text-gray-500 dark:text-gray-400'>
             <svg
               className='mb-4 size-12 text-gray-400 dark:text-gray-500'
@@ -367,21 +335,6 @@ const FileTreeComponent = (props) => {
   );
 };
 
-// Define prop types for FileTreeComponent
-FileTreeComponent.propTypes = {
-  items: PropTypes.arrayOf(ItemPropType),
-  selectedFiles: PropTypes.arrayOf(PropTypes.string).isRequired,
-  selectedFolders: PropTypes.arrayOf(PropTypes.string),
-  onFileSelect: PropTypes.func.isRequired,
-  onFolderSelect: PropTypes.func.isRequired,
-};
-
-FileTreeComponent.defaultProps = {
-  items: [],
-  selectedFolders: [],
-};
-
-// Memoize the component and set display name
 const FileTree = React.memo(FileTreeComponent);
 FileTree.displayName = 'FileTree';
 

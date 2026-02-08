@@ -1,23 +1,8 @@
 const path = require('path');
-const fs = require('fs');
 
 // Source and destination paths
 const srcPath = path.resolve(__dirname, 'src/renderer');
-const entryFile = path.resolve(srcPath, 'index.js');
-
-// Check if the entry file exists and create it if it doesn't
-if (!fs.existsSync(entryFile)) {
-  const entryContent = `import React from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './components/App';
-
-const container = document.getElementById('app');
-const root = createRoot(container);
-root.render(<App />);
-`;
-  fs.writeFileSync(entryFile, entryContent);
-  console.log('Created entry file:', entryFile);
-}
+const entryFile = path.resolve(srcPath, 'index.tsx');
 
 module.exports = {
   entry: entryFile,
@@ -32,7 +17,7 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.(js|jsx)$/,
+        test: /\.(js|jsx|ts|tsx)$/,
         exclude: /node_modules/,
         use: {
           loader: 'babel-loader',
@@ -45,7 +30,7 @@ module.exports = {
     ],
   },
   resolve: {
-    extensions: ['.js', '.jsx'],
+    extensions: ['.ts', '.tsx', '.js', '.jsx'],
     fallback: {
       path: require.resolve('path-browserify'),
       process: require.resolve('process/browser'),

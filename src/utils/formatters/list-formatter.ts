@@ -70,7 +70,7 @@ export function plainTextToYamlArray(plainText) {
 export function extractArrayFromYaml(yamlContent, arrayKey) {
   // Look for the array key and extract items
   const lines = yamlContent.split('\n');
-  let items = [];
+  const items = [];
   let inArray = false;
 
   for (const line of lines) {

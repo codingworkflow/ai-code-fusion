@@ -72,6 +72,8 @@ async function forPlatform(platform) {
   console.log(`Building for ${platform}...`);
 
   try {
+    utils.runNpmScript('build:ts');
+
     // Build CSS and webpack first
     utils.runNpmScript('build:css');
     utils.runNpmScript('build:webpack');

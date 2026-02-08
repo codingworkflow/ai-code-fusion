@@ -1,12 +1,18 @@
 import React from 'react';
-import PropTypes from 'prop-types';
 
-const TabBar = ({ activeTab, onTabChange }) => {
+type TabId = 'config' | 'source' | 'processed';
+
+type TabBarProps = {
+  activeTab: TabId;
+  onTabChange: (tab: TabId) => void;
+};
+
+const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
   const tabs = [
     { id: 'config', label: 'Start' },
     { id: 'source', label: 'Select Files' },
     { id: 'processed', label: 'Processed Output' },
-  ];
+  ] as const;
 
   return (
     <div className='flex flex-grow'>
@@ -26,11 +32,6 @@ const TabBar = ({ activeTab, onTabChange }) => {
       ))}
     </div>
   );
-};
-
-TabBar.propTypes = {
-  activeTab: PropTypes.string.isRequired,
-  onTabChange: PropTypes.func.isRequired,
 };
 
 export default TabBar;

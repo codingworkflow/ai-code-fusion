@@ -101,10 +101,9 @@ async function setupHooks() {
 async function cleanBuildArtifacts() {
   const pathsToRemove = [
     path.join(ROOT_DIR, 'dist'),
-    path.join(ROOT_DIR, 'src', 'renderer', 'index.js'),
-    path.join(ROOT_DIR, 'src', 'renderer', 'index.js.map'),
     path.join(ROOT_DIR, 'src', 'renderer', 'bundle.js'),
     path.join(ROOT_DIR, 'src', 'renderer', 'bundle.js.map'),
+    path.join(ROOT_DIR, 'build', 'ts'),
     path.join(ROOT_DIR, 'src', 'renderer', 'output.css'),
   ];
 

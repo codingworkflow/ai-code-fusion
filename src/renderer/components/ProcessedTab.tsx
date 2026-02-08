@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
-import PropTypes from 'prop-types';
+import type { ProcessRepositoryResult } from '../../types/ipc';
 
-const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
+type ProcessedTabProps = {
+  processedResult: ProcessRepositoryResult | null;
+  onSave: () => Promise<void> | void;
+  onRefresh?: () => Promise<unknown> | unknown;
+};
+
+const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -235,7 +241,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
                     ) : (
                       <tr>
                         <td
-                          colSpan='2'
+                          colSpan={2}
                           className='px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400'
                         >
                           No file data available
@@ -274,12 +280,6 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }) => {
       )}
     </div>
   );
-};
-
-ProcessedTab.propTypes = {
-  processedResult: PropTypes.object,
-  onSave: PropTypes.func.isRequired,
-  onRefresh: PropTypes.func,
 };
 
 export default ProcessedTab;

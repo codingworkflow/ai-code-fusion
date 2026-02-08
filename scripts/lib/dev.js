@@ -53,6 +53,13 @@ async function start() {
       utils.runNpmScript('build:webpack');
     }
 
+    // Check if compiled main process output exists
+    const mainOutput = path.join(utils.ROOT_DIR, 'build', 'ts', 'main', 'index.js');
+    if (!fs.existsSync(mainOutput)) {
+      log('Compiled main process not found, building TypeScript...', colors.yellow);
+      utils.runNpmScript('build:ts');
+    }
+
     // Start the dev server using concurrently to run all necessary processes
     log('Starting development server...', colors.blue);
 
@@ -62,7 +69,7 @@ async function start() {
     // Use direct shell command to ensure proper argument parsing
     // This mimics exactly how make.bat does it successfully
     const concurrently = spawn(
-      'npx concurrently --kill-others "npm run watch:css" "npm run watch:webpack" "cross-env NODE_ENV=development electron ."',
+      'npx concurrently --kill-others "npm run watch:css" "npm run watch:webpack" "npm run watch:ts" "cross-env NODE_ENV=development electron ."',
       [],
       {
         stdio: 'inherit',

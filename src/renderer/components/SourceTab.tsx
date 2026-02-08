@@ -1,14 +1,37 @@
-import React, { useState } from 'react';
-import PropTypes from 'prop-types';
+import React, { useEffect, useRef, useState } from 'react';
 import yaml from 'yaml';
 import FileTree from './FileTree';
+import type { CountFilesTokensResult, DirectoryTreeItem } from '../../types/ipc';
 
-// Helper function to update token cache
-const updateTokenCache = (results, stats, setTokenCache) => {
+type SelectionHandler = (path: string, isSelected: boolean) => void;
+
+type SourceTabProps = {
+  rootPath: string;
+  directoryTree: DirectoryTreeItem[];
+  selectedFiles: string[];
+  selectedFolders?: string[];
+  onDirectorySelect: () => Promise<void> | void;
+  onFileSelect: SelectionHandler;
+  onFolderSelect: SelectionHandler;
+  onAnalyze: () => Promise<unknown>;
+};
+
+type TokenCacheEntry = {
+  tokenCount: number;
+  mtime: number;
+  size: number;
+};
+
+type TokenCache = Record<string, TokenCacheEntry>;
+
+const updateTokenCache = (
+  results: CountFilesTokensResult['results'],
+  stats: CountFilesTokensResult['stats'],
+  setTokenCache: React.Dispatch<React.SetStateAction<TokenCache>>
+) => {
   setTokenCache((prevCache) => {
     const newCache = { ...prevCache };
 
-    // Add new entries to cache
     Object.entries(results).forEach(([file, tokenCount]) => {
       newCache[file] = {
         tokenCount,
@@ -21,8 +44,7 @@ const updateTokenCache = (results, stats, setTokenCache) => {
   });
 };
 
-// Helper function to get process button class
-const getProcessButtonClass = (rootPath, selectedFiles, isAnalyzing) => {
+const getProcessButtonClass = (rootPath: string, selectedFiles: string[], isAnalyzing: boolean) => {
   const isDisabled = !rootPath || selectedFiles.length === 0 || isAnalyzing;
 
   const baseClass =
@@ -38,42 +60,34 @@ const SourceTab = ({
   rootPath,
   directoryTree,
   selectedFiles,
-  selectedFolders,
+  selectedFolders = [],
   onDirectorySelect,
   onFileSelect,
   onFolderSelect,
   onAnalyze,
-}) => {
+}: SourceTabProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showTokenCount, setShowTokenCount] = useState(true);
+  const [totalTokens, setTotalTokens] = useState(0);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [tokenCache, setTokenCache] = useState<TokenCache>({});
+  const pendingCalculationRef = useRef<number | null>(null);
 
   const handleDirectorySelect = async () => {
-    // Clear the token cache when selecting a new directory
     setTokenCache({});
     setTotalTokens(0);
-    if (pendingCalculationRef.current) {
-      clearTimeout(pendingCalculationRef.current);
+    if (pendingCalculationRef.current !== null) {
+      window.clearTimeout(pendingCalculationRef.current);
+      pendingCalculationRef.current = null;
     }
     await onDirectorySelect();
   };
 
-  // State to check if we should show token count
-  const [showTokenCount, setShowTokenCount] = useState(true);
-  // State for token counting
-  const [totalTokens, setTotalTokens] = useState(0);
-  const [isCalculating, setIsCalculating] = useState(false);
-
-  // Enhanced token cache with metadata
-  const [tokenCache, setTokenCache] = useState({});
-
-  // Reference to store pending calculations (for cleanup)
-  const pendingCalculationRef = React.useRef(null);
-
-  // Get the config on component mount to see if we should show token count
-  React.useEffect(() => {
+  useEffect(() => {
     try {
       const configContent = localStorage.getItem('configContent');
       if (configContent) {
-        const config = yaml.parse(configContent);
+        const config = yaml.parse(configContent) as { show_token_count?: boolean };
         setShowTokenCount(config.show_token_count !== false);
       }
     } catch (error) {
@@ -81,96 +95,76 @@ const SourceTab = ({
     }
   }, []);
 
-  // Debounced token calculation with improved cache handling
-  React.useEffect(() => {
-    // Clean up any previous calculation
-    if (pendingCalculationRef.current) {
-      clearTimeout(pendingCalculationRef.current);
+  useEffect(() => {
+    if (pendingCalculationRef.current !== null) {
+      window.clearTimeout(pendingCalculationRef.current);
+      pendingCalculationRef.current = null;
     }
 
-    // If no files, just reset and return
     if (selectedFiles.length === 0) {
       setTotalTokens(0);
       setIsCalculating(false);
-      return;
+      return undefined;
     }
 
-    // Set calculating flag
+    if (!window.electronAPI?.countFilesTokens) {
+      setIsCalculating(false);
+      return undefined;
+    }
+
     setIsCalculating(true);
 
-    // First, calculate total from already cached files
-    const cachedTotal = selectedFiles.reduce((sum, file) => {
-      return sum + (tokenCache[file]?.tokenCount || 0);
+    const cachedTotal = selectedFiles.reduce((sum, filePath) => {
+      return sum + (tokenCache[filePath]?.tokenCount || 0);
     }, 0);
 
-    // Update with the cached total immediately
     setTotalTokens(cachedTotal);
 
-    // Identify files that need processing (not in cache)
-    const filesToProcess = selectedFiles.filter((file) => !tokenCache[file]);
+    const filesToProcess = selectedFiles.filter((filePath) => !tokenCache[filePath]);
 
-    // If all files are already cached, we're done
     if (filesToProcess.length === 0) {
       setIsCalculating(false);
-      return;
+      return undefined;
     }
 
-    // Debounce processing to avoid rapid recalculations
-    pendingCalculationRef.current = setTimeout(async () => {
+    pendingCalculationRef.current = window.setTimeout(async () => {
       try {
-        // Process files in reasonable batches (max 20 at a time)
         const batchSize = Math.min(20, filesToProcess.length);
         const fileBatch = filesToProcess.slice(0, batchSize);
 
-        // Get token counts for the batch
-        const { results, stats } = await window.electronAPI.countFilesTokens(fileBatch);
+        const { results, stats } = await window.electronAPI!.countFilesTokens(fileBatch);
 
-        // Extract cache update logic to avoid nested function
         updateTokenCache(results, stats, setTokenCache);
 
-        // Calculate new total (including cached files)
-        const newTotal = selectedFiles.reduce((sum, file) => {
-          return (
-            sum +
-            (results[file] || // Use new results if available
-              tokenCache[file]?.tokenCount || // Or use cached value
-              0) // Fallback to 0
-          );
+        const newTotal = selectedFiles.reduce((sum, filePath) => {
+          return sum + (results[filePath] || tokenCache[filePath]?.tokenCount || 0);
         }, 0);
 
         setTotalTokens(newTotal);
 
-        // If we still have more files to process, schedule another calculation
         if (filesToProcess.length > batchSize) {
-          // Schedule processing for the remaining files
-          pendingCalculationRef.current = setTimeout(() => {
-            // Force re-running the effect with the existing selection
-            // This will use the updated cache and process the next batch
-            const event = new Event('tokenCalculationContinue');
-            window.dispatchEvent(event);
+          pendingCalculationRef.current = window.setTimeout(() => {
+            window.dispatchEvent(new Event('tokenCalculationContinue'));
           }, 10);
         } else {
-          // All done
           setIsCalculating(false);
         }
       } catch (error) {
         console.error('Error calculating tokens:', error);
         setIsCalculating(false);
       }
-    }, 300); // 300ms debounce
+    }, 300);
 
     return () => {
-      if (pendingCalculationRef.current) {
-        clearTimeout(pendingCalculationRef.current);
+      if (pendingCalculationRef.current !== null) {
+        window.clearTimeout(pendingCalculationRef.current);
+        pendingCalculationRef.current = null;
       }
     };
   }, [selectedFiles, tokenCache]);
 
-  // Add listener for continuation of token calculation
-  React.useEffect(() => {
+  useEffect(() => {
     const handleContinue = () => {
-      // Instead of directly setting selectedFiles, we manually trigger
-      // recalculation by forcing a token cache update
       setTokenCache((prevCache) => ({ ...prevCache }));
     };
 
@@ -217,19 +211,17 @@ const SourceTab = ({
         </div>
       </div>
 
-      {/* Processing Summary and Process Button on same line */}
       <div className='mb-4 flex justify-between items-center'>
         {rootPath && (
           <div className='flex space-x-2'>
             <button
               onClick={async () => {
-                // Clear the token cache when refreshing the file list
                 setTokenCache({});
                 setTotalTokens(0);
-                if (pendingCalculationRef.current) {
-                  clearTimeout(pendingCalculationRef.current);
+                if (pendingCalculationRef.current !== null) {
+                  window.clearTimeout(pendingCalculationRef.current);
+                  pendingCalculationRef.current = null;
                 }
-                // Refresh files list only
                 if (window.refreshDirectoryTree) {
                   await window.refreshDirectoryTree();
                 }
@@ -256,15 +248,13 @@ const SourceTab = ({
 
             <button
               onClick={() => {
-                // Clear selected files only
-                selectedFiles.forEach((file) => onFileSelect(file, false));
+                selectedFiles.forEach((filePath) => onFileSelect(filePath, false));
                 setTotalTokens(0);
-                if (pendingCalculationRef.current) {
-                  clearTimeout(pendingCalculationRef.current);
+                if (pendingCalculationRef.current !== null) {
+                  window.clearTimeout(pendingCalculationRef.current);
                   pendingCalculationRef.current = null;
                 }
                 setIsCalculating(false);
-                // No need to clear cache here as we can reuse it later
               }}
               className='inline-flex items-center border border-transparent bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
               title='Clear all selected files'
@@ -329,13 +319,16 @@ const SourceTab = ({
           )}
         </div>
 
-        {/* Extract nested ternary from button class */}
         <button
           onClick={() => {
             setIsAnalyzing(true);
-            onAnalyze().finally(() => {
-              setIsAnalyzing(false);
-            });
+            Promise.resolve(onAnalyze())
+              .catch((error) => {
+                console.error('Error processing selected files:', error);
+              })
+              .finally(() => {
+                setIsAnalyzing(false);
+              });
           }}
           disabled={!rootPath || selectedFiles.length === 0 || isAnalyzing}
           className={getProcessButtonClass(rootPath, selectedFiles, isAnalyzing)}
@@ -459,17 +452,6 @@ const SourceTab = ({
       )}
     </div>
   );
-};
-
-SourceTab.propTypes = {
-  rootPath: PropTypes.string.isRequired,
-  directoryTree: PropTypes.array.isRequired,
-  selectedFiles: PropTypes.array.isRequired,
-  selectedFolders: PropTypes.array,
-  onDirectorySelect: PropTypes.func.isRequired,
-  onFileSelect: PropTypes.func.isRequired,
-  onFolderSelect: PropTypes.func.isRequired,
-  onAnalyze: PropTypes.func.isRequired,
 };
 
 export default SourceTab;
