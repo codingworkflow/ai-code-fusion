@@ -104,6 +104,7 @@ function createStaticServer() {
 
 const MOCK_ROOT_PATH = '/mock-repository';
 const MOCK_APP_FILE_PATH = `${MOCK_ROOT_PATH}/src/App.tsx`;
+const MOCK_FEATURE_MODULE_COUNT = 24;
 const MOCK_CONFIG = [
   'include_extensions:',
   '  - .ts',
@@ -114,37 +115,154 @@ const MOCK_CONFIG = [
   'use_gitignore: true',
 ].join('\n');
 
+function toMockPath(relativePath) {
+  const normalized = String(relativePath).replace(/\\/g, '/').replace(/^\/+/, '');
+  return `${MOCK_ROOT_PATH}/${normalized}`;
+}
+
+function getMockName(relativePath) {
+  const normalized = String(relativePath).replace(/\\/g, '/').replace(/^\/+/, '');
+  const segments = normalized.split('/').filter(Boolean);
+  return segments.length > 0 ? segments[segments.length - 1] : normalized;
+}
+
+function createMockFile(relativePath) {
+  return {
+    type: 'file',
+    name: getMockName(relativePath),
+    path: toMockPath(relativePath),
+  };
+}
+
+function createMockDirectory(relativePath, children) {
+  return {
+    type: 'directory',
+    name: getMockName(relativePath),
+    path: toMockPath(relativePath),
+    children,
+  };
+}
+
+function createFeatureModule(moduleIndex) {
+  const moduleId = String(moduleIndex).padStart(2, '0');
+  const moduleName = `feature-${moduleId}`;
+  const featureComponent = `Feature${moduleId}`;
+  const basePath = `src/features/${moduleName}`;
+
+  return createMockDirectory(basePath, [
+    createMockFile(`${basePath}/index.ts`),
+    createMockFile(`${basePath}/model.ts`),
+    createMockDirectory(`${basePath}/hooks`, [
+      createMockFile(`${basePath}/hooks/use${featureComponent}.ts`),
+      createMockFile(`${basePath}/hooks/use${featureComponent}Filters.ts`),
+    ]),
+    createMockDirectory(`${basePath}/ui`, [
+      createMockFile(`${basePath}/ui/${featureComponent}Panel.tsx`),
+      createMockFile(`${basePath}/ui/${featureComponent}Toolbar.tsx`),
+      createMockFile(`${basePath}/ui/${featureComponent}Table.tsx`),
+    ]),
+  ]);
+}
+
+function createPackageModule(moduleIndex) {
+  const moduleId = String(moduleIndex).padStart(2, '0');
+  const moduleName = `shared-${moduleId}`;
+  const basePath = `packages/${moduleName}`;
+
+  return createMockDirectory(basePath, [
+    createMockFile(`${basePath}/package.json`),
+    createMockDirectory(`${basePath}/src`, [
+      createMockFile(`${basePath}/src/index.ts`),
+      createMockFile(`${basePath}/src/${moduleName}.ts`),
+      createMockFile(`${basePath}/src/${moduleName}.test.ts`),
+    ]),
+  ]);
+}
+
+function createTestSuite(moduleIndex) {
+  const moduleId = String(moduleIndex).padStart(2, '0');
+  return createMockFile(`tests/integration/feature-${moduleId}.spec.ts`);
+}
+
+function countMockFiles(items) {
+  let count = 0;
+  for (const item of items) {
+    if (item.type === 'file') {
+      count += 1;
+      continue;
+    }
+    if (item.children) {
+      count += countMockFiles(item.children);
+    }
+  }
+  return count;
+}
+
+const mockFeatures = Array.from({ length: MOCK_FEATURE_MODULE_COUNT }, (_, index) =>
+  createFeatureModule(index + 1)
+);
+
+const mockPackages = Array.from({ length: 10 }, (_, index) => createPackageModule(index + 1));
+const mockIntegrationTests = Array.from({ length: 16 }, (_, index) => createTestSuite(index + 1));
+
+const MOCK_DEEP_FEATURE_NAME = `feature-${String(MOCK_FEATURE_MODULE_COUNT).padStart(2, '0')}`;
+const MOCK_DEEP_FEATURE_FILE_PATH = toMockPath(
+  `src/features/${MOCK_DEEP_FEATURE_NAME}/ui/Feature${String(MOCK_FEATURE_MODULE_COUNT).padStart(
+    2,
+    '0'
+  )}Panel.tsx`
+);
+
 const MOCK_DIRECTORY_TREE = [
-  {
-    type: 'directory',
-    name: 'src',
-    path: `${MOCK_ROOT_PATH}/src`,
-    children: [
-      {
-        type: 'file',
-        name: 'App.tsx',
-        path: MOCK_APP_FILE_PATH,
-      },
-      {
-        type: 'file',
-        name: 'index.tsx',
-        path: `${MOCK_ROOT_PATH}/src/index.tsx`,
-      },
-    ],
-  },
-  {
-    type: 'directory',
-    name: 'tests',
-    path: `${MOCK_ROOT_PATH}/tests`,
-    children: [
-      {
-        type: 'file',
-        name: 'app.test.tsx',
-        path: `${MOCK_ROOT_PATH}/tests/app.test.tsx`,
-      },
-    ],
-  },
+  createMockDirectory('src', [
+    createMockFile('src/App.tsx'),
+    createMockFile('src/index.tsx'),
+    createMockFile('src/bootstrap.ts'),
+    createMockDirectory('src/components', [
+      createMockFile('src/components/NavBar.tsx'),
+      createMockFile('src/components/Footer.tsx'),
+      createMockDirectory('src/components/common', [
+        createMockFile('src/components/common/Button.tsx'),
+        createMockFile('src/components/common/Card.tsx'),
+        createMockFile('src/components/common/Modal.tsx'),
+      ]),
+    ]),
+    createMockDirectory('src/hooks', [
+      createMockFile('src/hooks/useDebouncedValue.ts'),
+      createMockFile('src/hooks/useRepositoryScan.ts'),
+      createMockFile('src/hooks/useTheme.ts'),
+    ]),
+    createMockDirectory('src/utils', [
+      createMockFile('src/utils/path-utils.ts'),
+      createMockFile('src/utils/filter-utils.ts'),
+      createMockFile('src/utils/token-utils.ts'),
+    ]),
+    createMockDirectory('src/features', mockFeatures),
+  ]),
+  createMockDirectory('packages', mockPackages),
+  createMockDirectory('tests', [
+    createMockDirectory('tests/unit', [
+      createMockFile('tests/unit/app.test.tsx'),
+      createMockFile('tests/unit/file-tree.test.tsx'),
+      createMockFile('tests/unit/filtering.test.ts'),
+    ]),
+    createMockDirectory('tests/integration', mockIntegrationTests),
+    createMockDirectory('tests/e2e', [
+      createMockFile('tests/e2e/file-selection.spec.ts'),
+      createMockFile('tests/e2e/resize-regression.spec.ts'),
+      createMockFile('tests/e2e/filters-regression.spec.ts'),
+    ]),
+  ]),
+  createMockDirectory('docs', [
+    createMockFile('docs/README.md'),
+    createMockFile('docs/CONFIGURATION.md'),
+    createMockFile('docs/ARCHITECTURE.md'),
+    createMockFile('docs/SECURITY.md'),
+    createMockFile('docs/TROUBLESHOOTING.md'),
+  ]),
 ];
+
+const MOCK_TOTAL_FILE_COUNT = countMockFiles(MOCK_DIRECTORY_TREE);
 
 const SCREENSHOT_NAME = sanitizeScreenshotName(process.env.UI_SCREENSHOT_NAME);
 const SCREENSHOT_BASE_NAME = path.parse(SCREENSHOT_NAME).name;
@@ -162,7 +280,12 @@ const UI_SELECTORS = {
   configTab: '[data-tab="config"]',
   sourceTab: '[data-tab="source"]',
   sourceFolderExpandButton: 'button[aria-label="Expand folder src"]',
+  sourceFeaturesFolderExpandButton: 'button[aria-label="Expand folder features"]',
+  sourceDeepFeatureFolderExpandButton: `button[aria-label="Expand folder ${MOCK_DEEP_FEATURE_NAME}"]`,
+  sourceDeepUiFolderExpandButton: 'button[aria-label="Expand folder ui"]',
   appFileEntry: `[title="${MOCK_APP_FILE_PATH}"]`,
+  deepFeatureFileEntry: `[title="${MOCK_DEEP_FEATURE_FILE_PATH}"]`,
+  fileTreeScrollContainer: '.file-tree .overflow-auto',
 };
 
 async function setupMockElectronApi(page) {
@@ -253,6 +376,17 @@ async function captureAppStateScreenshots(page) {
     await page.locator(UI_SELECTORS.sourceFolderExpandButton).first().waitFor({ timeout: 10000 });
   });
 
+  await runStep('Wait for large mock file count to load', async () => {
+    await page.waitForFunction((totalFiles) => {
+      const fileTreeRoot = document.querySelector('.file-tree');
+      if (!fileTreeRoot) {
+        return false;
+      }
+      const summaryText = fileTreeRoot.textContent || '';
+      return summaryText.includes(`of ${totalFiles} files selected`);
+    }, MOCK_TOTAL_FILE_COUNT);
+  });
+
   await runStep('Capture source tab screenshot', async () => {
     await page.screenshot({ path: SCREENSHOTS.sourceTab, fullPage: true });
   });
@@ -283,7 +417,35 @@ async function captureAppStateScreenshots(page) {
     await page.setViewportSize({ width: 960, height: 700 });
   });
 
-  await runStep('Capture resized screenshot', async () => {
+  await runStep('Verify file tree is scrollable after resize', async () => {
+    await page.waitForFunction((selector) => {
+      const container = document.querySelector(selector);
+      if (!(container instanceof HTMLElement)) {
+        return false;
+      }
+      return container.scrollHeight > container.clientHeight;
+    }, UI_SELECTORS.fileTreeScrollContainer);
+  });
+
+  await runStep('Expand feature folders in resized viewport', async () => {
+    await page.locator(UI_SELECTORS.sourceFeaturesFolderExpandButton).first().click();
+    await page.locator(UI_SELECTORS.sourceDeepFeatureFolderExpandButton).first().click();
+    await page.locator(UI_SELECTORS.sourceDeepUiFolderExpandButton).first().click();
+  });
+
+  await runStep('Select deep feature file after resize', async () => {
+    const deepFile = page.locator(UI_SELECTORS.deepFeatureFileEntry).first();
+    await deepFile.scrollIntoViewIfNeeded();
+    await deepFile.click();
+  });
+
+  await runStep('Wait for two selected files after resize', async () => {
+    await page.waitForFunction(() => {
+      return document.querySelectorAll('.file-tree input[type="checkbox"]:checked').length === 2;
+    });
+  });
+
+  await runStep('Capture resized screenshot with deep tree expanded', async () => {
     await page.screenshot({ path: SCREENSHOTS.sourceSelectedResized, fullPage: true });
   });
 }
