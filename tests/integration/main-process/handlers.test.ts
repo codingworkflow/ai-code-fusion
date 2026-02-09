@@ -342,6 +342,18 @@ describe('Main Process IPC Handlers', () => {
       expect(result.filesInfo.length).toBe(1);
     });
 
+    test('should allow relative selected files inside root and reject traversal', async () => {
+      const rootPath = '/mock/repo';
+      const configContent = '';
+      const selectedFiles = ['src/index.js', '../repo-secrets/hidden.js'];
+
+      const handler = mockIpcHandlers['repo:analyze'];
+      const result = await handler(null, { rootPath, configContent, selectedFiles });
+
+      expect(result.filesInfo.find((f) => f.path === 'src/index.js')).toBeDefined();
+      expect(result.filesInfo.length).toBe(1);
+    });
+
     test('should skip suspicious file content when secret scanning is enabled', async () => {
       const rootPath = '/mock/repo';
       const configContent = `
@@ -659,6 +671,18 @@ describe('Main Process IPC Handlers', () => {
       expect(result.results['/mock/repo/src/file.js']).toBe(100);
       expect(result.results['/mock/repo-secrets/secret.js']).toBe(0);
       expect(result.stats['/mock/repo-secrets/secret.js']).toBeUndefined();
+    });
+
+    test('should resolve relative paths against root and reject traversal escapes', async () => {
+      const rootPath = '/mock/repo';
+      const filePaths = ['src/file.js', '../repo-secrets/secret.js'];
+
+      const handler = mockIpcHandlers['tokens:countFiles'];
+      const result = await handler(null, { rootPath, filePaths });
+
+      expect(result.results['src/file.js']).toBe(100);
+      expect(result.results['../repo-secrets/secret.js']).toBe(0);
+      expect(result.stats['../repo-secrets/secret.js']).toBeUndefined();
     });
   });
 });

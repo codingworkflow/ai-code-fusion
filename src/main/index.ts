@@ -282,7 +282,7 @@ ipcMain.handle(
 
       // Create a file analyzer instance with the appropriate settings
       const fileAnalyzer = new FileAnalyzer(config, localTokenCounter, {
-        useGitignore: config.use_gitignore === true,
+        useGitignore: config.use_gitignore !== false,
         gitignorePatterns: gitignorePatterns,
       });
 
@@ -292,17 +292,19 @@ ipcMain.handle(
       let skippedBinaryFiles = 0;
 
       for (const filePath of selectedFiles) {
+        const resolvedFilePath = path.resolve(rootPath, filePath);
+
         // Verify the file is within the current root path
-        if (!isPathWithinRoot(rootPath, filePath)) {
+        if (!isPathWithinRoot(rootPath, resolvedFilePath)) {
           console.warn(`Skipping file outside current root directory: ${filePath}`);
           continue;
         }
 
         // Use consistent path normalization
-        const relativePath = getRelativePath(filePath, rootPath);
+        const relativePath = getRelativePath(resolvedFilePath, rootPath);
 
         // For binary files, record them as skipped but don't prevent selection
-        const binaryFile = isBinaryFile(filePath);
+        const binaryFile = isBinaryFile(resolvedFilePath);
         if (binaryFile) {
           console.log(`Binary file detected (will skip processing): ${relativePath}`);
           skippedBinaryFiles++;
@@ -316,7 +318,7 @@ ipcMain.handle(
             isBinary: true,
           });
         } else if (fileAnalyzer.shouldProcessFile(relativePath)) {
-          const tokenCount = fileAnalyzer.analyzeFile(filePath);
+          const tokenCount = fileAnalyzer.analyzeFile(resolvedFilePath);
 
           if (tokenCount !== null) {
             filesInfo.push({
@@ -611,35 +613,37 @@ ipcMain.handle(
       // Process each file
       for (const filePath of filePaths) {
         try {
-          if (!isPathWithinRoot(rootPath, filePath)) {
+          const resolvedFilePath = path.resolve(rootPath, filePath);
+
+          if (!isPathWithinRoot(rootPath, resolvedFilePath)) {
             console.warn(`Skipping file outside current root directory: ${filePath}`);
             results[filePath] = 0;
             continue;
           }
 
           // Check if file exists
-          if (!fs.existsSync(filePath)) {
+          if (!fs.existsSync(resolvedFilePath)) {
             console.warn(`File not found for token counting: ${filePath}`);
             results[filePath] = 0;
             continue;
           }
 
           // Get file stats
-          const fileStats = fs.statSync(filePath);
+          const fileStats = fs.statSync(resolvedFilePath);
           stats[filePath] = {
             size: fileStats.size,
             mtime: fileStats.mtime.getTime(), // Modification time for cache validation
           };
 
           // Skip binary files
-          if (isBinaryFile(filePath)) {
+          if (isBinaryFile(resolvedFilePath)) {
             console.log(`Skipping binary file for token counting: ${filePath}`);
             results[filePath] = 0;
             continue;
           }
 
           // Read file content
-          const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
+          const content = fs.readFileSync(resolvedFilePath, { encoding: 'utf-8', flag: 'r' });
 
           // Count tokens using the singleton token counter
           const tokenCount = tokenCounter.countTokens(content);
