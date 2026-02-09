@@ -9,10 +9,17 @@ const fs = require('fs');
 describe('XML export end-to-end', () => {
   const mockIpcHandlers = {};
   let tempRoot = '';
+  let mockShowOpenDialog;
+  let mockShowSaveDialog;
 
   beforeEach(() => {
     jest.resetModules();
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-code-fusion-xml-'));
+    Object.keys(mockIpcHandlers).forEach((key) => {
+      delete mockIpcHandlers[key];
+    });
+    mockShowOpenDialog = jest.fn();
+    mockShowSaveDialog = jest.fn();
 
     jest.doMock('electron', () => ({
       app: {
@@ -35,8 +42,8 @@ describe('XML export end-to-end', () => {
         }),
       },
       dialog: {
-        showOpenDialog: jest.fn(),
-        showSaveDialog: jest.fn(),
+        showOpenDialog: mockShowOpenDialog,
+        showSaveDialog: mockShowSaveDialog,
       },
       protocol: {
         registerFileProtocol: jest.fn(),
@@ -63,7 +70,15 @@ describe('XML export end-to-end', () => {
     fs.writeFileSync(filePath, fileContent, 'utf-8');
 
     const repoProcessHandler = mockIpcHandlers['repo:process'];
+    const selectDirectoryHandler = mockIpcHandlers['dialog:selectDirectory'];
     expect(repoProcessHandler).toBeDefined();
+    expect(selectDirectoryHandler).toBeDefined();
+
+    mockShowOpenDialog.mockResolvedValue({
+      canceled: false,
+      filePaths: [tempRoot],
+    });
+    await selectDirectoryHandler(null);
 
     const result = await repoProcessHandler(null, {
       rootPath: tempRoot,

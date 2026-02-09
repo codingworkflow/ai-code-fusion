@@ -116,9 +116,13 @@ jest.mock('../../../src/utils/content-processor', () => ({
 require('../../../src/main/index');
 
 describe('Main Process IPC Handlers', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     const { dialog } = require('electron');
+    dialog.showOpenDialog.mockResolvedValue({
+      canceled: false,
+      filePaths: ['/mock/repo'],
+    });
     dialog.showSaveDialog.mockResolvedValue({
       canceled: false,
       filePath: '/mock/repo/output.md',
@@ -178,6 +182,11 @@ describe('Main Process IPC Handlers', () => {
       include_extensions: ['.js', '.jsx', '.json', '.log'], // Include .log extension
       exclude_patterns: ['**/node_modules/**'],
     }));
+
+    const selectDirectoryHandler = mockIpcHandlers['dialog:selectDirectory'];
+    if (selectDirectoryHandler) {
+      await selectDirectoryHandler(null);
+    }
   });
 
   describe('assets protocol', () => {
@@ -269,6 +278,12 @@ describe('Main Process IPC Handlers', () => {
       const result = await handler(null, dirPath, configContent);
 
       // Verify
+      expect(result).toEqual([]);
+    });
+
+    test('should reject unauthorized directory tree requests', async () => {
+      const handler = mockIpcHandlers['fs:getDirectoryTree'];
+      const result = await handler(null, '/unauthorized/path', '');
       expect(result).toEqual([]);
     });
   });
@@ -410,6 +425,17 @@ describe('Main Process IPC Handlers', () => {
       expect(result.filesInfo.find((file) => file.path === 'src/index.js')).toBeDefined();
       expect(result.filesInfo.find((file) => file.path === 'src/secrets.js')).toBeUndefined();
     });
+
+    test('should reject analysis for unauthorized root path', async () => {
+      const handler = mockIpcHandlers['repo:analyze'];
+      await expect(
+        handler(null, {
+          rootPath: '/etc',
+          configContent: '',
+          selectedFiles: ['/etc/passwd'],
+        })
+      ).rejects.toThrow('Unauthorized root path');
+    });
   });
 
   describe('repo:process', () => {
@@ -449,6 +475,31 @@ describe('Main Process IPC Handlers', () => {
       // Should include file content sections
       expect(result.content).toContain('src/index.js');
       expect(result.content).toContain('package.json');
+    });
+
+    test('should generate tree connectors correctly when treeView is omitted', async () => {
+      const rootPath = '/mock/repo';
+      const filesInfo = [
+        { path: 'A/C.js', tokens: 10 },
+        { path: 'B.js', tokens: 5 },
+      ];
+      const options = {
+        includeTreeView: true,
+        exportFormat: 'markdown',
+      };
+
+      const handler = mockIpcHandlers['repo:process'];
+      const result = await handler(null, {
+        rootPath,
+        filesInfo,
+        treeView: '',
+        options,
+      });
+
+      expect(result.content).toContain('## File Structure');
+      expect(result.content).toContain('├── A');
+      expect(result.content).toContain('│   └── C.js');
+      expect(result.content).toContain('└── B.js');
     });
 
     test('should not include markdown file-contents heading when tree view is disabled', async () => {
@@ -623,6 +674,53 @@ describe('Main Process IPC Handlers', () => {
       expect(result.skippedFiles).toBe(1);
       expect(result.content).toContain('src/index.js');
       expect(result.content).not.toContain('../repo-secrets/config.js');
+    });
+
+    test('should reject processing for unauthorized root path', async () => {
+      const handler = mockIpcHandlers['repo:process'];
+      await expect(
+        handler(null, {
+          rootPath: '/etc',
+          filesInfo: [{ path: 'passwd', tokens: 1 }],
+          treeView: '',
+          options: {},
+        })
+      ).rejects.toThrow('Unauthorized root path');
+    });
+
+    test('should only allow the currently authorized root after re-selection', async () => {
+      const { dialog } = require('electron');
+      const selectDirectoryHandler = mockIpcHandlers['dialog:selectDirectory'];
+      const processHandler = mockIpcHandlers['repo:process'];
+
+      dialog.showOpenDialog.mockResolvedValue({
+        canceled: false,
+        filePaths: ['/mock/repo-next'],
+      });
+      await selectDirectoryHandler(null);
+
+      await expect(
+        processHandler(null, {
+          rootPath: '/mock/repo-next',
+          filesInfo: [],
+          treeView: '',
+          options: {},
+        })
+      ).resolves.toEqual(
+        expect.objectContaining({
+          processedFiles: 0,
+          skippedFiles: 0,
+        })
+      );
+
+      await expect(
+        processHandler(null, {
+          rootPath: '/mock/repo',
+          filesInfo: [],
+          treeView: '',
+          options: {},
+        })
+      ).rejects.toThrow('Unauthorized root path');
     });
   });
 
@@ -821,6 +919,12 @@ describe('Main Process IPC Handlers', () => {
       expect(result.results['src/file.js']).toBe(100);
       expect(result.results['../repo-secrets/secret.js']).toBe(0);
       expect(result.stats['../repo-secrets/secret.js']).toBeUndefined();
+    });
+
+    test('should reject token counting for unauthorized root path', async () => {
+      const handler = mockIpcHandlers['tokens:countFiles'];
+      const result = await handler(null, { rootPath: '/etc', filePaths: ['/etc/passwd'] });
+      expect(result).toEqual({ results: {}, stats: {} });
     });
   });
 });

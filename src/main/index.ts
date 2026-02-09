@@ -35,6 +35,7 @@ const tokenCounter = new TokenCounter();
 
 // Keep a global reference of the window object to avoid garbage collection
 let mainWindow: BrowserWindow | null = null;
+let authorizedRootPath: string | null = null;
 
 const APP_ROOT = path.resolve(__dirname, '../../..');
 const RENDERER_INDEX_PATH = path.join(APP_ROOT, 'src', 'renderer', 'index.html');
@@ -73,6 +74,7 @@ async function createWindow() {
   // Window closed event
   mainWindow.on('closed', () => {
     mainWindow = null;
+    authorizedRootPath = null;
   });
 }
 
@@ -99,6 +101,7 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed
 app.on('window-all-closed', () => {
+  authorizedRootPath = null;
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -106,6 +109,7 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (mainWindow === null) {
+    authorizedRootPath = null;
     createWindow();
   }
 });
@@ -113,6 +117,19 @@ app.on('activate', () => {
 // IPC Event Handlers
 
 type FilterPatternBundle = string[] & { includePatterns?: string[]; includeExtensions?: string[] };
+
+const resolveAuthorizedPath = (candidatePath: string): string | null => {
+  if (!authorizedRootPath || !candidatePath) {
+    return null;
+  }
+
+  const resolvedCandidatePath = path.resolve(candidatePath);
+  if (!isPathWithinRoot(authorizedRootPath, resolvedCandidatePath)) {
+    return null;
+  }
+
+  return resolvedCandidatePath;
+};
 
 // Select directory dialog
 ipcMain.handle('dialog:selectDirectory', async () => {
@@ -124,13 +141,21 @@ ipcMain.handle('dialog:selectDirectory', async () => {
     return null;
   }
 
-  return filePaths[0];
+  const selectedPath = filePaths[0];
+  authorizedRootPath = path.resolve(selectedPath);
+  return selectedPath;
 });
 
 // Get directory tree
 ipcMain.handle(
   'fs:getDirectoryTree',
   async (_event, dirPath: string, configContent?: string | null) => {
+    const authorizedDirPath = resolveAuthorizedPath(dirPath);
+    if (!authorizedDirPath) {
+      console.warn(`Rejected unauthorized directory tree request: ${dirPath}`);
+      return [];
+    }
+
     // IMPORTANT: This function applies exclude patterns to the directory tree,
     // preventing node_modules, .git, and other large directories from being included
     // in the UI tree view. This is critical for performance with large repositories.
@@ -169,7 +194,7 @@ ipcMain.handle(
 
       // Add gitignore patterns if enabled
       if (useGitignore) {
-        const gitignoreResult = gitignoreParser.parseGitignore(dirPath);
+        const gitignoreResult = gitignoreParser.parseGitignore(authorizedDirPath);
         if (gitignoreResult.excludePatterns && gitignoreResult.excludePatterns.length > 0) {
           excludePatterns = [...excludePatterns, ...gitignoreResult.excludePatterns];
         }
@@ -189,7 +214,7 @@ ipcMain.handle(
 
     // Use the shared shouldExclude function from filter-utils
     const localShouldExclude = (itemPath: string) => {
-      return shouldExclude(itemPath, dirPath, excludePatterns, config);
+      return shouldExclude(itemPath, authorizedDirPath, excludePatterns, config);
     };
 
     const walkDirectory = (dir: string): DirectoryTreeItem[] => {
@@ -247,7 +272,7 @@ ipcMain.handle(
     };
 
     try {
-      return walkDirectory(dirPath);
+      return walkDirectory(authorizedDirPath);
     } catch (error) {
       console.error('Error getting directory tree:', error);
       return [];
@@ -275,13 +300,18 @@ ipcMain.handle(
     { rootPath, configContent, selectedFiles }: AnalyzeRepositoryOptions
   ): Promise<AnalyzeRepositoryResult> => {
     try {
+      const authorizedAnalyzeRoot = resolveAuthorizedPath(rootPath);
+      if (!authorizedAnalyzeRoot) {
+        throw new Error('Unauthorized root path. Please select the directory again.');
+      }
+
       const config = (yaml.parse(configContent) || {}) as ConfigObject;
       const localTokenCounter = new TokenCounter();
 
       // Process gitignore if enabled
       let gitignorePatterns = { excludePatterns: [], includePatterns: [] };
       if (config.use_gitignore !== false) {
-        gitignorePatterns = gitignoreParser.parseGitignore(rootPath);
+        gitignorePatterns = gitignoreParser.parseGitignore(authorizedAnalyzeRoot);
       }
 
       // Create a file analyzer instance with the appropriate settings
@@ -296,16 +326,16 @@ ipcMain.handle(
       let skippedBinaryFiles = 0;
 
       for (const filePath of selectedFiles) {
-        const resolvedFilePath = path.resolve(rootPath, filePath);
+        const resolvedFilePath = path.resolve(authorizedAnalyzeRoot, filePath);
 
         // Verify the file is within the current root path
-        if (!isPathWithinRoot(rootPath, resolvedFilePath)) {
+        if (!isPathWithinRoot(authorizedAnalyzeRoot, resolvedFilePath)) {
           console.warn(`Skipping file outside current root directory: ${filePath}`);
           continue;
         }
 
         // Use consistent path normalization
-        const relativePath = getRelativePath(resolvedFilePath, rootPath);
+        const relativePath = getRelativePath(resolvedFilePath, authorizedAnalyzeRoot);
 
         // For binary files, record them as skipped but don't prevent selection
         const binaryFile = isBinaryFile(resolvedFilePath);
@@ -387,7 +417,7 @@ function generateTreeView(filesInfo: FileInfo[]): string {
   });
 
   // Recursive function to print the tree
-  const printTree = (tree: PathTree, prefix = '', isLast = true): string => {
+  const printTree = (tree: PathTree, prefix = '', _isLast = true): string => {
     const entries = Object.entries(tree);
     let result = '';
 
@@ -395,11 +425,11 @@ function generateTreeView(filesInfo: FileInfo[]): string {
       const isLastItem = index === entries.length - 1;
 
       // Print current level
-      result += `${prefix}${isLast ? '└── ' : '├── '}${key}\n`;
+      result += `${prefix}${isLastItem ? '└── ' : '├── '}${key}\n`;
 
       // Print children
       if (value !== null) {
-        const newPrefix = `${prefix}${isLast ? '    ' : '│   '}`;
+        const newPrefix = `${prefix}${isLastItem ? '    ' : '│   '}`;
         result += printTree(value, newPrefix, isLastItem);
       }
     });
@@ -421,6 +451,11 @@ ipcMain.handle(
     { rootPath, filesInfo, treeView, options = {} }: ProcessRepositoryOptions
   ): Promise<ProcessRepositoryResult> => {
     try {
+      const authorizedProcessRoot = resolveAuthorizedPath(rootPath);
+      if (!authorizedProcessRoot) {
+        throw new Error('Unauthorized root path. Please select the directory again.');
+      }
+
       const tokenCounter = new TokenCounter();
       const contentProcessor = new ContentProcessor(tokenCounter);
 
@@ -479,9 +514,9 @@ ipcMain.handle(
           const tokenCount = normalizeTokenCount(fileInfo.tokens);
 
           // Resolve and validate against root path to prevent traversal and prefix bypasses.
-          const fullPath = path.resolve(rootPath, filePath);
+          const fullPath = path.resolve(authorizedProcessRoot, filePath);
 
-          if (!isPathWithinRoot(rootPath, fullPath)) {
+          if (!isPathWithinRoot(authorizedProcessRoot, fullPath)) {
             console.warn(`Skipping file outside root directory: ${filePath}`);
             skippedFiles++;
             continue;
@@ -618,15 +653,21 @@ ipcMain.handle(
         return { results: {}, stats: {} };
       }
 
+      const authorizedTokensRoot = resolveAuthorizedPath(rootPath);
+      if (!authorizedTokensRoot) {
+        console.warn(`Rejected unauthorized token count request for root: ${rootPath}`);
+        return { results: {}, stats: {} };
+      }
+
       const results: Record<string, number> = {};
       const stats: Record<string, { size: number; mtime: number }> = {};
 
       // Process each file
       for (const filePath of filePaths) {
         try {
-          const resolvedFilePath = path.resolve(rootPath, filePath);
+          const resolvedFilePath = path.resolve(authorizedTokensRoot, filePath);
 
-          if (!isPathWithinRoot(rootPath, resolvedFilePath)) {
+          if (!isPathWithinRoot(authorizedTokensRoot, resolvedFilePath)) {
             console.warn(`Skipping file outside current root directory: ${filePath}`);
             results[filePath] = 0;
             continue;
