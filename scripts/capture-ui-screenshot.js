@@ -302,9 +302,8 @@ function cloneAndFilterMockTree(items, excludeSensitiveFiles) {
   return filtered;
 }
 
-const MOCK_VISIBLE_FILE_COUNT_WITH_SECRET_FILTER = countMockFiles(
-  cloneAndFilterMockTree(MOCK_DIRECTORY_TREE, true)
-);
+const MOCK_FILTERED_DIRECTORY_TREE = cloneAndFilterMockTree(MOCK_DIRECTORY_TREE, true);
+const MOCK_VISIBLE_FILE_COUNT_WITH_SECRET_FILTER = countMockFiles(MOCK_FILTERED_DIRECTORY_TREE);
 
 const SCREENSHOT_NAME = sanitizeScreenshotName(process.env.UI_SCREENSHOT_NAME);
 const SCREENSHOT_BASE_NAME = path.parse(SCREENSHOT_NAME).name;
@@ -336,9 +335,11 @@ const UI_SELECTORS = {
 
 async function setupMockElectronApi(page) {
   await page.addInitScript(
-    ({ mockRootPath, mockConfig, mockDirectoryTree, fixedMtime }) => {
+    ({ mockRootPath, mockConfig, mockDirectoryTree, mockFilteredDirectoryTree, fixedMtime }) => {
       localStorage.setItem('rootPath', mockRootPath);
       localStorage.setItem('configContent', mockConfig);
+
+      const cloneTree = (treeItems) => JSON.parse(JSON.stringify(treeItems));
 
       window.electronAPI = {
         getDefaultConfig: async () => mockConfig,
@@ -351,35 +352,8 @@ async function setupMockElectronApi(page) {
           const excludeSensitiveFiles = !/(^|\n)\s*enable_secret_scanning\s*:\s*false\b/i.test(
             activeConfig
           ) && !/(^|\n)\s*exclude_suspicious_files\s*:\s*false\b/i.test(activeConfig);
-
-          const cloneAndFilter = (items) => {
-            const filtered = [];
-
-            for (const item of items) {
-              if (item.type === 'file') {
-                const normalizedPath = String(item.path || '').replace(/\\/g, '/').toLowerCase();
-                const fileName = normalizedPath.split('/').pop() || '';
-                const isSensitive =
-                  /^\.env(?:\..+)?$/i.test(fileName) ||
-                  fileName === '.npmrc' ||
-                  fileName === '.pypirc' ||
-                  /\.(pem|key|p12|pfx|jks|keystore|cer|crt|der|kdbx|asc)$/i.test(fileName);
-
-                if (excludeSensitiveFiles && isSensitive) {
-                  continue;
-                }
-                filtered.push({ ...item });
-                continue;
-              }
-
-              const children = Array.isArray(item.children) ? cloneAndFilter(item.children) : [];
-              filtered.push({ ...item, children });
-            }
-
-            return filtered;
-          };
-
-          return cloneAndFilter(mockDirectoryTree);
+          const tree = excludeSensitiveFiles ? mockFilteredDirectoryTree : mockDirectoryTree;
+          return cloneTree(tree);
         },
         analyzeRepository: async () => ({
           totalFiles: 0,
@@ -420,6 +394,7 @@ async function setupMockElectronApi(page) {
       mockRootPath: MOCK_ROOT_PATH,
       mockConfig: MOCK_CONFIG,
       mockDirectoryTree: MOCK_DIRECTORY_TREE,
+      mockFilteredDirectoryTree: MOCK_FILTERED_DIRECTORY_TREE,
       fixedMtime: FIXED_MTIME,
     }
   );

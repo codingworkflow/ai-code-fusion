@@ -72,12 +72,7 @@ const SENSITIVE_FILE_NAME_PATTERNS = [
 const SENSITIVE_FILE_EXTENSION_PATTERN =
   /\.(?:pem|key|p12|pfx|jks|keystore|cer|crt|der|kdbx|asc)$/i;
 
-const SENSITIVE_PATH_SEGMENTS = [
-  '/.aws/credentials',
-  '/.npmrc',
-  '/.pypirc',
-  '/.docker/config.json',
-];
+const SENSITIVE_PATH_SEGMENTS = ['.aws/credentials', '.npmrc', '.pypirc', '.docker/config.json'];
 
 const normalizeFilePath = (filePath: string): string => filePath.replace(/\\/g, '/').toLowerCase();
 
@@ -96,7 +91,14 @@ export const isSensitiveFilePath = (filePath: string): boolean => {
     return true;
   }
 
-  return SENSITIVE_PATH_SEGMENTS.some((segment) => normalizedPath.includes(segment));
+  return SENSITIVE_PATH_SEGMENTS.some((segment) => {
+    const normalizedSegment = segment.toLowerCase();
+    return (
+      normalizedPath === normalizedSegment ||
+      normalizedPath.endsWith(`/${normalizedSegment}`) ||
+      normalizedPath.includes(`/${normalizedSegment}/`)
+    );
+  });
 };
 
 export const scanContentForSecrets = (content: string): SecretScanResult => {

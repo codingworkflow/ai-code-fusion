@@ -415,6 +415,46 @@ describe('FileAnalyzer', () => {
       expect(result).toBeNull();
       expect(mockTokenCounter.countTokens).not.toHaveBeenCalled();
     });
+
+    test('should analyze suspicious files when secret scanning is disabled', () => {
+      isBinaryFile.mockReturnValue(false);
+      fs.readFileSync.mockReturnValue(`const token = "${FAKE_GITHUB_TOKEN}";`);
+
+      const analyzer = new FileAnalyzer(
+        {
+          ...mockConfig,
+          enable_secret_scanning: false,
+        },
+        mockTokenCounter
+      );
+
+      const result = analyzer.analyzeFile('src/secrets.ts');
+
+      expect(result).toBe(100);
+      expect(mockTokenCounter.countTokens).toHaveBeenCalledWith(
+        `const token = "${FAKE_GITHUB_TOKEN}";`
+      );
+    });
+
+    test('should analyze suspicious files when suspicious file exclusion is disabled', () => {
+      isBinaryFile.mockReturnValue(false);
+      fs.readFileSync.mockReturnValue(`const token = "${FAKE_GITHUB_TOKEN}";`);
+
+      const analyzer = new FileAnalyzer(
+        {
+          ...mockConfig,
+          exclude_suspicious_files: false,
+        },
+        mockTokenCounter
+      );
+
+      const result = analyzer.analyzeFile('src/secrets.ts');
+
+      expect(result).toBe(100);
+      expect(mockTokenCounter.countTokens).toHaveBeenCalledWith(
+        `const token = "${FAKE_GITHUB_TOKEN}";`
+      );
+    });
   });
 
   describe('shouldReadFile', () => {

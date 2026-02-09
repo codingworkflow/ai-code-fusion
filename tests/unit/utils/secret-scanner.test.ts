@@ -33,6 +33,8 @@ describe('secret-scanner', () => {
       expect(isSensitiveFilePath('/repo/.env')).toBe(true);
       expect(isSensitiveFilePath('/repo/.env.production')).toBe(true);
       expect(isSensitiveFilePath('/repo/.aws/credentials')).toBe(true);
+      expect(isSensitiveFilePath('.aws/credentials')).toBe(true);
+      expect(isSensitiveFilePath('.npmrc')).toBe(true);
       expect(isSensitiveFilePath('/repo/keys/private.pem')).toBe(true);
       expect(isSensitiveFilePath('/repo/id_rsa')).toBe(true);
     });
