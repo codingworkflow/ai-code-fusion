@@ -74,7 +74,6 @@ async function createWindow() {
   // Window closed event
   mainWindow.on('closed', () => {
     mainWindow = null;
-    authorizedRootPath = null;
   });
 }
 
@@ -101,7 +100,6 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed
 app.on('window-all-closed', () => {
-  authorizedRootPath = null;
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -109,7 +107,6 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (mainWindow === null) {
-    authorizedRootPath = null;
     createWindow();
   }
 });
