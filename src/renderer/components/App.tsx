@@ -379,7 +379,7 @@ const App = () => {
     }
 
     try {
-      const outputExtension = processingOptions.exportFormat === 'xml' ? 'xml' : 'md';
+      const outputExtension = processedResult.exportFormat === 'xml' ? 'xml' : 'md';
       await window.electronAPI?.saveFile?.({
         content: processedResult.content,
         defaultPath: `${rootPath}/output.${outputExtension}`,

@@ -58,6 +58,7 @@ export interface ProcessRepositoryOptions {
 
 export interface ProcessRepositoryResult {
   content: string;
+  exportFormat: ExportFormat;
   totalTokens: number;
   processedFiles: number;
   skippedFiles: number;

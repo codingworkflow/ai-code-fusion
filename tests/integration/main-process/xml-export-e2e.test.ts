@@ -77,6 +77,7 @@ describe('XML export end-to-end', () => {
     });
 
     expect(result.content).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(result.exportFormat).toBe('xml');
     expect(result.content).toContain('<repositoryContent>');
     expect(result.content).toContain('<fileStructure><![CDATA[');
     expect(result.content).toContain('<files>');

@@ -406,6 +406,7 @@ describe('Main Process IPC Handlers', () => {
 
       // Verify
       expect(result).toBeDefined();
+      expect(result.exportFormat).toBe('markdown');
       expect(result.content).toBeDefined();
       expect(typeof result.content).toBe('string');
 
@@ -439,6 +440,7 @@ describe('Main Process IPC Handlers', () => {
       });
 
       expect(result.content).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+      expect(result.exportFormat).toBe('xml');
       expect(result.content).toContain('<repositoryContent>');
       expect(result.content).toContain('<fileStructure><![CDATA[');
       expect(result.content).toContain('<files>');

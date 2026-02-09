@@ -21,6 +21,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | `tests/unit/utils/filter-utils.test.ts`      | `src/utils/filter-utils.ts`             | Path normalization, extension filtering, custom excludes, gitignore precedence   |
 | `tests/unit/utils/secret-scanner.test.ts`    | `src/utils/secret-scanner.ts`           | Sensitive path detection, secret-pattern scanning, default-on safety toggles     |
 | `tests/unit/utils/fnmatch.test.ts`           | `src/utils/fnmatch.ts`                  | Glob semantics: wildcards, classes, double-star, braces, path anchors            |
+| `tests/unit/utils/export-format.test.ts`     | `src/utils/export-format.ts`            | Export format normalization, XML attribute escaping, CDATA-safe sanitization     |
 | `tests/unit/utils/content-processor.test.ts` | `src/utils/content-processor.ts`        | Content assembly, binary skip logic, malformed input handling                    |
 | `tests/unit/utils/config-manager.test.ts`    | `src/utils/config-manager.ts`           | Default config load, parse failures, graceful fallback behavior                  |
 | `tests/unit/utils/token-counter.test.ts`     | `src/utils/token-counter.ts`            | Token counting basics, empty/null input handling                                 |
@@ -28,10 +29,11 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 
 ## Integration Tests
 
-| File                                              | Primary Target                       | Key Use Cases                                                                                       |
-| ------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `tests/integration/main-process/handlers.test.ts` | Main IPC handlers                    | `fs:getDirectoryTree`, `repo:analyze`, `repo:process`, `tokens:countFiles` correctness and failures |
-| `tests/integration/pattern-merging.test.ts`       | Filtering + gitignore merge behavior | Combined behavior of include/exclude patterns with gitignore toggles                                |
+| File                                                    | Primary Target                       | Key Use Cases                                                                                       |
+| ------------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `tests/integration/main-process/handlers.test.ts`       | Main IPC handlers                    | `fs:getDirectoryTree`, `repo:analyze`, `repo:process`, `tokens:countFiles` correctness and failures |
+| `tests/integration/main-process/xml-export-e2e.test.ts` | XML export pipeline                  | End-to-end XML shape, CDATA wrapping, invalid-character sanitization, summary metrics               |
+| `tests/integration/pattern-merging.test.ts`             | Filtering + gitignore merge behavior | Combined behavior of include/exclude patterns with gitignore toggles                                |
 
 ## Visual Regression Signal
 
@@ -55,5 +57,8 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
   - `tests/integration/main-process/handlers.test.ts`
 - Content/token pipeline changes:
   - `tests/unit/file-analyzer.test.ts`
+  - `tests/unit/utils/export-format.test.ts`
   - `tests/unit/utils/content-processor.test.ts`
   - `tests/unit/utils/token-counter.test.ts`
+- XML export end-to-end:
+  - `tests/integration/main-process/xml-export-e2e.test.ts`

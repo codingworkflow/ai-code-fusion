@@ -518,6 +518,7 @@ ipcMain.handle(
 
       return {
         content: processedContent,
+        exportFormat: processingOptions.exportFormat,
         totalTokens,
         processedFiles,
         skippedFiles,
