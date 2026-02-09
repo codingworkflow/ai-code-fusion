@@ -9,6 +9,7 @@ A desktop app to prepare code repositories for AI workflows.
 - Token counting support for selected files
 - Processed output ready to copy/export for AI tools
 - Cross-platform support (Windows, macOS, Linux)
+- UI panel screenshots: `docs/APP_VIEWS.md`
 
 ## Download Release
 

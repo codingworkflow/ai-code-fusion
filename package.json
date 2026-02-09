@@ -33,6 +33,8 @@
     "qa": "node scripts/index.js qa",
     "preqa:screenshot": "npm run build:ts",
     "qa:screenshot": "node scripts/capture-ui-screenshot.js",
+    "predocs:screenshots": "npm run build:ts && npm run build:webpack",
+    "docs:screenshots": "node scripts/generate-doc-screenshots.js",
     "security": "node scripts/index.js security",
     "gitleaks": "node scripts/index.js gitleaks",
     "gitleaks:staged": "node scripts/index.js gitleaks-staged",

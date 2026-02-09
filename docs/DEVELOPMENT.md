@@ -49,6 +49,7 @@ make lint
 make format
 make validate
 make qa
+make docs-screenshots
 
 # Security / dependency automation
 make security

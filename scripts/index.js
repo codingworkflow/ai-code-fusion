@@ -134,6 +134,12 @@ async function executeCommand() {
         console.log('QA checks completed successfully');
         break;
 
+      case 'docs-screenshots':
+      case 'docs:screenshots':
+        await utils.runNpmScript('docs:screenshots');
+        console.log('Docs screenshots refreshed successfully');
+        break;
+
       // Security automation commands
       case 'security':
         await security.runSecurity();

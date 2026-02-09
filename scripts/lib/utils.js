@@ -229,6 +229,7 @@ function printHelp() {
   console.log('  format               - Format code');
   console.log('  validate             - Run all code quality checks');
   console.log('  qa                   - Run lint + tests + security checks');
+  console.log('  docs-screenshots     - Refresh docs UI screenshots');
   console.log('  security             - Run security checks (gitleaks + sbom)');
   console.log('  gitleaks             - Run gitleaks secret scan');
   console.log('  sbom                 - Generate CycloneDX SBOM');
