@@ -7,6 +7,7 @@ const { execSync } = require('child_process');
 const ROOT_DIR = path.join(__dirname, '..');
 
 const IGNORED_PROTOCOLS = ['http://', 'https://', 'mailto:', 'tel:', 'data:', 'javascript:'];
+const DECORATIVE_ICON_PATTERN = /\p{Extended_Pictographic}/u;
 
 function ensureError(error) {
   if (error instanceof Error) {
@@ -118,6 +119,15 @@ function lintMarkdownFile(markdownFilePath) {
       continue;
     }
 
+    if (DECORATIVE_ICON_PATTERN.test(line)) {
+      errors.push({
+        kind: 'decorative-icon',
+        filePath: markdownFilePath,
+        lineNumber: index + 1,
+        lineText: line.trim(),
+      });
+    }
+
     const rawTargets = extractTargetsFromLine(line);
     for (const rawTarget of rawTargets) {
       const normalizedTarget = normalizeTarget(rawTarget);
@@ -132,6 +142,7 @@ function lintMarkdownFile(markdownFilePath) {
 
       if (!fs.existsSync(resolvedTargetPath)) {
         errors.push({
+          kind: 'missing-target',
           filePath: markdownFilePath,
           lineNumber: index + 1,
           target: normalizedTarget,
@@ -161,19 +172,23 @@ function run() {
   }
 
   if (allErrors.length > 0) {
-    console.error('Markdown link/image lint failed:\n');
+    console.error('Markdown docs lint failed:\n');
     for (const error of allErrors) {
       const relativeFilePath = path.relative(ROOT_DIR, error.filePath);
+
+      if (error.kind === 'decorative-icon') {
+        console.error(`- ${relativeFilePath}:${error.lineNumber} -> decorative icon found: ${error.lineText}`);
+        continue;
+      }
+
       const relativeResolvedPath = path.relative(ROOT_DIR, error.resolvedPath);
-      console.error(
-        `- ${relativeFilePath}:${error.lineNumber} -> ${error.target} (missing: ${relativeResolvedPath})`
-      );
+      console.error(`- ${relativeFilePath}:${error.lineNumber} -> ${error.target} (missing: ${relativeResolvedPath})`);
     }
     process.exit(1);
   }
 
   console.log(
-    `Markdown link/image lint passed: ${markdownFiles.length} markdown files checked, ${linkCount} links/images scanned.`
+    `Markdown docs lint passed: ${markdownFiles.length} markdown files checked, ${linkCount} links/images scanned, no decorative icons found.`
   );
 }
 

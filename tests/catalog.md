@@ -6,7 +6,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 
 - Full tests: `npm test -- --runInBand`
 - Lint: `npm run lint`
-- Markdown link/image lint: `npm run lint:md`
+- Markdown docs lint (links/images/icons): `npm run lint:md`
 - UI screenshot gate: `npm run qa:screenshot`
 - Docs screenshots: `npm run docs:screenshots`
 
