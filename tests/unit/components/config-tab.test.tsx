@@ -96,6 +96,30 @@ describe('ConfigTab', () => {
     });
   });
 
+  test('persists secret scanning toggles in saved config', async () => {
+    render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
+
+    const scanSecretsCheckbox = screen.getByLabelText('Scan content for secrets');
+    const excludeSuspiciousCheckbox = screen.getByLabelText('Exclude suspicious files');
+
+    act(() => {
+      fireEvent.click(scanSecretsCheckbox);
+      fireEvent.click(excludeSuspiciousCheckbox);
+      jest.advanceTimersByTime(100); // Advance past the debounce
+    });
+
+    await waitFor(() => {
+      expect(mockOnConfigChange).toHaveBeenCalled();
+    });
+
+    const yamlLib = require('yaml');
+    expect(yamlLib.stringify).toHaveBeenCalled();
+    const savedConfig = yamlLib.stringify.mock.calls.at(-1)[0];
+
+    expect(savedConfig.enable_secret_scanning).toBe(false);
+    expect(savedConfig.exclude_suspicious_files).toBe(false);
+  });
+
   test('calls selectDirectory when folder button is clicked', async () => {
     render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
 
