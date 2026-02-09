@@ -422,7 +422,7 @@ ipcMain.handle(
 
       // Ensure options is an object with default values if missing
       const processingOptions = {
-        showTokenCount: options.showTokenCount !== false, // Default to true if not explicitly false
+        showTokenCount: options.showTokenCount === true,
         includeTreeView: options.includeTreeView === true,
         exportFormat: normalizeExportFormat(options.exportFormat),
       };

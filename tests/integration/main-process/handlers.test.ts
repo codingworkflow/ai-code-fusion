@@ -475,6 +475,27 @@ describe('Main Process IPC Handlers', () => {
       expect(result.content).toContain('</repositoryContent>');
     });
 
+    test('should omit xml token attributes when showTokenCount is not explicitly enabled', async () => {
+      const rootPath = '/mock/repo';
+      const filesInfo = [{ path: 'src/index.js', tokens: 100 }];
+      const options = {
+        includeTreeView: true,
+        exportFormat: 'xml',
+      };
+
+      const handler = mockIpcHandlers['repo:process'];
+      const result = await handler(null, {
+        rootPath,
+        filesInfo,
+        treeView: '/ mock-repo\n  └── src\n      └── index.js',
+        options,
+      });
+
+      expect(result.exportFormat).toBe('xml');
+      expect(result.content).toContain('<file path="src/index.js" binary="false">');
+      expect(result.content).not.toContain('tokens="100"');
+    });
+
     test('should handle binary files correctly', async () => {
       // Setup
       const rootPath = '/mock/repo';

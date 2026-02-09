@@ -91,6 +91,12 @@ jest.mock('../../../src/renderer/components/SourceTab', () => {
         >
           Select File
         </button>
+        <button
+          data-testid='mock-select-invalid-file-btn'
+          onClick={() => onFileSelect && onFileSelect('/mock/directory-secrets/file1.js', true)}
+        >
+          Select Invalid File
+        </button>
       </div>
     );
   };
@@ -307,6 +313,19 @@ describe('App Component', () => {
     expect(window.electronAPI.selectDirectory).toHaveBeenCalled();
     expect(screen.getByTestId('root-path').textContent).toBe('/mock/directory');
     expect(localStorage.setItem).toHaveBeenCalledWith('rootPath', '/mock/directory');
+  });
+
+  test('rejects prefix-collision file selection outside root path', () => {
+    localStorage.setItem('rootPath', '/mock/directory');
+    render(<App />);
+
+    const tabElements = screen.getAllByRole('button');
+    const sourceTab = tabElements.find((el) => el.textContent === 'Source');
+    fireEvent.click(sourceTab);
+
+    fireEvent.click(screen.getByTestId('mock-select-invalid-file-btn'));
+
+    expect(screen.getByTestId('selected-files-count').textContent).toBe('0');
   });
 
   test('analyzes repository and switches to processed tab', async () => {

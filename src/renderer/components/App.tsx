@@ -226,7 +226,7 @@ const App = () => {
     try {
       // Validate selected files before analysis
       const validFiles = selectedFiles.filter((file) => {
-        const withinRoot = file.startsWith(rootPath);
+        const withinRoot = isPathWithinRootBoundary(file);
 
         if (!withinRoot) {
           console.warn(`Skipping file outside current root directory: ${file}`);
@@ -300,8 +300,43 @@ const App = () => {
     }
   };
 
-  // Helper function for consistent path normalization (used by handleFolderSelect indirectly)
-  // We'll just use inline path normalization where needed
+  const normalizePathForBoundaryCheck = (inputPath: string): string => {
+    const normalizedSlashes = inputPath.replace(/\\/g, '/');
+    const driveMatch = normalizedSlashes.match(/^[A-Za-z]:/);
+    const drivePrefix = driveMatch ? driveMatch[0].toLowerCase() : '';
+    const pathWithoutDrive = drivePrefix ? normalizedSlashes.slice(2) : normalizedSlashes;
+    const hasLeadingSlash = pathWithoutDrive.startsWith('/');
+
+    const segments = pathWithoutDrive.split('/').filter((segment) => segment && segment !== '.');
+    const resolvedSegments: string[] = [];
+
+    for (const segment of segments) {
+      if (segment === '..') {
+        if (resolvedSegments.length > 0 && resolvedSegments[resolvedSegments.length - 1] !== '..') {
+          resolvedSegments.pop();
+        }
+        continue;
+      }
+
+      resolvedSegments.push(segment);
+    }
+
+    return `${drivePrefix}${hasLeadingSlash ? '/' : ''}${resolvedSegments.join('/')}`;
+  };
+
+  const isPathWithinRootBoundary = (candidatePath: string): boolean => {
+    if (!candidatePath || !rootPath) {
+      return false;
+    }
+
+    const normalizedRootPath = normalizePathForBoundaryCheck(rootPath);
+    const normalizedCandidatePath = normalizePathForBoundaryCheck(candidatePath);
+
+    return (
+      normalizedCandidatePath === normalizedRootPath ||
+      normalizedCandidatePath.startsWith(`${normalizedRootPath}/`)
+    );
+  };
 
   // Method to reload and reprocess files with the latest content
   const handleRefreshProcessed = async () => {
@@ -397,7 +432,7 @@ const App = () => {
     if (!filePath || !rootPath) return false;
 
     // Ensure the file is within the current root path
-    return filePath.startsWith(rootPath);
+    return isPathWithinRootBoundary(filePath);
   };
 
   const handleFileSelect = (filePath: string, isSelected: boolean) => {
@@ -419,7 +454,7 @@ const App = () => {
 
   const handleFolderSelect = (folderPath: string, isSelected: boolean) => {
     // Validate folder path before selection
-    if (isSelected && (!folderPath || !rootPath || !folderPath.startsWith(rootPath))) {
+    if (isSelected && !isPathWithinRootBoundary(folderPath)) {
       console.warn(`Attempted to select an invalid folder: ${folderPath}`);
       return;
     }
@@ -454,7 +489,7 @@ const App = () => {
       for (const item of folder.children ?? []) {
         if (item.type === 'directory') {
           // Validate each folder is within current root
-          if (item.path.startsWith(rootPath)) {
+          if (isPathWithinRootBoundary(item.path)) {
             folders.push(item.path);
             folders = [...folders, ...getAllSubFolders(item)];
           }
@@ -473,7 +508,7 @@ const App = () => {
       for (const item of folder.children ?? []) {
         if (item.type === 'file') {
           // Validate each file is within current root
-          if (item.path.startsWith(rootPath)) {
+          if (isPathWithinRootBoundary(item.path)) {
             files.push(item.path);
           }
         } else if (item.type === 'directory') {
