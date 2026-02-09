@@ -282,8 +282,23 @@ const isPathWithinRoot = (rootPath: string, candidatePath: string): boolean => {
     return false;
   }
 
-  const resolvedRootPath = path.resolve(rootPath);
-  const resolvedCandidatePath = path.resolve(candidatePath);
+  const resolveForBoundaryCheck = (inputPath: string): string => {
+    const resolvedPath = path.resolve(inputPath);
+    const realpathFn = fs.realpathSync?.native ?? fs.realpathSync;
+
+    if (typeof realpathFn === 'function') {
+      try {
+        return realpathFn(resolvedPath);
+      } catch {
+        return resolvedPath;
+      }
+    }
+
+    return resolvedPath;
+  };
+
+  const resolvedRootPath = resolveForBoundaryCheck(rootPath);
+  const resolvedCandidatePath = resolveForBoundaryCheck(candidatePath);
   const relativePath = path.relative(resolvedRootPath, resolvedCandidatePath);
 
   return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
