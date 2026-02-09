@@ -330,15 +330,19 @@ const UI_SELECTORS = {
   secretFileEntry: `[title="${MOCK_SECRET_FILE_PATH}"]`,
   refreshFileListButton: 'button[title="Refresh the file list"]',
   fileTreeScrollContainer: '.file-tree .overflow-auto',
+  processSelectedFilesButton: '[data-testid="process-selected-files-button"]',
 };
 
 async function setupMockElectronApi(page) {
   await page.addInitScript(
     ({ mockRootPath, mockConfig, mockDirectoryTree, mockFilteredDirectoryTree, fixedMtime }) => {
+      localStorage.clear();
+      sessionStorage.clear();
       localStorage.setItem('rootPath', mockRootPath);
       localStorage.setItem('configContent', mockConfig);
 
       const cloneTree = (treeItems) => JSON.parse(JSON.stringify(treeItems));
+      const delay = (durationMs) => new Promise((resolve) => window.setTimeout(resolve, durationMs));
 
       window.electronAPI = {
         getDefaultConfig: async () => mockConfig,
@@ -368,11 +372,14 @@ async function setupMockElectronApi(page) {
             processedFiles: 0,
           },
         }),
-        countFilesTokens: async (files) => {
+        countFilesTokens: async (options) => {
+          const filePaths = Array.isArray(options?.filePaths) ? options.filePaths : [];
           const results = {};
           const stats = {};
 
-          for (const filePath of files) {
+          await delay(450);
+
+          for (const filePath of filePaths) {
             results[filePath] = 120;
             stats[filePath] = { mtime: fixedMtime, size: 1024 };
           }
@@ -493,6 +500,34 @@ async function captureAppStateScreenshots(page) {
     await page.waitForFunction(() => {
       return document.querySelectorAll('.file-tree input[type="checkbox"]:checked').length === 1;
     });
+  });
+
+  await runStep('Verify process button shows selecting state during token counting', async () => {
+    await page.waitForFunction((selector) => {
+      const button = document.querySelector(selector);
+      if (!(button instanceof HTMLButtonElement)) {
+        return false;
+      }
+
+      return (
+        button.disabled &&
+        /selecting files\.\.\./i.test(button.textContent || '') &&
+        Boolean(button.querySelector('svg.animate-spin'))
+      );
+    }, UI_SELECTORS.processSelectedFilesButton);
+  });
+
+  await runStep('Verify process button re-enables after token counting completes', async () => {
+    await page.waitForFunction((selector) => {
+      const button = document.querySelector(selector);
+      if (!(button instanceof HTMLButtonElement)) {
+        return false;
+      }
+
+      const buttonLabel = button.textContent || '';
+      const hasSpinner = Boolean(button.querySelector('svg.animate-spin'));
+      return !button.disabled && /process selected files/i.test(buttonLabel) && !hasSpinner;
+    }, UI_SELECTORS.processSelectedFilesButton);
   });
 
   await runStep('Capture selected file screenshot', async () => {

@@ -1,4 +1,5 @@
 export type TabId = 'config' | 'source' | 'processed';
+export type ExportFormat = 'markdown' | 'xml';
 
 export type SelectionHandler = (path: string, isSelected: boolean) => void;
 
@@ -12,6 +13,7 @@ export interface ConfigObject {
   exclude_suspicious_files?: boolean;
   include_tree_view?: boolean;
   show_token_count?: boolean;
+  export_format?: ExportFormat;
 }
 
 export interface DirectoryTreeItem {
@@ -50,11 +52,13 @@ export interface ProcessRepositoryOptions {
   options?: {
     showTokenCount?: boolean;
     includeTreeView?: boolean;
+    exportFormat?: ExportFormat;
   };
 }
 
 export interface ProcessRepositoryResult {
   content: string;
+  exportFormat: ExportFormat;
   totalTokens: number;
   processedFiles: number;
   skippedFiles: number;
@@ -71,6 +75,11 @@ export interface CountFilesTokensResult {
   stats: Record<string, { size: number; mtime: number }>;
 }
 
+export interface CountFilesTokensOptions {
+  rootPath: string;
+  filePaths: string[];
+}
+
 export interface ElectronApi {
   selectDirectory: () => Promise<string | null>;
   getDirectoryTree: (
@@ -83,5 +92,5 @@ export interface ElectronApi {
   processRepository: (options: ProcessRepositoryOptions) => Promise<ProcessRepositoryResult>;
   getDefaultConfig: () => Promise<string>;
   getAssetPath: (assetName: string) => Promise<string | null>;
-  countFilesTokens: (filePaths: string[]) => Promise<CountFilesTokensResult>;
+  countFilesTokens: (options: CountFilesTokensOptions) => Promise<CountFilesTokensResult>;
 }

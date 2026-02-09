@@ -91,6 +91,12 @@ jest.mock('../../../src/renderer/components/SourceTab', () => {
         >
           Select File
         </button>
+        <button
+          data-testid='mock-select-invalid-file-btn'
+          onClick={() => onFileSelect && onFileSelect('/mock/directory-secrets/file1.js', true)}
+        >
+          Select Invalid File
+        </button>
       </div>
     );
   };
@@ -170,6 +176,7 @@ window.electronAPI = {
   }),
   processRepository: jest.fn().mockResolvedValue({
     content: 'Processed content',
+    exportFormat: 'markdown',
     totalTokens: 300,
     processedFiles: 2,
     skippedFiles: 0,
@@ -308,6 +315,19 @@ describe('App Component', () => {
     expect(localStorage.setItem).toHaveBeenCalledWith('rootPath', '/mock/directory');
   });
 
+  test('rejects prefix-collision file selection outside root path', () => {
+    localStorage.setItem('rootPath', '/mock/directory');
+    render(<App />);
+
+    const tabElements = screen.getAllByRole('button');
+    const sourceTab = tabElements.find((el) => el.textContent === 'Source');
+    fireEvent.click(sourceTab);
+
+    fireEvent.click(screen.getByTestId('mock-select-invalid-file-btn'));
+
+    expect(screen.getByTestId('selected-files-count').textContent).toBe('0');
+  });
+
   test('analyzes repository and switches to processed tab', async () => {
     // Setup
     localStorage.setItem('rootPath', '/mock/directory');
@@ -358,6 +378,13 @@ describe('App Component', () => {
       })
     );
     expect(window.electronAPI.processRepository).toHaveBeenCalled();
+    expect(window.electronAPI.processRepository).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          exportFormat: 'markdown',
+        }),
+      })
+    );
 
     // Verify tab switch
     const processedTab = tabElements.find((el) => el.textContent === 'Processed');
@@ -371,6 +398,7 @@ describe('App Component', () => {
     // Mock API responses
     window.electronAPI.processRepository.mockResolvedValue({
       content: 'Test processed content',
+      exportFormat: 'markdown',
       totalTokens: 300,
       processedFiles: 2,
       skippedFiles: 0,
@@ -413,6 +441,145 @@ describe('App Component', () => {
     // Verify save was called correctly
     expect(window.electronAPI.saveFile).toHaveBeenCalledWith({
       content: 'Test processed content',
+      defaultPath: '/mock/directory/output.md',
+    });
+  });
+
+  test('uses xml export format for processing and save path when configured', async () => {
+    window.electronAPI.processRepository.mockResolvedValue({
+      content: '<repositoryContent><files /></repositoryContent>',
+      exportFormat: 'xml',
+      totalTokens: 300,
+      processedFiles: 2,
+      skippedFiles: 0,
+    });
+
+    localStorage.setItem('rootPath', '/mock/directory');
+    localStorage.setItem(
+      'configContent',
+      ['export_format: xml', 'include_tree_view: true', 'show_token_count: true'].join('\n')
+    );
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('config-content') as HTMLTextAreaElement).value).toContain(
+        'export_format: xml'
+      );
+    });
+
+    const tabElements = screen.getAllByRole('button');
+    const sourceTab = tabElements.find((el) => el.textContent === 'Source');
+    fireEvent.click(sourceTab);
+
+    const selectFileBtn = screen.getByTestId('mock-select-file-btn');
+    fireEvent.click(selectFileBtn);
+
+    const analyzeBtn = screen.getByTestId('analyze-btn');
+    await act(async () => {
+      fireEvent.click(analyzeBtn);
+      await waitFor(() => window.electronAPI.processRepository.mock.calls.length > 0);
+    });
+
+    expect(window.electronAPI.processRepository).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          exportFormat: 'xml',
+        }),
+      })
+    );
+
+    const saveBtn = screen.getByTestId('save-btn');
+    await act(async () => {
+      fireEvent.click(saveBtn);
+      await waitFor(() => window.electronAPI.saveFile.mock.calls.length > 0);
+    });
+
+    expect(window.electronAPI.saveFile).toHaveBeenCalledWith({
+      content: '<repositoryContent><files /></repositoryContent>',
+      defaultPath: '/mock/directory/output.xml',
+    });
+  });
+
+  test('defaults showTokenCount to true when config omits show_token_count', async () => {
+    localStorage.setItem('rootPath', '/mock/directory');
+    localStorage.setItem(
+      'configContent',
+      ['export_format: markdown', 'include_tree_view: false'].join('\n')
+    );
+
+    render(<App />);
+
+    const tabElements = screen.getAllByRole('button');
+    const sourceTab = tabElements.find((el) => el.textContent === 'Source');
+    fireEvent.click(sourceTab);
+
+    fireEvent.click(screen.getByTestId('mock-select-file-btn'));
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('analyze-btn'));
+      await waitFor(() => window.electronAPI.processRepository.mock.calls.length > 0);
+    });
+
+    expect(window.electronAPI.processRepository).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          showTokenCount: true,
+          exportFormat: 'markdown',
+        }),
+      })
+    );
+  });
+
+  test('saves using processed result format even if config changes later', async () => {
+    window.electronAPI.processRepository.mockResolvedValue({
+      content: 'Processed markdown content',
+      exportFormat: 'markdown',
+      totalTokens: 120,
+      processedFiles: 1,
+      skippedFiles: 0,
+    });
+
+    localStorage.setItem('rootPath', '/mock/directory');
+    localStorage.setItem(
+      'configContent',
+      ['export_format: markdown', 'include_tree_view: false', 'show_token_count: true'].join('\n')
+    );
+
+    render(<App />);
+
+    const tabElements = screen.getAllByRole('button');
+    const sourceTab = tabElements.find((el) => el.textContent === 'Source');
+    fireEvent.click(sourceTab);
+
+    fireEvent.click(screen.getByTestId('mock-select-file-btn'));
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('analyze-btn'));
+      await waitFor(() => window.electronAPI.processRepository.mock.calls.length > 0);
+    });
+
+    const configTab = tabElements.find((el) => el.textContent === 'Config');
+    fireEvent.click(configTab);
+
+    fireEvent.change(screen.getByTestId('config-content'), {
+      target: {
+        value: ['export_format: xml', 'include_tree_view: false', 'show_token_count: true'].join(
+          '\n'
+        ),
+      },
+    });
+
+    const processedTab = tabElements.find((el) => el.textContent === 'Processed');
+    fireEvent.click(processedTab);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('save-btn'));
+      await waitFor(() => window.electronAPI.saveFile.mock.calls.length > 0);
+    });
+
+    expect(window.electronAPI.saveFile).toHaveBeenCalledWith({
+      content: 'Processed markdown content',
       defaultPath: '/mock/directory/output.md',
     });
   });

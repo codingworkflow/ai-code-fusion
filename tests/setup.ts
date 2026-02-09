@@ -29,6 +29,7 @@ window.electronAPI = {
   }),
   processRepository: jest.fn().mockResolvedValue({
     content: '',
+    exportFormat: 'markdown',
     totalTokens: 0,
     processedFiles: 0,
     skippedFiles: 0,

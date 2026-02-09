@@ -6,11 +6,12 @@ import ProcessedTab from './ProcessedTab';
 import DarkModeToggle from './DarkModeToggle';
 import { DarkModeProvider } from '../context/DarkModeContext';
 import yaml from 'yaml';
+import { normalizeExportFormat } from '../../utils/export-format';
 import type {
   AnalyzeRepositoryResult,
   ConfigObject,
   DirectoryTreeItem,
-  ProcessRepositoryOptions,
+  ExportFormat,
   ProcessRepositoryResult,
   TabId,
 } from '../../types/ipc';
@@ -24,6 +25,7 @@ const ensureError = (error: unknown): Error => {
 type ProcessingOptions = {
   showTokenCount: boolean;
   includeTreeView: boolean;
+  exportFormat: ExportFormat;
 };
 
 const App = () => {
@@ -35,8 +37,9 @@ const App = () => {
   const [, setAnalysisResult] = useState<AnalyzeRepositoryResult | null>(null);
   const [processedResult, setProcessedResult] = useState<ProcessRepositoryResult | null>(null);
   const [processingOptions, setProcessingOptions] = useState<ProcessingOptions>({
-    showTokenCount: false,
+    showTokenCount: true,
     includeTreeView: false,
+    exportFormat: 'markdown',
   });
   // Load config from localStorage or via API, no fallbacks
   const [configContent, setConfigContent] = useState('# Loading configuration...');
@@ -129,8 +132,9 @@ const App = () => {
 
       // Update processing options from config to maintain consistency
       setProcessingOptions({
-        showTokenCount: config.show_token_count === true,
+        showTokenCount: config.show_token_count !== false,
         includeTreeView: config.include_tree_view === true,
+        exportFormat: normalizeExportFormat(config.export_format),
       });
 
       // Ensure we've saved any config changes before switching tabs
@@ -222,7 +226,7 @@ const App = () => {
     try {
       // Validate selected files before analysis
       const validFiles = selectedFiles.filter((file) => {
-        const withinRoot = file.startsWith(rootPath);
+        const withinRoot = isPathWithinRootBoundary(file);
 
         if (!withinRoot) {
           console.warn(`Skipping file outside current root directory: ${file}`);
@@ -254,17 +258,20 @@ const App = () => {
       setAnalysisResult(currentAnalysisResult);
 
       // Read options from config
-      const options: ProcessRepositoryOptions['options'] = {
-        showTokenCount: false,
+      const options: ProcessingOptions = {
+        showTokenCount: true,
         includeTreeView: false,
+        exportFormat: 'markdown',
       };
       try {
         const config = (yaml.parse(configContent) || {}) as ConfigObject;
-        options.showTokenCount = config.show_token_count === true;
+        options.showTokenCount = config.show_token_count !== false;
         options.includeTreeView = config.include_tree_view === true;
+        options.exportFormat = normalizeExportFormat(config.export_format);
       } catch (error) {
         console.error('Error parsing config for processing:', ensureError(error));
       }
+      setProcessingOptions(options);
 
       // Process directly without going to analyze tab
       const result = await window.electronAPI.processRepository({
@@ -293,8 +300,46 @@ const App = () => {
     }
   };
 
-  // Helper function for consistent path normalization (used by handleFolderSelect indirectly)
-  // We'll just use inline path normalization where needed
+  const normalizePathForBoundaryCheck = (inputPath: string): string => {
+    const normalizedSlashes = inputPath.replace(/\\/g, '/');
+    const driveMatch = normalizedSlashes.match(/^[A-Za-z]:/);
+    const drivePrefix = driveMatch ? driveMatch[0].toLowerCase() : '';
+    const pathWithoutDrive = drivePrefix ? normalizedSlashes.slice(2) : normalizedSlashes;
+    const hasLeadingSlash = pathWithoutDrive.startsWith('/');
+
+    const segments = pathWithoutDrive.split('/').filter((segment) => segment && segment !== '.');
+    const resolvedSegments: string[] = [];
+
+    for (const segment of segments) {
+      if (segment === '..') {
+        if (resolvedSegments.length > 0 && resolvedSegments[resolvedSegments.length - 1] !== '..') {
+          resolvedSegments.pop();
+        } else if (!hasLeadingSlash) {
+          // Preserve relative parent traversals so boundary checks can reject them.
+          resolvedSegments.push('..');
+        }
+        continue;
+      }
+
+      resolvedSegments.push(segment);
+    }
+
+    return `${drivePrefix}${hasLeadingSlash ? '/' : ''}${resolvedSegments.join('/')}`;
+  };
+
+  const isPathWithinRootBoundary = (candidatePath: string): boolean => {
+    if (!candidatePath || !rootPath) {
+      return false;
+    }
+
+    const normalizedRootPath = normalizePathForBoundaryCheck(rootPath);
+    const normalizedCandidatePath = normalizePathForBoundaryCheck(candidatePath);
+
+    return (
+      normalizedCandidatePath === normalizedRootPath ||
+      normalizedCandidatePath.startsWith(`${normalizedRootPath}/`)
+    );
+  };
 
   // Method to reload and reprocess files with the latest content
   const handleRefreshProcessed = async () => {
@@ -324,17 +369,19 @@ const App = () => {
       setAnalysisResult(currentReanalysisResult);
 
       // Get the latest config options
-      const options: ProcessRepositoryOptions['options'] = { ...processingOptions };
+      const options: ProcessingOptions = { ...processingOptions };
       try {
         const configStr = localStorage.getItem('configContent');
         if (configStr) {
           const config = (yaml.parse(configStr) || {}) as ConfigObject;
-          options.showTokenCount = config.show_token_count === true;
+          options.showTokenCount = config.show_token_count !== false;
           options.includeTreeView = config.include_tree_view === true;
+          options.exportFormat = normalizeExportFormat(config.export_format);
         }
       } catch (error) {
         console.error('Error parsing config for refresh:', ensureError(error));
       }
+      setProcessingOptions(options);
 
       console.log('Processing with fresh analysis and options:', options);
 
@@ -370,9 +417,10 @@ const App = () => {
     }
 
     try {
+      const outputExtension = processedResult.exportFormat === 'xml' ? 'xml' : 'md';
       await window.electronAPI?.saveFile?.({
         content: processedResult.content,
-        defaultPath: `${rootPath}/output.md`,
+        defaultPath: `${rootPath}/output.${outputExtension}`,
       });
     } catch (error) {
       const processedError = ensureError(error);
@@ -387,7 +435,7 @@ const App = () => {
     if (!filePath || !rootPath) return false;
 
     // Ensure the file is within the current root path
-    return filePath.startsWith(rootPath);
+    return isPathWithinRootBoundary(filePath);
   };
 
   const handleFileSelect = (filePath: string, isSelected: boolean) => {
@@ -409,7 +457,7 @@ const App = () => {
 
   const handleFolderSelect = (folderPath: string, isSelected: boolean) => {
     // Validate folder path before selection
-    if (isSelected && (!folderPath || !rootPath || !folderPath.startsWith(rootPath))) {
+    if (isSelected && !isPathWithinRootBoundary(folderPath)) {
       console.warn(`Attempted to select an invalid folder: ${folderPath}`);
       return;
     }
@@ -444,7 +492,7 @@ const App = () => {
       for (const item of folder.children ?? []) {
         if (item.type === 'directory') {
           // Validate each folder is within current root
-          if (item.path.startsWith(rootPath)) {
+          if (isPathWithinRootBoundary(item.path)) {
             folders.push(item.path);
             folders = [...folders, ...getAllSubFolders(item)];
           }
@@ -463,7 +511,7 @@ const App = () => {
       for (const item of folder.children ?? []) {
         if (item.type === 'file') {
           // Validate each file is within current root
-          if (item.path.startsWith(rootPath)) {
+          if (isPathWithinRootBoundary(item.path)) {
             files.push(item.path);
           }
         } else if (item.type === 'directory') {

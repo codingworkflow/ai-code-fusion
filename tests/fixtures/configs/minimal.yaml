@@ -2,6 +2,7 @@
 use_custom_excludes: false
 use_custom_includes: true
 use_gitignore: false
+export_format: markdown
 
 # File extensions to include (with dot)
 include_extensions:

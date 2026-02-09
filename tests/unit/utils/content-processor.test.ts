@@ -58,6 +58,63 @@ describe('ContentProcessor', () => {
       expect(result).toContain(fileContent);
     });
 
+    test('should process text files as xml when export format is xml', () => {
+      const filePath = '/project/src/file.ts';
+      const relativePath = 'src/file.ts';
+      const fileContent = 'const value = "x";';
+
+      isBinaryFile.mockReturnValue(false);
+      fs.readFileSync.mockReturnValue(fileContent);
+
+      const result = contentProcessor.processFile(filePath, relativePath, {
+        exportFormat: 'xml',
+        showTokenCount: true,
+        tokenCount: 7,
+      });
+
+      expect(result).toContain('<file path="src/file.ts" tokens="7" binary="false">');
+      expect(result).toContain('<![CDATA[');
+      expect(result).toContain(fileContent);
+      expect(result).toContain('</file>');
+      expect(mockTokenCounter.countTokens).not.toHaveBeenCalled();
+    });
+
+    test('should sanitize invalid xml code points in xml attribute values', () => {
+      const filePath = '/project/src/weird.ts';
+      const relativePath = 'src/weird\u0001name.ts';
+      const fileContent = 'const value = "ok";';
+
+      isBinaryFile.mockReturnValue(false);
+      fs.readFileSync.mockReturnValue(fileContent);
+
+      const result = contentProcessor.processFile(filePath, relativePath, {
+        exportFormat: 'xml',
+        showTokenCount: true,
+        tokenCount: 5,
+      });
+
+      expect(result).toContain('<file path="src/weirdname.ts" tokens="5" binary="false">');
+      expect(result).not.toContain('\u0001');
+    });
+
+    test('should escape cdata end markers and sanitize invalid xml characters', () => {
+      const filePath = '/project/src/weird.ts';
+      const relativePath = 'src/weird.ts';
+      const fileContent = 'const marker = "]]>";\u0001const done = true;';
+
+      isBinaryFile.mockReturnValue(false);
+      fs.readFileSync.mockReturnValue(fileContent);
+
+      const result = contentProcessor.processFile(filePath, relativePath, {
+        exportFormat: 'xml',
+        showTokenCount: true,
+      });
+
+      expect(result).toContain('<![CDATA[');
+      expect(result).toContain(']]]]><![CDATA[>');
+      expect(result).not.toContain('\u0001');
+    });
+
     test('should handle binary files correctly', () => {
       // Setup
       const filePath = '/project/images/logo.png';
@@ -81,6 +138,23 @@ describe('ContentProcessor', () => {
       expect(result).toContain('[BINARY FILE]');
       expect(result).toContain('PNG');
       expect(result).toContain('1.00 KB');
+    });
+
+    test('should process binary files as xml when export format is xml', () => {
+      const filePath = '/project/images/logo.png';
+      const relativePath = 'images/logo.png';
+
+      isBinaryFile.mockReturnValue(true);
+      fs.statSync.mockReturnValue({ size: 2048 });
+      path.extname.mockReturnValue('.png');
+
+      const result = contentProcessor.processFile(filePath, relativePath, { exportFormat: 'xml' });
+
+      expect(result).toContain('<file path="images/logo.png" binary="true"');
+      expect(result).toContain('fileType="PNG"');
+      expect(result).toContain('sizeKB="2.00"');
+      expect(result).toContain('<note><![CDATA[');
+      expect(result).toContain('</file>');
     });
 
     test('should handle errors when reading files', () => {

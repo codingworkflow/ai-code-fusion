@@ -10,7 +10,8 @@ jest.mock('../../../src/utils/formatters/list-formatter', () => ({
 
 // Mock yaml package
 jest.mock('yaml', () => ({
-  parse: jest.fn().mockImplementation((str) => {
+  parse: jest.fn().mockImplementation((str = '') => {
+    const exportFormat = str.includes('export_format: xml') ? 'xml' : 'markdown';
     if (str && str.includes('include_extensions')) {
       return {
         include_extensions: ['.js', '.jsx'],
@@ -19,9 +20,15 @@ jest.mock('yaml', () => ({
         use_custom_includes: true,
         enable_secret_scanning: true,
         exclude_suspicious_files: true,
+        export_format: exportFormat,
       };
     }
-    return {};
+    if (str && str.includes('export_format')) {
+      return {
+        export_format: exportFormat,
+      };
+    }
+    return { export_format: 'markdown' };
   }),
   stringify: jest.fn().mockReturnValue('mocked yaml string'),
 }));
@@ -73,6 +80,7 @@ describe('ConfigTab', () => {
     expect(screen.getByLabelText('Apply .gitignore rules')).toBeChecked();
     expect(screen.getByLabelText('Scan content for secrets')).toBeChecked();
     expect(screen.getByLabelText('Exclude suspicious files')).toBeChecked();
+    expect(screen.getByLabelText('Export format')).toHaveValue('markdown');
 
     // Check textareas
     const extensionsTextarea = screen.getByPlaceholderText(/\.py/);
@@ -118,6 +126,34 @@ describe('ConfigTab', () => {
 
     expect(savedConfig.enable_secret_scanning).toBe(false);
     expect(savedConfig.exclude_suspicious_files).toBe(false);
+  });
+
+  test('persists export format changes in saved config', async () => {
+    render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
+
+    const exportFormatSelect = screen.getByLabelText('Export format');
+    expect(exportFormatSelect).toHaveValue('markdown');
+
+    act(() => {
+      fireEvent.change(exportFormatSelect, { target: { value: 'xml' } });
+      jest.advanceTimersByTime(100);
+    });
+
+    await waitFor(() => {
+      expect(mockOnConfigChange).toHaveBeenCalled();
+    });
+
+    const yamlLib = require('yaml');
+    expect(yamlLib.stringify).toHaveBeenCalled();
+    const savedConfig = yamlLib.stringify.mock.calls.at(-1)[0];
+    expect(savedConfig.export_format).toBe('xml');
+  });
+
+  test('initializes export format selector to xml when config specifies export_format: xml', () => {
+    const xmlConfigContent = `${mockConfigContent}\nexport_format: xml`;
+    render(<ConfigTab configContent={xmlConfigContent} onConfigChange={mockOnConfigChange} />);
+
+    expect(screen.getByLabelText('Export format')).toHaveValue('xml');
   });
 
   test('calls selectDirectory when folder button is clicked', async () => {

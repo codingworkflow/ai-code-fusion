@@ -4,6 +4,7 @@ const FAKE_GITHUB_TOKEN = ['ghp', 'AAAAAAAAAAAAAAAAAAAAAAAA'].join('_');
 
 // Mock electron ipcMain
 const mockIpcHandlers = {};
+const mockProtocolHandlers = {};
 const mockIpcMain = {
   handle: jest.fn((channel, handler) => {
     mockIpcHandlers[channel] = handler;
@@ -32,31 +33,34 @@ jest.mock('electron', () => ({
     showSaveDialog: jest.fn(),
   },
   protocol: {
-    registerFileProtocol: jest.fn(),
+    registerFileProtocol: jest.fn((scheme, handler) => {
+      mockProtocolHandlers[scheme] = handler;
+    }),
   },
 }));
 
 jest.mock('fs');
-jest.mock('path', () => ({
-  ...jest.requireActual('path'),
-  join: jest.fn().mockImplementation((...args) => args.join('/')),
-  normalize: jest.fn().mockImplementation((p) => p),
-  relative: jest.fn().mockImplementation((from, to) => {
-    // Simple implementation for testing
-    if (to.startsWith(from)) {
-      return to.substring(from.length).replace(/^\//, '');
-    }
-    return to;
-  }),
-  extname: jest.fn().mockImplementation((filePath) => {
-    const parts = filePath.split('.');
-    return parts.length > 1 ? `.${parts[parts.length - 1]}` : '';
-  }),
-  basename: jest.fn().mockImplementation((filePath) => {
-    const parts = filePath.split('/');
-    return parts[parts.length - 1];
-  }),
-}));
+jest.mock('path', () => {
+  const realPath = jest.requireActual('path');
+  return {
+    ...realPath,
+    join: jest.fn().mockImplementation((...args) => args.join('/')),
+    normalize: jest.fn().mockImplementation((p) => realPath.posix.normalize(p)),
+    resolve: jest.fn().mockImplementation((...args) => realPath.posix.resolve(...args)),
+    relative: jest.fn().mockImplementation((from, to) => realPath.posix.relative(from, to)),
+    isAbsolute: jest
+      .fn()
+      .mockImplementation((candidatePath) => realPath.posix.isAbsolute(candidatePath)),
+    extname: jest.fn().mockImplementation((filePath) => {
+      const parts = filePath.split('.');
+      return parts.length > 1 ? `.${parts[parts.length - 1]}` : '';
+    }),
+    basename: jest.fn().mockImplementation((filePath) => {
+      const parts = filePath.split('/');
+      return parts[parts.length - 1];
+    }),
+  };
+});
 
 jest.mock('yaml');
 
@@ -92,7 +96,18 @@ jest.mock('../../../src/utils/file-analyzer', () => {
 
 jest.mock('../../../src/utils/content-processor', () => ({
   ContentProcessor: jest.fn().mockImplementation(() => ({
-    processFile: jest.fn().mockImplementation((filePath, relativePath) => {
+    processFile: jest.fn().mockImplementation((filePath, relativePath, options = {}) => {
+      if (options.exportFormat === 'xml') {
+        if (filePath.includes('binary') || filePath.endsWith('.png') || filePath.endsWith('.ico')) {
+          return `<file path="${relativePath}" binary="true"></file>\n`;
+        }
+        const tokenAttribute =
+          options.showTokenCount === true && Number.isFinite(options.tokenCount)
+            ? ` tokens="${options.tokenCount}"`
+            : '';
+        return `<file path="${relativePath}"${tokenAttribute} binary="false"><![CDATA[Mocked content]]></file>\n`;
+      }
+
       if (filePath.includes('binary') || filePath.endsWith('.png') || filePath.endsWith('.ico')) {
         return `${relativePath} (binary file)\n[BINARY FILE]\n`;
       }
@@ -105,8 +120,17 @@ jest.mock('../../../src/utils/content-processor', () => ({
 require('../../../src/main/index');
 
 describe('Main Process IPC Handlers', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    const { dialog } = require('electron');
+    dialog.showOpenDialog.mockResolvedValue({
+      canceled: false,
+      filePaths: ['/mock/repo'],
+    });
+    dialog.showSaveDialog.mockResolvedValue({
+      canceled: false,
+      filePath: '/mock/repo/output.md',
+    });
 
     // Basic mocks for file system
     fs.readdirSync.mockImplementation((dir) => {
@@ -162,6 +186,39 @@ describe('Main Process IPC Handlers', () => {
       include_extensions: ['.js', '.jsx', '.json', '.log'], // Include .log extension
       exclude_patterns: ['**/node_modules/**'],
     }));
+
+    const selectDirectoryHandler = mockIpcHandlers['dialog:selectDirectory'];
+    if (selectDirectoryHandler) {
+      await selectDirectoryHandler(null);
+    }
+  });
+
+  describe('assets protocol', () => {
+    test('should reject traversal in assets protocol requests', async () => {
+      await Promise.resolve();
+      const handler = mockProtocolHandlers['assets'];
+      expect(handler).toBeDefined();
+
+      const callback = jest.fn();
+      handler({ url: 'assets://../../etc/passwd' }, callback);
+
+      expect(callback).toHaveBeenCalledWith({ error: -6 });
+    });
+
+    test('should resolve valid assets protocol requests', async () => {
+      await Promise.resolve();
+      const handler = mockProtocolHandlers['assets'];
+      expect(handler).toBeDefined();
+
+      const callback = jest.fn();
+      handler({ url: 'assets://icon.png' }, callback);
+
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: expect.stringContaining('icon.png'),
+        })
+      );
+    });
   });
 
   describe('fs:getDirectoryTree', () => {
@@ -225,6 +282,12 @@ describe('Main Process IPC Handlers', () => {
       const result = await handler(null, dirPath, configContent);
 
       // Verify
+      expect(result).toEqual([]);
+    });
+
+    test('should reject unauthorized directory tree requests', async () => {
+      const handler = mockIpcHandlers['fs:getDirectoryTree'];
+      const result = await handler(null, '/unauthorized/path', '');
       expect(result).toEqual([]);
     });
   });
@@ -310,6 +373,8 @@ describe('Main Process IPC Handlers', () => {
       const selectedFiles = [
         '/mock/repo/src/index.js',
         '/another/path/file.js', // Outside root
+        '/mock/repo-secrets/config.js', // Prefix collision should be rejected
+        '/mock/repo/../repo-secrets/hidden.js', // Traversal should be rejected
       ];
 
       // Execute
@@ -324,6 +389,18 @@ describe('Main Process IPC Handlers', () => {
       expect(result.filesInfo.find((f) => f.path === 'src/index.js')).toBeDefined();
 
       // Should have correct number of files (only those inside root)
+      expect(result.filesInfo.length).toBe(1);
+    });
+
+    test('should allow relative selected files inside root and reject traversal', async () => {
+      const rootPath = '/mock/repo';
+      const configContent = '';
+      const selectedFiles = ['src/index.js', '../repo-secrets/hidden.js'];
+
+      const handler = mockIpcHandlers['repo:analyze'];
+      const result = await handler(null, { rootPath, configContent, selectedFiles });
+
+      expect(result.filesInfo.find((f) => f.path === 'src/index.js')).toBeDefined();
       expect(result.filesInfo.length).toBe(1);
     });
 
@@ -352,6 +429,17 @@ describe('Main Process IPC Handlers', () => {
       expect(result.filesInfo.find((file) => file.path === 'src/index.js')).toBeDefined();
       expect(result.filesInfo.find((file) => file.path === 'src/secrets.js')).toBeUndefined();
     });
+
+    test('should reject analysis for unauthorized root path', async () => {
+      const handler = mockIpcHandlers['repo:analyze'];
+      await expect(
+        handler(null, {
+          rootPath: '/etc',
+          configContent: '',
+          selectedFiles: ['/etc/passwd'],
+        })
+      ).rejects.toThrow('Unauthorized root path');
+    });
   });
 
   describe('repo:process', () => {
@@ -379,16 +467,139 @@ describe('Main Process IPC Handlers', () => {
 
       // Verify
       expect(result).toBeDefined();
+      expect(result.exportFormat).toBe('markdown');
       expect(result.content).toBeDefined();
       expect(typeof result.content).toBe('string');
 
       // Should include tree view
       expect(result.content).toContain('## File Structure');
       expect(result.content).toContain('```');
+      expect(result.content).toContain('## File Contents');
 
       // Should include file content sections
       expect(result.content).toContain('src/index.js');
       expect(result.content).toContain('package.json');
+    });
+
+    test('should generate tree connectors correctly when treeView is omitted', async () => {
+      const rootPath = '/mock/repo';
+      const filesInfo = [
+        { path: 'A/C.js', tokens: 10 },
+        { path: 'B.js', tokens: 5 },
+      ];
+      const options = {
+        includeTreeView: true,
+        exportFormat: 'markdown',
+      };
+
+      const handler = mockIpcHandlers['repo:process'];
+      const result = await handler(null, {
+        rootPath,
+        filesInfo,
+        treeView: '',
+        options,
+      });
+
+      expect(result.content).toContain('## File Structure');
+      expect(result.content).toContain('├── A');
+      expect(result.content).toContain('│   └── C.js');
+      expect(result.content).toContain('└── B.js');
+    });
+
+    test('should not include markdown file-contents heading when tree view is disabled', async () => {
+      const rootPath = '/mock/repo';
+      const filesInfo = [{ path: 'src/index.js', tokens: 100 }];
+      const options = {
+        showTokenCount: true,
+        includeTreeView: false,
+      };
+
+      const handler = mockIpcHandlers['repo:process'];
+      const result = await handler(null, {
+        rootPath,
+        filesInfo,
+        treeView: '',
+        options,
+      });
+
+      expect(result.exportFormat).toBe('markdown');
+      expect(result.content).toContain('# Repository Content');
+      expect(result.content).not.toContain('## File Structure');
+      expect(result.content).not.toContain('## File Contents');
+      expect(result.content).toContain('src/index.js');
+    });
+
+    test('should generate xml output when exportFormat is xml', async () => {
+      const rootPath = '/mock/repo';
+      const filesInfo = [
+        { path: 'src/index.js', tokens: 100 },
+        { path: 'package.json', tokens: 50 },
+      ];
+      const options = {
+        showTokenCount: true,
+        includeTreeView: true,
+        exportFormat: 'xml',
+      };
+
+      const handler = mockIpcHandlers['repo:process'];
+      const result = await handler(null, {
+        rootPath,
+        filesInfo,
+        treeView: '/ mock-repo\n  ├── src\n  │   └── index.js\n  └── package.json',
+        options,
+      });
+
+      expect(result.content).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+      expect(result.exportFormat).toBe('xml');
+      expect(result.content).toContain('<repositoryContent>');
+      expect(result.content).toContain('<fileStructure><![CDATA[');
+      expect(result.content).toContain('<files>');
+      expect(result.content).toContain('<file path="src/index.js" tokens="100" binary="false">');
+      expect(result.content).toContain(
+        '<summary totalTokens="150" processedFiles="2" skippedFiles="0" />'
+      );
+      expect(result.content).toContain('</repositoryContent>');
+    });
+
+    test('should include xml token attributes when showTokenCount is not explicitly set', async () => {
+      const rootPath = '/mock/repo';
+      const filesInfo = [{ path: 'src/index.js', tokens: 100 }];
+      const options = {
+        includeTreeView: true,
+        exportFormat: 'xml',
+      };
+
+      const handler = mockIpcHandlers['repo:process'];
+      const result = await handler(null, {
+        rootPath,
+        filesInfo,
+        treeView: '/ mock-repo\n  └── src\n      └── index.js',
+        options,
+      });
+
+      expect(result.exportFormat).toBe('xml');
+      expect(result.content).toContain('<file path="src/index.js" tokens="100" binary="false">');
+    });
+
+    test('should omit xml token attributes when showTokenCount is false', async () => {
+      const rootPath = '/mock/repo';
+      const filesInfo = [{ path: 'src/index.js', tokens: 100 }];
+      const options = {
+        showTokenCount: false,
+        exportFormat: 'xml',
+      };
+
+      const handler = mockIpcHandlers['repo:process'];
+      const result = await handler(null, {
+        rootPath,
+        filesInfo,
+        treeView: '',
+        options,
+      });
+
+      expect(result.exportFormat).toBe('xml');
+      expect(result.content).toContain('<file path="src/index.js" binary="false">');
+      expect(result.content).not.toContain('tokens="100"');
     });
 
     test('should handle binary files correctly', async () => {
@@ -447,11 +658,184 @@ describe('Main Process IPC Handlers', () => {
       // Should have skipped files count
       expect(result.skippedFiles).toBe(1);
     });
+
+    test('should skip files outside root even with traversal or prefix-collision paths', async () => {
+      const rootPath = '/mock/repo';
+      const filesInfo = [
+        { path: 'src/index.js', tokens: 100 },
+        { path: '../repo-secrets/config.js', tokens: 50 },
+      ];
+
+      const handler = mockIpcHandlers['repo:process'];
+      const result = await handler(null, {
+        rootPath,
+        filesInfo,
+        treeView: '',
+        options: {},
+      });
+
+      expect(result.processedFiles).toBe(1);
+      expect(result.skippedFiles).toBe(1);
+      expect(result.content).toContain('src/index.js');
+      expect(result.content).not.toContain('../repo-secrets/config.js');
+    });
+
+    test('should reject processing for unauthorized root path', async () => {
+      const handler = mockIpcHandlers['repo:process'];
+      await expect(
+        handler(null, {
+          rootPath: '/etc',
+          filesInfo: [{ path: 'passwd', tokens: 1 }],
+          treeView: '',
+          options: {},
+        })
+      ).rejects.toThrow('Unauthorized root path');
+    });
+
+    test('should only allow the currently authorized root after re-selection', async () => {
+      const { dialog } = require('electron');
+      const selectDirectoryHandler = mockIpcHandlers['dialog:selectDirectory'];
+      const processHandler = mockIpcHandlers['repo:process'];
+
+      dialog.showOpenDialog.mockResolvedValue({
+        canceled: false,
+        filePaths: ['/mock/repo-next'],
+      });
+      await selectDirectoryHandler(null);
+
+      await expect(
+        processHandler(null, {
+          rootPath: '/mock/repo-next',
+          filesInfo: [],
+          treeView: '',
+          options: {},
+        })
+      ).resolves.toEqual(
+        expect.objectContaining({
+          processedFiles: 0,
+          skippedFiles: 0,
+        })
+      );
+
+      await expect(
+        processHandler(null, {
+          rootPath: '/mock/repo',
+          filesInfo: [],
+          treeView: '',
+          options: {},
+        })
+      ).rejects.toThrow('Unauthorized root path');
+    });
+  });
+
+  describe('fs:saveFile', () => {
+    test('should prioritize xml filter when default path uses .xml extension', async () => {
+      const { dialog } = require('electron');
+      dialog.showSaveDialog.mockResolvedValue({
+        canceled: false,
+        filePath: '/mock/repo/output.xml',
+      });
+
+      const handler = mockIpcHandlers['fs:saveFile'];
+      const result = await handler(null, {
+        content: '<xml />',
+        defaultPath: '/mock/repo/output.xml',
+      });
+
+      const saveDialogCallArgs = dialog.showSaveDialog.mock.calls[0];
+      const saveDialogOptions = saveDialogCallArgs[saveDialogCallArgs.length - 1];
+      expect(saveDialogOptions.filters[0]).toEqual({
+        name: 'XML Files',
+        extensions: ['xml'],
+      });
+      expect(result).toBe('/mock/repo/output.xml');
+      expect(fs.writeFileSync).toHaveBeenCalledWith('/mock/repo/output.xml', '<xml />');
+    });
+
+    test('should prioritize markdown filter when default path uses .md extension', async () => {
+      const { dialog } = require('electron');
+      dialog.showSaveDialog.mockResolvedValue({
+        canceled: false,
+        filePath: '/mock/repo/output.md',
+      });
+
+      const handler = mockIpcHandlers['fs:saveFile'];
+      await handler(null, {
+        content: '# output',
+        defaultPath: '/mock/repo/output.md',
+      });
+
+      const saveDialogCallArgs = dialog.showSaveDialog.mock.calls[0];
+      const saveDialogOptions = saveDialogCallArgs[saveDialogCallArgs.length - 1];
+      expect(saveDialogOptions.filters[0]).toEqual({
+        name: 'Markdown Files',
+        extensions: ['md'],
+      });
+      expect(fs.writeFileSync).toHaveBeenCalledWith('/mock/repo/output.md', '# output');
+    });
+
+    test('should return null when save dialog is canceled', async () => {
+      const { dialog } = require('electron');
+      dialog.showSaveDialog.mockResolvedValue({
+        canceled: true,
+        filePath: undefined,
+      });
+
+      const handler = mockIpcHandlers['fs:saveFile'];
+      const result = await handler(null, {
+        content: '# output',
+        defaultPath: '/mock/repo/output.md',
+      });
+
+      expect(result).toBeNull();
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
+    });
+
+    test('should handle missing defaultPath safely', async () => {
+      const { dialog } = require('electron');
+      dialog.showSaveDialog.mockResolvedValue({
+        canceled: false,
+        filePath: '/mock/repo/output.md',
+      });
+
+      const handler = mockIpcHandlers['fs:saveFile'];
+      const result = await handler(null, {
+        content: '# output',
+        defaultPath: undefined,
+      });
+
+      const saveDialogCallArgs = dialog.showSaveDialog.mock.calls[0];
+      const saveDialogOptions = saveDialogCallArgs[saveDialogCallArgs.length - 1];
+      expect(saveDialogOptions.defaultPath).toBe('');
+      expect(result).toBe('/mock/repo/output.md');
+      expect(fs.writeFileSync).toHaveBeenCalledWith('/mock/repo/output.md', '# output');
+    });
+  });
+
+  describe('assets:getPath', () => {
+    test('should return path for valid assets', async () => {
+      const handler = mockIpcHandlers['assets:getPath'];
+      const result = await handler(null, 'icon.png');
+
+      expect(typeof result).toBe('string');
+      expect(result).toContain('icon.png');
+    });
+
+    test('should reject traversal paths outside assets directory', async () => {
+      const handler = mockIpcHandlers['assets:getPath'];
+      fs.existsSync.mockClear();
+
+      const result = await handler(null, '../../etc/passwd');
+
+      expect(result).toBeNull();
+      expect(fs.existsSync).not.toHaveBeenCalled();
+    });
   });
 
   describe('tokens:countFiles', () => {
     test('should count tokens for multiple files', async () => {
       // Setup
+      const rootPath = '/mock/repo';
       const filePaths = [
         '/mock/repo/src/file1.js',
         '/mock/repo/src/file2.js',
@@ -460,7 +844,7 @@ describe('Main Process IPC Handlers', () => {
 
       // Execute
       const handler = mockIpcHandlers['tokens:countFiles'];
-      const result = await handler(null, filePaths);
+      const result = await handler(null, { rootPath, filePaths });
 
       // Verify
       expect(result).toBeDefined();
@@ -475,6 +859,7 @@ describe('Main Process IPC Handlers', () => {
 
     test('should handle binary files correctly', async () => {
       // Setup
+      const rootPath = '/mock/repo';
       const filePaths = [
         '/mock/repo/src/file.js',
         '/mock/repo/image.png', // binary file
@@ -482,7 +867,7 @@ describe('Main Process IPC Handlers', () => {
 
       // Execute
       const handler = mockIpcHandlers['tokens:countFiles'];
-      const result = await handler(null, filePaths);
+      const result = await handler(null, { rootPath, filePaths });
 
       // Verify
       expect(result).toBeDefined();
@@ -495,6 +880,7 @@ describe('Main Process IPC Handlers', () => {
 
     test('should handle missing files gracefully', async () => {
       // Setup
+      const rootPath = '/mock/repo';
       const filePaths = ['/mock/repo/src/file.js', '/mock/repo/nonexistent/file.js'];
 
       // Mock to make nonexistent file fail
@@ -504,7 +890,7 @@ describe('Main Process IPC Handlers', () => {
 
       // Execute
       const handler = mockIpcHandlers['tokens:countFiles'];
-      const result = await handler(null, filePaths);
+      const result = await handler(null, { rootPath, filePaths });
 
       // Verify
       expect(result).toBeDefined();
@@ -513,6 +899,36 @@ describe('Main Process IPC Handlers', () => {
       // Existing file should have tokens, nonexistent should have 0
       expect(result.results['/mock/repo/src/file.js']).toBe(100);
       expect(result.results['/mock/repo/nonexistent/file.js']).toBe(0);
+    });
+
+    test('should skip files outside root path', async () => {
+      const rootPath = '/mock/repo';
+      const filePaths = ['/mock/repo/src/file.js', '/mock/repo-secrets/secret.js'];
+
+      const handler = mockIpcHandlers['tokens:countFiles'];
+      const result = await handler(null, { rootPath, filePaths });
+
+      expect(result.results['/mock/repo/src/file.js']).toBe(100);
+      expect(result.results['/mock/repo-secrets/secret.js']).toBe(0);
+      expect(result.stats['/mock/repo-secrets/secret.js']).toBeUndefined();
+    });
+
+    test('should resolve relative paths against root and reject traversal escapes', async () => {
+      const rootPath = '/mock/repo';
+      const filePaths = ['src/file.js', '../repo-secrets/secret.js'];
+
+      const handler = mockIpcHandlers['tokens:countFiles'];
+      const result = await handler(null, { rootPath, filePaths });
+
+      expect(result.results['src/file.js']).toBe(100);
+      expect(result.results['../repo-secrets/secret.js']).toBe(0);
+      expect(result.stats['../repo-secrets/secret.js']).toBeUndefined();
+    });
+
+    test('should reject token counting for unauthorized root path', async () => {
+      const handler = mockIpcHandlers['tokens:countFiles'];
+      const result = await handler(null, { rootPath: '/etc', filePaths: ['/etc/passwd'] });
+      expect(result).toEqual({ results: {}, stats: {} });
     });
   });
 });
