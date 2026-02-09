@@ -43,7 +43,7 @@ jest.mock('path', () => {
     ...realPath,
     join: jest.fn().mockImplementation((...args) => args.join('/')),
     normalize: jest.fn().mockImplementation((p) => p),
-    relative: jest.fn().mockImplementation((from, to) => realPath.posix.relative(from, to)),
+    relative: jest.fn().mockImplementation((from, to) => realPath.relative(from, to)),
     extname: jest.fn().mockImplementation((filePath) => {
       const parts = filePath.split('.');
       return parts.length > 1 ? `.${parts[parts.length - 1]}` : '';
