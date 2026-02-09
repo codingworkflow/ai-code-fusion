@@ -482,6 +482,36 @@ describe('App Component', () => {
     });
   });
 
+  test('defaults showTokenCount to false when config omits show_token_count', async () => {
+    localStorage.setItem('rootPath', '/mock/directory');
+    localStorage.setItem(
+      'configContent',
+      ['export_format: markdown', 'include_tree_view: false'].join('\n')
+    );
+
+    render(<App />);
+
+    const tabElements = screen.getAllByRole('button');
+    const sourceTab = tabElements.find((el) => el.textContent === 'Source');
+    fireEvent.click(sourceTab);
+
+    fireEvent.click(screen.getByTestId('mock-select-file-btn'));
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('analyze-btn'));
+      await waitFor(() => window.electronAPI.processRepository.mock.calls.length > 0);
+    });
+
+    expect(window.electronAPI.processRepository).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          showTokenCount: false,
+          exportFormat: 'markdown',
+        }),
+      })
+    );
+  });
+
   test('saves using processed result format even if config changes later', async () => {
     window.electronAPI.processRepository.mockResolvedValue({
       content: 'Processed markdown content',

@@ -451,7 +451,7 @@ ipcMain.handle(
         }
       }
 
-      if (processingOptions.exportFormat === 'markdown') {
+      if (processingOptions.exportFormat === 'markdown' && processingOptions.includeTreeView) {
         processedContent += '## File Contents\n\n';
       }
 

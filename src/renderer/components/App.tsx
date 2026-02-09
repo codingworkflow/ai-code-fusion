@@ -37,7 +37,7 @@ const App = () => {
   const [, setAnalysisResult] = useState<AnalyzeRepositoryResult | null>(null);
   const [processedResult, setProcessedResult] = useState<ProcessRepositoryResult | null>(null);
   const [processingOptions, setProcessingOptions] = useState<ProcessingOptions>({
-    showTokenCount: true,
+    showTokenCount: false,
     includeTreeView: false,
     exportFormat: 'markdown',
   });
@@ -132,7 +132,7 @@ const App = () => {
 
       // Update processing options from config to maintain consistency
       setProcessingOptions({
-        showTokenCount: config.show_token_count !== false,
+        showTokenCount: config.show_token_count === true,
         includeTreeView: config.include_tree_view === true,
         exportFormat: normalizeExportFormat(config.export_format),
       });
@@ -259,13 +259,13 @@ const App = () => {
 
       // Read options from config
       const options: ProcessingOptions = {
-        showTokenCount: true,
+        showTokenCount: false,
         includeTreeView: false,
         exportFormat: 'markdown',
       };
       try {
         const config = (yaml.parse(configContent) || {}) as ConfigObject;
-        options.showTokenCount = config.show_token_count !== false;
+        options.showTokenCount = config.show_token_count === true;
         options.includeTreeView = config.include_tree_view === true;
         options.exportFormat = normalizeExportFormat(config.export_format);
       } catch (error) {
@@ -336,7 +336,7 @@ const App = () => {
         const configStr = localStorage.getItem('configContent');
         if (configStr) {
           const config = (yaml.parse(configStr) || {}) as ConfigObject;
-          options.showTokenCount = config.show_token_count !== false;
+          options.showTokenCount = config.show_token_count === true;
           options.includeTreeView = config.include_tree_view === true;
           options.exportFormat = normalizeExportFormat(config.export_format);
         }

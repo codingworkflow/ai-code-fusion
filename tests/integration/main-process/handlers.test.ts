@@ -413,10 +413,34 @@ describe('Main Process IPC Handlers', () => {
       // Should include tree view
       expect(result.content).toContain('## File Structure');
       expect(result.content).toContain('```');
+      expect(result.content).toContain('## File Contents');
 
       // Should include file content sections
       expect(result.content).toContain('src/index.js');
       expect(result.content).toContain('package.json');
+    });
+
+    test('should not include markdown file-contents heading when tree view is disabled', async () => {
+      const rootPath = '/mock/repo';
+      const filesInfo = [{ path: 'src/index.js', tokens: 100 }];
+      const options = {
+        showTokenCount: true,
+        includeTreeView: false,
+      };
+
+      const handler = mockIpcHandlers['repo:process'];
+      const result = await handler(null, {
+        rootPath,
+        filesInfo,
+        treeView: '',
+        options,
+      });
+
+      expect(result.exportFormat).toBe('markdown');
+      expect(result.content).toContain('# Repository Content');
+      expect(result.content).not.toContain('## File Structure');
+      expect(result.content).not.toContain('## File Contents');
+      expect(result.content).toContain('src/index.js');
     });
 
     test('should generate xml output when exportFormat is xml', async () => {
