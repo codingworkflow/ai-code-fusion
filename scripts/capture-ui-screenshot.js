@@ -336,6 +336,8 @@ const UI_SELECTORS = {
 async function setupMockElectronApi(page) {
   await page.addInitScript(
     ({ mockRootPath, mockConfig, mockDirectoryTree, mockFilteredDirectoryTree, fixedMtime }) => {
+      localStorage.clear();
+      sessionStorage.clear();
       localStorage.setItem('rootPath', mockRootPath);
       localStorage.setItem('configContent', mockConfig);
 
