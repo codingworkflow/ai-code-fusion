@@ -34,9 +34,9 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 
 ## Visual Regression Signal
 
-| Command                 | Primary Target                                   | Key Use Cases                                                                  |
-| ----------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |
-| `npm run qa:screenshot` | `scripts/capture-ui-screenshot.js` + renderer UI | Cross-OS UI sanity, resized layout checks, deep file-tree selection visibility |
+| Command                 | Primary Target                                   | Key Use Cases                                                                                                 |
+| ----------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `npm run qa:screenshot` | `scripts/capture-ui-screenshot.js` + renderer UI | Cross-OS UI sanity, resized layout checks, deep file-tree selection visibility, secret-filter toggle behavior |
 
 ## Change-to-Test Mapping
 
