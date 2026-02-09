@@ -24,6 +24,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | `tests/unit/utils/content-processor.test.ts` | `src/utils/content-processor.ts`        | Content assembly, binary skip logic, malformed input handling                    |
 | `tests/unit/utils/config-manager.test.ts`    | `src/utils/config-manager.ts`           | Default config load, parse failures, graceful fallback behavior                  |
 | `tests/unit/utils/token-counter.test.ts`     | `src/utils/token-counter.ts`            | Token counting basics, empty/null input handling                                 |
+| `tests/unit/scripts/security.test.js`        | `scripts/lib/security.js`               | Command safety validation, Windows path acceptance for approved executables      |
 
 ## Integration Tests
 

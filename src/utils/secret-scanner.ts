@@ -16,6 +16,7 @@ export interface SecretMatch {
 export interface SecretScanResult {
   isSuspicious: boolean;
   matches: SecretMatch[];
+  error?: string;
 }
 
 const SECRET_RULES: SecretRule[] = [
@@ -79,6 +80,11 @@ const normalizeFilePath = (filePath: string): string => filePath.replace(/\\/g, 
 export const shouldExcludeSuspiciousFiles = (config?: ConfigObject): boolean =>
   config?.enable_secret_scanning !== false && config?.exclude_suspicious_files !== false;
 
+const cleanSecretScanResult = (): SecretScanResult => ({
+  isSuspicious: false,
+  matches: [],
+});
+
 export const isSensitiveFilePath = (filePath: string): boolean => {
   const normalizedPath = normalizeFilePath(filePath);
   const fileName = path.basename(normalizedPath);
@@ -101,6 +107,9 @@ export const isSensitiveFilePath = (filePath: string): boolean => {
   });
 };
 
+export const shouldExcludeSensitiveFilePath = (filePath: string, config?: ConfigObject): boolean =>
+  shouldExcludeSuspiciousFiles(config) && isSensitiveFilePath(filePath);
+
 export const scanContentForSecrets = (content: string): SecretScanResult => {
   const matches: SecretMatch[] = [];
 
@@ -116,15 +125,33 @@ export const scanContentForSecrets = (content: string): SecretScanResult => {
   };
 };
 
+export const scanContentForSecretsWithPolicy = (
+  content: string,
+  config?: ConfigObject
+): SecretScanResult => {
+  if (!shouldExcludeSuspiciousFiles(config)) {
+    return cleanSecretScanResult();
+  }
+
+  return scanContentForSecrets(content);
+};
+
 export const scanFileForSecrets = (filePath: string): SecretScanResult => {
   try {
     const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
     return scanContentForSecrets(content);
   } catch (error) {
     console.error(`Error scanning file for secrets: ${filePath}`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
-      isSuspicious: false,
-      matches: [],
+      isSuspicious: true,
+      matches: [
+        {
+          id: 'scan-read-error',
+          description: 'Unable to read file while scanning for secrets',
+        },
+      ],
+      error: errorMessage,
     };
   }
 };

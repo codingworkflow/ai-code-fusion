@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { shouldExclude } from './filter-utils';
-import { scanContentForSecrets, shouldExcludeSuspiciousFiles } from './secret-scanner';
+import { scanContentForSecretsWithPolicy } from './secret-scanner';
 import type { ConfigObject } from '../types/ipc';
 import type { TokenCounter } from './token-counter';
 import type { GitignorePatterns } from './gitignore-parser';
@@ -132,12 +132,10 @@ class FileAnalyzer {
       // Process text files only
       const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
 
-      if (shouldExcludeSuspiciousFiles(this.config)) {
-        const secretScanResult = scanContentForSecrets(content);
-        if (secretScanResult.isSuspicious) {
-          console.warn(`Skipping suspicious file during analysis: ${filePath}`);
-          return null;
-        }
+      const secretScanResult = scanContentForSecretsWithPolicy(content, this.config);
+      if (secretScanResult.isSuspicious) {
+        console.warn(`Skipping suspicious file during analysis: ${filePath}`);
+        return null;
       }
 
       return this.tokenCounter.countTokens(content);

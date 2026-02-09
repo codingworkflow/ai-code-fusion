@@ -31,6 +31,7 @@
     "prepare": "husky install",
     "sonar": "node scripts/sonar-scan.js",
     "qa": "node scripts/index.js qa",
+    "preqa:screenshot": "npm run build:ts",
     "qa:screenshot": "node scripts/capture-ui-screenshot.js",
     "security": "node scripts/index.js security",
     "gitleaks": "node scripts/index.js gitleaks",

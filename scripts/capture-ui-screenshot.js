@@ -12,6 +12,20 @@ const PORT = Number(process.env.UI_SCREENSHOT_PORT || 4173);
 const DEFAULT_SCREENSHOT_NAME = `ui-${process.platform}-${process.arch}.png`;
 const FIXED_MTIME = 1700000000000;
 
+function loadSecretScannerHelpers() {
+  const compiledSecretScannerPath = path.join(ROOT_DIR, 'build', 'ts', 'utils', 'secret-scanner.js');
+
+  try {
+    return require(compiledSecretScannerPath);
+  } catch (_error) {
+    throw new Error(
+      'Unable to load compiled secret scanner helpers. Run "npm run build:ts" before "npm run qa:screenshot".'
+    );
+  }
+}
+
+const { isSensitiveFilePath } = loadSecretScannerHelpers();
+
 const MIME_TYPES = {
   '.css': 'text/css; charset=UTF-8',
   '.html': 'text/html; charset=UTF-8',
@@ -265,27 +279,12 @@ const MOCK_DIRECTORY_TREE = [
   ]),
 ];
 
-function isSensitiveMockPath(itemPath) {
-  const normalizedPath = String(itemPath || '').replace(/\\/g, '/').toLowerCase();
-  const name = normalizedPath.split('/').pop() || '';
-
-  if (/^\.env(?:\..+)?$/i.test(name)) {
-    return true;
-  }
-
-  if (name === '.npmrc' || name === '.pypirc') {
-    return true;
-  }
-
-  return /\.(pem|key|p12|pfx|jks|keystore|cer|crt|der|kdbx|asc)$/i.test(name);
-}
-
 function cloneAndFilterMockTree(items, excludeSensitiveFiles) {
   const filtered = [];
 
   for (const item of items) {
     if (item.type === 'file') {
-      if (excludeSensitiveFiles && isSensitiveMockPath(item.path)) {
+      if (excludeSensitiveFiles && isSensitiveFilePath(item.path)) {
         continue;
       }
 
