@@ -501,7 +501,7 @@ describe('App Component', () => {
     });
   });
 
-  test('defaults showTokenCount to false when config omits show_token_count', async () => {
+  test('defaults showTokenCount to true when config omits show_token_count', async () => {
     localStorage.setItem('rootPath', '/mock/directory');
     localStorage.setItem(
       'configContent',
@@ -524,7 +524,7 @@ describe('App Component', () => {
     expect(window.electronAPI.processRepository).toHaveBeenLastCalledWith(
       expect.objectContaining({
         options: expect.objectContaining({
-          showTokenCount: false,
+          showTokenCount: true,
           exportFormat: 'markdown',
         }),
       })

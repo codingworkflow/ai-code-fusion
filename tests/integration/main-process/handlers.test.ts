@@ -475,7 +475,7 @@ describe('Main Process IPC Handlers', () => {
       expect(result.content).toContain('</repositoryContent>');
     });
 
-    test('should omit xml token attributes when showTokenCount is not explicitly enabled', async () => {
+    test('should include xml token attributes when showTokenCount is not explicitly set', async () => {
       const rootPath = '/mock/repo';
       const filesInfo = [{ path: 'src/index.js', tokens: 100 }];
       const options = {
@@ -492,8 +492,7 @@ describe('Main Process IPC Handlers', () => {
       });
 
       expect(result.exportFormat).toBe('xml');
-      expect(result.content).toContain('<file path="src/index.js" binary="false">');
-      expect(result.content).not.toContain('tokens="100"');
+      expect(result.content).toContain('<file path="src/index.js" tokens="100" binary="false">');
     });
 
     test('should handle binary files correctly', async () => {
@@ -636,6 +635,46 @@ describe('Main Process IPC Handlers', () => {
 
       expect(result).toBeNull();
       expect(fs.writeFileSync).not.toHaveBeenCalled();
+    });
+
+    test('should handle missing defaultPath safely', async () => {
+      const { dialog } = require('electron');
+      dialog.showSaveDialog.mockResolvedValue({
+        canceled: false,
+        filePath: '/mock/repo/output.md',
+      });
+
+      const handler = mockIpcHandlers['fs:saveFile'];
+      const result = await handler(null, {
+        content: '# output',
+        defaultPath: undefined,
+      });
+
+      const saveDialogCallArgs = dialog.showSaveDialog.mock.calls[0];
+      const saveDialogOptions = saveDialogCallArgs[saveDialogCallArgs.length - 1];
+      expect(saveDialogOptions.defaultPath).toBe('');
+      expect(result).toBe('/mock/repo/output.md');
+      expect(fs.writeFileSync).toHaveBeenCalledWith('/mock/repo/output.md', '# output');
+    });
+  });
+
+  describe('assets:getPath', () => {
+    test('should return path for valid assets', async () => {
+      const handler = mockIpcHandlers['assets:getPath'];
+      const result = await handler(null, 'icon.png');
+
+      expect(typeof result).toBe('string');
+      expect(result).toContain('icon.png');
+    });
+
+    test('should reject traversal paths outside assets directory', async () => {
+      const handler = mockIpcHandlers['assets:getPath'];
+      fs.existsSync.mockClear();
+
+      const result = await handler(null, '../../etc/passwd');
+
+      expect(result).toBeNull();
+      expect(fs.existsSync).not.toHaveBeenCalled();
     });
   });
 

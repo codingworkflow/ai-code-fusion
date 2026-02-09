@@ -422,7 +422,7 @@ ipcMain.handle(
 
       // Ensure options is an object with default values if missing
       const processingOptions = {
-        showTokenCount: options.showTokenCount === true,
+        showTokenCount: options.showTokenCount !== false, // Default to true if not explicitly false
         includeTreeView: options.includeTreeView === true,
         exportFormat: normalizeExportFormat(options.exportFormat),
       };
@@ -533,7 +533,8 @@ ipcMain.handle(
 
 // Save output to file
 ipcMain.handle('fs:saveFile', async (_event, { content, defaultPath }: SaveFileOptions) => {
-  const defaultExtension = path.extname(defaultPath).toLowerCase();
+  const safeDefaultPath = typeof defaultPath === 'string' ? defaultPath : '';
+  const defaultExtension = safeDefaultPath ? path.extname(safeDefaultPath).toLowerCase() : '';
   const filters =
     defaultExtension === '.xml'
       ? [
@@ -551,11 +552,11 @@ ipcMain.handle('fs:saveFile', async (_event, { content, defaultPath }: SaveFileO
 
   const { canceled, filePath } = mainWindow
     ? await dialog.showSaveDialog(mainWindow, {
-        defaultPath,
+        defaultPath: safeDefaultPath,
         filters,
       })
     : await dialog.showSaveDialog({
-        defaultPath,
+        defaultPath: safeDefaultPath,
         filters,
       });
 
@@ -587,6 +588,11 @@ ipcMain.handle('config:getDefault', async () => {
 ipcMain.handle('assets:getPath', (_event, assetName: string) => {
   try {
     const assetPath = path.join(ASSETS_DIR, assetName);
+    if (!isPathWithinRoot(ASSETS_DIR, assetPath)) {
+      console.warn(`Rejected asset path outside assets directory: ${assetName}`);
+      return null;
+    }
+
     if (fs.existsSync(assetPath)) {
       return assetPath;
     }
