@@ -5,6 +5,14 @@ const FAKE_GITHUB_TOKEN = ['ghp', 'AAAAAAAAAAAAAAAAAAAAAAAA'].join('_');
 // Mock electron ipcMain
 const mockIpcHandlers = {};
 const mockProtocolHandlers = {};
+const mockAutoUpdater = {
+  checkForUpdates: jest.fn(),
+  setFeedURL: jest.fn(),
+  allowPrerelease: false,
+  autoDownload: true,
+  autoInstallOnAppQuit: false,
+  channel: undefined,
+};
 const mockIpcMain = {
   handle: jest.fn((channel, handler) => {
     mockIpcHandlers[channel] = handler;
@@ -18,6 +26,7 @@ jest.mock('electron', () => ({
     on: jest.fn(),
     setAppUserModelId: jest.fn(),
     quit: jest.fn(),
+    getVersion: jest.fn().mockReturnValue('0.2.0'),
   },
   BrowserWindow: jest.fn().mockImplementation(() => ({
     loadFile: jest.fn().mockResolvedValue(null),
@@ -63,6 +72,9 @@ jest.mock('path', () => {
 });
 
 jest.mock('yaml');
+jest.mock('electron-updater', () => ({
+  autoUpdater: mockAutoUpdater,
+}));
 
 // Mock core utils
 jest.mock('../../../src/utils/token-counter', () => ({
@@ -122,6 +134,13 @@ require('../../../src/main/index');
 describe('Main Process IPC Handlers', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockAutoUpdater.allowPrerelease = false;
+    mockAutoUpdater.autoDownload = true;
+    mockAutoUpdater.autoInstallOnAppQuit = false;
+    mockAutoUpdater.channel = undefined;
+    mockAutoUpdater.checkForUpdates.mockResolvedValue({
+      updateInfo: { version: '0.2.1', releaseName: 'Mock Update' },
+    });
     const { dialog } = require('electron');
     dialog.showOpenDialog.mockResolvedValue({
       canceled: false,
@@ -289,6 +308,60 @@ describe('Main Process IPC Handlers', () => {
       const handler = mockIpcHandlers['fs:getDirectoryTree'];
       const result = await handler(null, '/unauthorized/path', '');
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('updater handlers', () => {
+    test('should expose updater status from runtime', async () => {
+      const handler = mockIpcHandlers['updater:getStatus'];
+      expect(handler).toBeDefined();
+
+      const result = await handler(null);
+      const platformSupported = process.platform === 'win32' || process.platform === 'darwin';
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          currentVersion: '0.2.0',
+          channel: 'stable',
+          allowPrerelease: false,
+          platformSupported,
+          enabled: platformSupported,
+        })
+      );
+    });
+
+    test('should check updates with platform-aware behavior', async () => {
+      const handler = mockIpcHandlers['updater:check'];
+      expect(handler).toBeDefined();
+
+      const result = await handler(null);
+      const platformSupported = process.platform === 'win32' || process.platform === 'darwin';
+
+      if (platformSupported) {
+        expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith(
+          expect.objectContaining({
+            provider: 'github',
+            owner: 'codingworkflow',
+            repo: 'ai-code-fusion',
+          })
+        );
+        expect(mockAutoUpdater.checkForUpdates).toHaveBeenCalled();
+        expect(result).toEqual(
+          expect.objectContaining({
+            state: 'update-available',
+            updateAvailable: true,
+            latestVersion: '0.2.1',
+          })
+        );
+      } else {
+        expect(mockAutoUpdater.checkForUpdates).not.toHaveBeenCalled();
+        expect(result).toEqual(
+          expect.objectContaining({
+            state: 'disabled',
+            updateAvailable: false,
+          })
+        );
+      }
     });
   });
 

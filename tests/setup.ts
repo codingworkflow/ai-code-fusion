@@ -41,6 +41,28 @@ window.electronAPI = {
     results: {},
     stats: {},
   }),
+  getUpdaterStatus: jest.fn().mockResolvedValue({
+    enabled: false,
+    platformSupported: false,
+    channel: 'stable',
+    allowPrerelease: false,
+    currentVersion: '0.0.0',
+    owner: 'codingworkflow',
+    repo: 'ai-code-fusion',
+    reason: 'Updater is disabled in tests',
+  }),
+  checkForUpdates: jest.fn().mockResolvedValue({
+    enabled: false,
+    platformSupported: false,
+    channel: 'stable',
+    allowPrerelease: false,
+    currentVersion: '0.0.0',
+    owner: 'codingworkflow',
+    repo: 'ai-code-fusion',
+    state: 'disabled',
+    updateAvailable: false,
+    reason: 'Updater is disabled in tests',
+  }),
 };
 
 if (!window.matchMedia) {

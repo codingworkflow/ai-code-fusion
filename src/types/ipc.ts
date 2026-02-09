@@ -1,5 +1,7 @@
 export type TabId = 'config' | 'source' | 'processed';
 export type ExportFormat = 'markdown' | 'xml';
+export type UpdaterChannel = 'alpha' | 'stable';
+export type UpdaterState = 'disabled' | 'up-to-date' | 'update-available' | 'error';
 
 export type SelectionHandler = (path: string, isSelected: boolean) => void;
 
@@ -80,6 +82,25 @@ export interface CountFilesTokensOptions {
   filePaths: string[];
 }
 
+export interface UpdaterStatus {
+  enabled: boolean;
+  platformSupported: boolean;
+  channel: UpdaterChannel;
+  allowPrerelease: boolean;
+  currentVersion: string;
+  owner: string;
+  repo: string;
+  reason?: string;
+}
+
+export interface UpdateCheckResult extends UpdaterStatus {
+  state: UpdaterState;
+  updateAvailable: boolean;
+  latestVersion?: string;
+  releaseName?: string;
+  errorMessage?: string;
+}
+
 export interface ElectronApi {
   selectDirectory: () => Promise<string | null>;
   getDirectoryTree: (
@@ -93,4 +114,6 @@ export interface ElectronApi {
   getDefaultConfig: () => Promise<string>;
   getAssetPath: (assetName: string) => Promise<string | null>;
   countFilesTokens: (options: CountFilesTokensOptions) => Promise<CountFilesTokensResult>;
+  getUpdaterStatus: () => Promise<UpdaterStatus>;
+  checkForUpdates: () => Promise<UpdateCheckResult>;
 }

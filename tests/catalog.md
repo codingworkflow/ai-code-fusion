@@ -28,6 +28,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | `tests/unit/utils/config-manager.test.ts`    | `src/utils/config-manager.ts`           | Default config load, parse failures, graceful fallback behavior                  |
 | `tests/unit/utils/token-counter.test.ts`     | `src/utils/token-counter.ts`            | Token counting basics, empty/null input handling                                 |
 | `tests/unit/scripts/security.test.js`        | `scripts/lib/security.js`               | Command safety validation, Windows path acceptance for approved executables      |
+| `tests/unit/main/updater.test.ts`            | `src/main/updater.ts`                   | Alpha/stable channel selection, platform gating, update-check result handling    |
 
 ## Integration Tests
 
@@ -62,6 +63,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
   - `tests/unit/components/config-tab.test.tsx`
 - Main process / IPC changes:
   - `tests/integration/main-process/handlers.test.ts`
+  - `tests/unit/main/updater.test.ts`
 - Content/token pipeline changes:
   - `tests/unit/file-analyzer.test.ts`
   - `tests/unit/utils/export-format.test.ts`

@@ -1,7 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import fs from 'fs';
 import path from 'path';
 import yaml from 'yaml';
+import { createUpdaterService, resolveUpdaterRuntimeOptions } from './updater';
 import { loadDefaultConfig } from '../utils/config-manager';
 import { ContentProcessor } from '../utils/content-processor';
 import { FileAnalyzer, isBinaryFile } from '../utils/file-analyzer';
@@ -36,6 +38,15 @@ const tokenCounter = new TokenCounter();
 // Keep a global reference of the window object to avoid garbage collection
 let mainWindow: BrowserWindow | null = null;
 let authorizedRootPath: string | null = null;
+
+const updaterService = createUpdaterService(
+  autoUpdater,
+  resolveUpdaterRuntimeOptions({
+    currentVersion: app.getVersion(),
+    platform: process.platform,
+    env: process.env,
+  })
+);
 
 const APP_ROOT = path.resolve(__dirname, '../../..');
 const RENDERER_INDEX_PATH = path.join(APP_ROOT, 'src', 'renderer', 'index.html');
@@ -96,6 +107,16 @@ app.whenReady().then(() => {
   });
 
   void createWindow();
+
+  if (updaterService.shouldCheckOnStart) {
+    void updaterService.checkForUpdates().then((result) => {
+      if (result.state === 'error') {
+        console.warn(`Startup update check failed: ${result.errorMessage}`);
+      } else if (result.state === 'update-available') {
+        console.info(`Update available: ${result.latestVersion ?? 'unknown version'}`);
+      }
+    });
+  }
 });
 
 // Quit when all windows are closed
@@ -109,6 +130,14 @@ app.on('activate', () => {
   if (mainWindow === null) {
     createWindow();
   }
+});
+
+ipcMain.handle('updater:getStatus', () => {
+  return updaterService.getStatus();
+});
+
+ipcMain.handle('updater:check', async () => {
+  return updaterService.checkForUpdates();
 });
 
 // IPC Event Handlers

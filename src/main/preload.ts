@@ -9,6 +9,8 @@ import type {
   ProcessRepositoryOptions,
   ProcessRepositoryResult,
   SaveFileOptions,
+  UpdateCheckResult,
+  UpdaterStatus,
 } from '../types/ipc';
 
 type DevUtils = {
@@ -53,6 +55,8 @@ const electronAPI: ElectronApi = {
     ipcRenderer.invoke('assets:getPath', assetName) as Promise<string | null>,
   countFilesTokens: (options: CountFilesTokensOptions) =>
     ipcRenderer.invoke('tokens:countFiles', options) as Promise<CountFilesTokensResult>,
+  getUpdaterStatus: () => ipcRenderer.invoke('updater:getStatus') as Promise<UpdaterStatus>,
+  checkForUpdates: () => ipcRenderer.invoke('updater:check') as Promise<UpdateCheckResult>,
 };
 
 contextBridge.exposeInMainWorld('devUtils', devUtils);
