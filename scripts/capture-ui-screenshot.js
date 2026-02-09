@@ -7,7 +7,8 @@ const { chromium } = require('playwright');
 
 const ROOT_DIR = path.join(__dirname, '..');
 const RENDERER_DIR = path.join(ROOT_DIR, 'src', 'renderer');
-const SCREENSHOT_DIR = path.join(ROOT_DIR, 'dist', 'qa', 'screenshots');
+const DEFAULT_SCREENSHOT_DIR = path.join('dist', 'qa', 'screenshots');
+const SCREENSHOT_DIR = resolveOutputDirectory(process.env.UI_SCREENSHOT_DIR);
 const PORT = Number(process.env.UI_SCREENSHOT_PORT || 4173);
 const DEFAULT_SCREENSHOT_NAME = `ui-${process.platform}-${process.arch}.png`;
 const FIXED_MTIME = 1700000000000;
@@ -56,6 +57,21 @@ function sanitizeScreenshotName(nameCandidate) {
   }
 
   return withExtension;
+}
+
+function resolveOutputDirectory(dirCandidate) {
+  const rawDir =
+    typeof dirCandidate === 'string' && dirCandidate.trim()
+      ? dirCandidate.trim()
+      : DEFAULT_SCREENSHOT_DIR;
+  const absoluteDir = path.resolve(ROOT_DIR, rawDir);
+  const relativeToRoot = path.relative(ROOT_DIR, absoluteDir);
+
+  if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+    throw new Error(`Invalid screenshot directory: ${rawDir}`);
+  }
+
+  return absoluteDir;
 }
 
 function resolveOutputPath(fileName) {
@@ -313,12 +329,14 @@ const SCREENSHOTS = {
   sourceTab: resolveOutputPath(`${SCREENSHOT_BASE_NAME}-source.png`),
   sourceSelected: resolveOutputPath(`${SCREENSHOT_BASE_NAME}-source-selected.png`),
   sourceSelectedResized: resolveOutputPath(`${SCREENSHOT_BASE_NAME}-source-selected-resized.png`),
+  processedTab: resolveOutputPath(`${SCREENSHOT_BASE_NAME}-processed.png`),
 };
 
 const UI_SELECTORS = {
   appRoot: '#app',
   configTab: '[data-tab="config"]',
   sourceTab: '[data-tab="source"]',
+  processedTabActive: '[data-tab="processed"][aria-selected="true"]',
   secretScanningToggle: '#enable-secret-scanning',
   suspiciousFilesToggle: '#exclude-suspicious-files',
   sourceFolderExpandButton: 'button[aria-label="Expand folder src"]',
@@ -331,6 +349,7 @@ const UI_SELECTORS = {
   refreshFileListButton: 'button[title="Refresh the file list"]',
   fileTreeScrollContainer: '.file-tree .overflow-auto',
   processSelectedFilesButton: '[data-testid="process-selected-files-button"]',
+  processedContent: '#processed-content',
 };
 
 async function setupMockElectronApi(page) {
@@ -358,20 +377,65 @@ async function setupMockElectronApi(page) {
           const tree = excludeSensitiveFiles ? mockFilteredDirectoryTree : mockDirectoryTree;
           return cloneTree(tree);
         },
-        analyzeRepository: async () => ({
-          totalFiles: 0,
-          totalTokens: 0,
-          files: [],
-        }),
-        processRepository: async () => ({
-          content: '',
-          stats: {
-            totalFiles: 0,
-            totalTokens: 0,
+        analyzeRepository: async (options = {}) => {
+          const selectedFilePaths = Array.isArray(options?.selectedFiles) ? options.selectedFiles : [];
+          const filesInfo = selectedFilePaths.map((filePath, index) => {
+            const normalizedPath = String(filePath);
+            const relativePath = normalizedPath.startsWith(`${mockRootPath}/`)
+              ? normalizedPath.slice(mockRootPath.length + 1)
+              : normalizedPath;
+            return {
+              path: relativePath,
+              tokens: 120 * (index + 1),
+              isBinary: false,
+            };
+          });
+
+          return {
+            totalFiles: filesInfo.length,
+            totalTokens: filesInfo.reduce((sum, file) => sum + file.tokens, 0),
+            filesInfo,
+          };
+        },
+        processRepository: async (options = {}) => {
+          const inputFilesInfo = Array.isArray(options?.filesInfo) ? options.filesInfo : [];
+          const filesInfo = inputFilesInfo.map((file, index) => ({
+            path: String(file?.path || `src/file-${index + 1}.ts`),
+            tokens:
+              Number.isFinite(file?.tokens) && Number(file.tokens) > 0 ? Number(file.tokens) : 120 * (index + 1),
+            isBinary: false,
+          }));
+          const totalTokens = filesInfo.reduce((sum, file) => sum + file.tokens, 0);
+          const exportFormat = options?.options?.exportFormat === 'xml' ? 'xml' : 'markdown';
+          const content =
+            exportFormat === 'xml'
+              ? [
+                  '<?xml version="1.0" encoding="UTF-8"?>',
+                  `<repository totalFiles="${filesInfo.length}" totalTokens="${totalTokens}">`,
+                  ...filesInfo.map(
+                    (file) =>
+                      `  <file path="${file.path}" tokens="${file.tokens}"><![CDATA[// Preview for ${file.path}]]></file>`
+                  ),
+                  '</repository>',
+                ].join('\n')
+              : [
+                  '# Repository Analysis',
+                  '',
+                  ...filesInfo.map(
+                    (file) => `## ${file.path}\n\n\`\`\`ts\n// Preview for ${file.path}\n\`\`\`\nTokens: ${file.tokens}\n`
+                  ),
+                  '--END--',
+                ].join('\n');
+
+          return {
+            content,
+            exportFormat,
+            totalTokens,
+            processedFiles: filesInfo.length,
             skippedFiles: 0,
-            processedFiles: 0,
-          },
-        }),
+            filesInfo,
+          };
+        },
         countFilesTokens: async (options) => {
           const filePaths = Array.isArray(options?.filePaths) ? options.filePaths : [];
           const results = {};
@@ -568,6 +632,33 @@ async function captureAppStateScreenshots(page) {
 
   await runStep('Capture resized screenshot with deep tree expanded', async () => {
     await page.screenshot({ path: SCREENSHOTS.sourceSelectedResized, fullPage: true });
+  });
+
+  await runStep('Return to desktop viewport before processing', async () => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+  });
+
+  await runStep('Wait for process button to be enabled', async () => {
+    await page.waitForFunction((selector) => {
+      const button = document.querySelector(selector);
+      if (!(button instanceof HTMLButtonElement)) {
+        return false;
+      }
+      return !button.disabled && /process selected files/i.test(button.textContent || '');
+    }, UI_SELECTORS.processSelectedFilesButton);
+  });
+
+  await runStep('Process selected files', async () => {
+    await page.locator(UI_SELECTORS.processSelectedFilesButton).first().click();
+  });
+
+  await runStep('Wait for processed panel to render', async () => {
+    await page.waitForSelector(UI_SELECTORS.processedTabActive, { timeout: 10000 });
+    await page.waitForSelector(UI_SELECTORS.processedContent, { timeout: 10000 });
+  });
+
+  await runStep('Capture processed tab screenshot', async () => {
+    await page.screenshot({ path: SCREENSHOTS.processedTab, fullPage: true });
   });
 }
 

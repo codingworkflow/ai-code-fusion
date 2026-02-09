@@ -114,6 +114,12 @@ async function executeCommand() {
         console.log('Linting completed successfully');
         break;
 
+      case 'lint:md':
+      case 'lint-md':
+        await utils.runNpmScript('lint:md');
+        console.log('Markdown linting completed successfully');
+        break;
+
       case 'format':
         await utils.runNpmScript('format');
         console.log('Formatting completed successfully');
@@ -132,6 +138,12 @@ async function executeCommand() {
         await utils.runNpmScript('test');
         await security.runSecurity();
         console.log('QA checks completed successfully');
+        break;
+
+      case 'docs-screenshots':
+      case 'docs:screenshots':
+        await utils.runNpmScript('docs:screenshots');
+        console.log('Docs screenshots refreshed successfully');
         break;
 
       // Security automation commands

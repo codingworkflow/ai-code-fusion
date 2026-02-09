@@ -8,7 +8,47 @@ A desktop app to prepare code repositories for AI workflows.
 - File filtering with custom patterns and `.gitignore` support
 - Token counting support for selected files
 - Processed output ready to copy/export for AI tools
+- Export format selector: Markdown or XML
 - Cross-platform support (Windows, macOS, Linux)
+- UI panel screenshots: `docs/APP_VIEWS.md`
+
+## Processed Output Example
+
+![Processed Output panel](docs/images/app-processed-panel.png)
+
+Full sample files:
+
+- Markdown: [`docs/examples/output-markdown.md`](docs/examples/output-markdown.md)
+- XML: [`docs/examples/output.xml`](docs/examples/output.xml)
+
+### Markdown export example
+
+````md
+# Repository Analysis
+
+## src/App.tsx
+
+```ts
+export function App() {
+  return <main>Hello AI Code Fusion</main>;
+}
+```
+
+Tokens: 120
+````
+
+### XML export example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<repository totalFiles="1" totalTokens="120">
+  <file path="src/App.tsx" tokens="120"><![CDATA[
+export function App() {
+  return <main>Hello AI Code Fusion</main>;
+}
+  ]]></file>
+</repository>
+```
 
 ## Download Release
 

@@ -6,7 +6,9 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 
 - Full tests: `npm test -- --runInBand`
 - Lint: `npm run lint`
+- Markdown docs lint (links/images/icons): `npm run lint:md`
 - UI screenshot gate: `npm run qa:screenshot`
+- Docs screenshots: `npm run docs:screenshots`
 
 ## Unit Tests
 
@@ -37,9 +39,14 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 
 ## Visual Regression Signal
 
-| Command                 | Primary Target                                   | Key Use Cases                                                                                                 |
-| ----------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `npm run qa:screenshot` | `scripts/capture-ui-screenshot.js` + renderer UI | Cross-OS UI sanity, resized layout checks, deep file-tree selection visibility, secret-filter toggle behavior |
+| Command                    | Primary Target                                      | Key Use Cases                                                                                                 |
+| -------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `npm run qa:screenshot`    | `scripts/capture-ui-screenshot.js` + renderer UI    | Cross-OS UI sanity, resized layout checks, deep file-tree selection visibility, secret-filter toggle behavior |
+| `npm run docs:screenshots` | `scripts/generate-doc-screenshots.js` + renderer UI | Refresh tracked screenshots for Config/Select/Processed panels in `docs/APP_VIEWS.md`                         |
+
+## Manual UI Doc Test
+
+- `tests/manual/docs-ui-screenshots.md`
 
 ## Change-to-Test Mapping
 

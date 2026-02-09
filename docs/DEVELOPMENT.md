@@ -46,9 +46,11 @@ make build-mac
 # Quality
 make test
 make lint
+make lint-md
 make format
 make validate
 make qa
+make docs-screenshots
 
 # Security / dependency automation
 make security
