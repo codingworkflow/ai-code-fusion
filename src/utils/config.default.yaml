@@ -6,6 +6,7 @@ enable_secret_scanning: true
 exclude_suspicious_files: true
 include_tree_view: true
 show_token_count: true
+export_format: markdown
 
 # File extensions to include (with dot)
 include_extensions:

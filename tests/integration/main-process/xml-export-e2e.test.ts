@@ -1,0 +1,94 @@
+const os = require('os');
+const path = require('path');
+
+jest.unmock('fs');
+jest.unmock('../../../src/utils/content-processor');
+
+const fs = require('fs');
+
+describe('XML export end-to-end', () => {
+  const mockIpcHandlers = {};
+  let tempRoot = '';
+
+  beforeEach(() => {
+    jest.resetModules();
+    tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-code-fusion-xml-'));
+
+    jest.doMock('electron', () => ({
+      app: {
+        whenReady: jest.fn().mockResolvedValue(),
+        on: jest.fn(),
+        setAppUserModelId: jest.fn(),
+        quit: jest.fn(),
+      },
+      BrowserWindow: jest.fn().mockImplementation(() => ({
+        loadFile: jest.fn().mockResolvedValue(null),
+        on: jest.fn(),
+        setMenu: jest.fn(),
+        webContents: {
+          openDevTools: jest.fn(),
+        },
+      })),
+      ipcMain: {
+        handle: jest.fn((channel, handler) => {
+          mockIpcHandlers[channel] = handler;
+        }),
+      },
+      dialog: {
+        showOpenDialog: jest.fn(),
+        showSaveDialog: jest.fn(),
+      },
+      protocol: {
+        registerFileProtocol: jest.fn(),
+      },
+    }));
+
+    jest.isolateModules(() => {
+      require('../../../src/main/index');
+    });
+  });
+
+  afterEach(() => {
+    if (tempRoot && fs.existsSync(tempRoot)) {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('generates well-formed xml structure with safe content handling', async () => {
+    const srcDir = path.join(tempRoot, 'src');
+    fs.mkdirSync(srcDir, { recursive: true });
+
+    const filePath = path.join(srcDir, 'sample.ts');
+    const fileContent = 'const marker = "]]>";\nconst invalid = "\u0001";\nconst done = true;\n';
+    fs.writeFileSync(filePath, fileContent, 'utf-8');
+
+    const repoProcessHandler = mockIpcHandlers['repo:process'];
+    expect(repoProcessHandler).toBeDefined();
+
+    const result = await repoProcessHandler(null, {
+      rootPath: tempRoot,
+      filesInfo: [{ path: 'src/sample.ts', tokens: 123 }],
+      treeView: '/ mock-repository\n└── src\n    └── sample.ts',
+      options: {
+        exportFormat: 'xml',
+        includeTreeView: true,
+        showTokenCount: true,
+      },
+    });
+
+    expect(result.content).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(result.content).toContain('<repositoryContent>');
+    expect(result.content).toContain('<fileStructure><![CDATA[');
+    expect(result.content).toContain('<files>');
+    expect(result.content).toContain('<file path="src/sample.ts" tokens="123" binary="false">');
+    expect(result.content).toContain(']]]]><![CDATA[>');
+    expect(result.content).not.toContain('\u0001');
+    expect(result.content).toContain(
+      '<summary totalTokens="123" processedFiles="1" skippedFiles="0" />'
+    );
+    expect(result.content).toContain('</repositoryContent>');
+    expect(result.totalTokens).toBe(123);
+    expect(result.processedFiles).toBe(1);
+    expect(result.skippedFiles).toBe(0);
+  });
+});

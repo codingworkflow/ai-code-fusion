@@ -19,6 +19,7 @@ jest.mock('yaml', () => ({
         use_custom_includes: true,
         enable_secret_scanning: true,
         exclude_suspicious_files: true,
+        export_format: 'markdown',
       };
     }
     return {};
@@ -73,6 +74,7 @@ describe('ConfigTab', () => {
     expect(screen.getByLabelText('Apply .gitignore rules')).toBeChecked();
     expect(screen.getByLabelText('Scan content for secrets')).toBeChecked();
     expect(screen.getByLabelText('Exclude suspicious files')).toBeChecked();
+    expect(screen.getByLabelText('Export format')).toHaveValue('markdown');
 
     // Check textareas
     const extensionsTextarea = screen.getByPlaceholderText(/\.py/);
@@ -118,6 +120,27 @@ describe('ConfigTab', () => {
 
     expect(savedConfig.enable_secret_scanning).toBe(false);
     expect(savedConfig.exclude_suspicious_files).toBe(false);
+  });
+
+  test('persists export format changes in saved config', async () => {
+    render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
+
+    const exportFormatSelect = screen.getByLabelText('Export format');
+    expect(exportFormatSelect).toHaveValue('markdown');
+
+    act(() => {
+      fireEvent.change(exportFormatSelect, { target: { value: 'xml' } });
+      jest.advanceTimersByTime(100);
+    });
+
+    await waitFor(() => {
+      expect(mockOnConfigChange).toHaveBeenCalled();
+    });
+
+    const yamlLib = require('yaml');
+    expect(yamlLib.stringify).toHaveBeenCalled();
+    const savedConfig = yamlLib.stringify.mock.calls.at(-1)[0];
+    expect(savedConfig.export_format).toBe('xml');
   });
 
   test('calls selectDirectory when folder button is clicked', async () => {

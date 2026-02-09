@@ -1,4 +1,5 @@
 export type TabId = 'config' | 'source' | 'processed';
+export type ExportFormat = 'markdown' | 'xml';
 
 export type SelectionHandler = (path: string, isSelected: boolean) => void;
 
@@ -12,6 +13,7 @@ export interface ConfigObject {
   exclude_suspicious_files?: boolean;
   include_tree_view?: boolean;
   show_token_count?: boolean;
+  export_format?: ExportFormat;
 }
 
 export interface DirectoryTreeItem {
@@ -50,6 +52,7 @@ export interface ProcessRepositoryOptions {
   options?: {
     showTokenCount?: boolean;
     includeTreeView?: boolean;
+    exportFormat?: ExportFormat;
   };
 }
 

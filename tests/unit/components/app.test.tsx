@@ -358,6 +358,13 @@ describe('App Component', () => {
       })
     );
     expect(window.electronAPI.processRepository).toHaveBeenCalled();
+    expect(window.electronAPI.processRepository).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          exportFormat: 'markdown',
+        }),
+      })
+    );
 
     // Verify tab switch
     const processedTab = tabElements.find((el) => el.textContent === 'Processed');
@@ -414,6 +421,61 @@ describe('App Component', () => {
     expect(window.electronAPI.saveFile).toHaveBeenCalledWith({
       content: 'Test processed content',
       defaultPath: '/mock/directory/output.md',
+    });
+  });
+
+  test('uses xml export format for processing and save path when configured', async () => {
+    window.electronAPI.processRepository.mockResolvedValue({
+      content: '<repositoryContent><files /></repositoryContent>',
+      totalTokens: 300,
+      processedFiles: 2,
+      skippedFiles: 0,
+    });
+
+    localStorage.setItem('rootPath', '/mock/directory');
+    localStorage.setItem(
+      'configContent',
+      ['export_format: xml', 'include_tree_view: true', 'show_token_count: true'].join('\n')
+    );
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('config-content') as HTMLTextAreaElement).value).toContain(
+        'export_format: xml'
+      );
+    });
+
+    const tabElements = screen.getAllByRole('button');
+    const sourceTab = tabElements.find((el) => el.textContent === 'Source');
+    fireEvent.click(sourceTab);
+
+    const selectFileBtn = screen.getByTestId('mock-select-file-btn');
+    fireEvent.click(selectFileBtn);
+
+    const analyzeBtn = screen.getByTestId('analyze-btn');
+    await act(async () => {
+      fireEvent.click(analyzeBtn);
+      await waitFor(() => window.electronAPI.processRepository.mock.calls.length > 0);
+    });
+
+    expect(window.electronAPI.processRepository).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          exportFormat: 'xml',
+        }),
+      })
+    );
+
+    const saveBtn = screen.getByTestId('save-btn');
+    await act(async () => {
+      fireEvent.click(saveBtn);
+      await waitFor(() => window.electronAPI.saveFile.mock.calls.length > 0);
+    });
+
+    expect(window.electronAPI.saveFile).toHaveBeenCalledWith({
+      content: '<repositoryContent><files /></repositoryContent>',
+      defaultPath: '/mock/directory/output.xml',
     });
   });
 

@@ -6,10 +6,12 @@ import ProcessedTab from './ProcessedTab';
 import DarkModeToggle from './DarkModeToggle';
 import { DarkModeProvider } from '../context/DarkModeContext';
 import yaml from 'yaml';
+import { normalizeExportFormat } from '../../utils/export-format';
 import type {
   AnalyzeRepositoryResult,
   ConfigObject,
   DirectoryTreeItem,
+  ExportFormat,
   ProcessRepositoryOptions,
   ProcessRepositoryResult,
   TabId,
@@ -21,9 +23,19 @@ const ensureError = (error: unknown): Error => {
   return new Error(String(error));
 };
 
+const resolveExportFormatFromConfig = (rawConfigContent: string) => {
+  try {
+    const config = (yaml.parse(rawConfigContent) || {}) as ConfigObject;
+    return normalizeExportFormat(config.export_format);
+  } catch {
+    return 'markdown';
+  }
+};
+
 type ProcessingOptions = {
   showTokenCount: boolean;
   includeTreeView: boolean;
+  exportFormat: ExportFormat;
 };
 
 const App = () => {
@@ -35,8 +47,9 @@ const App = () => {
   const [, setAnalysisResult] = useState<AnalyzeRepositoryResult | null>(null);
   const [processedResult, setProcessedResult] = useState<ProcessRepositoryResult | null>(null);
   const [processingOptions, setProcessingOptions] = useState<ProcessingOptions>({
-    showTokenCount: false,
+    showTokenCount: true,
     includeTreeView: false,
+    exportFormat: 'markdown',
   });
   // Load config from localStorage or via API, no fallbacks
   const [configContent, setConfigContent] = useState('# Loading configuration...');
@@ -129,8 +142,9 @@ const App = () => {
 
       // Update processing options from config to maintain consistency
       setProcessingOptions({
-        showTokenCount: config.show_token_count === true,
+        showTokenCount: config.show_token_count !== false,
         includeTreeView: config.include_tree_view === true,
+        exportFormat: normalizeExportFormat(config.export_format),
       });
 
       // Ensure we've saved any config changes before switching tabs
@@ -255,13 +269,15 @@ const App = () => {
 
       // Read options from config
       const options: ProcessRepositoryOptions['options'] = {
-        showTokenCount: false,
+        showTokenCount: true,
         includeTreeView: false,
+        exportFormat: 'markdown',
       };
       try {
         const config = (yaml.parse(configContent) || {}) as ConfigObject;
-        options.showTokenCount = config.show_token_count === true;
+        options.showTokenCount = config.show_token_count !== false;
         options.includeTreeView = config.include_tree_view === true;
+        options.exportFormat = normalizeExportFormat(config.export_format);
       } catch (error) {
         console.error('Error parsing config for processing:', ensureError(error));
       }
@@ -329,8 +345,9 @@ const App = () => {
         const configStr = localStorage.getItem('configContent');
         if (configStr) {
           const config = (yaml.parse(configStr) || {}) as ConfigObject;
-          options.showTokenCount = config.show_token_count === true;
+          options.showTokenCount = config.show_token_count !== false;
           options.includeTreeView = config.include_tree_view === true;
+          options.exportFormat = normalizeExportFormat(config.export_format);
         }
       } catch (error) {
         console.error('Error parsing config for refresh:', ensureError(error));
@@ -370,9 +387,11 @@ const App = () => {
     }
 
     try {
+      const exportFormat = resolveExportFormatFromConfig(configContent);
+      const outputExtension = exportFormat === 'xml' ? 'xml' : 'md';
       await window.electronAPI?.saveFile?.({
         content: processedResult.content,
-        defaultPath: `${rootPath}/output.md`,
+        defaultPath: `${rootPath}/output.${outputExtension}`,
       });
     } catch (error) {
       const processedError = ensureError(error);

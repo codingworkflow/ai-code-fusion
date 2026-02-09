@@ -92,7 +92,18 @@ jest.mock('../../../src/utils/file-analyzer', () => {
 
 jest.mock('../../../src/utils/content-processor', () => ({
   ContentProcessor: jest.fn().mockImplementation(() => ({
-    processFile: jest.fn().mockImplementation((filePath, relativePath) => {
+    processFile: jest.fn().mockImplementation((filePath, relativePath, options = {}) => {
+      if (options.exportFormat === 'xml') {
+        if (filePath.includes('binary') || filePath.endsWith('.png') || filePath.endsWith('.ico')) {
+          return `<file path="${relativePath}" binary="true"></file>\n`;
+        }
+        const tokenAttribute =
+          options.showTokenCount === true && Number.isFinite(options.tokenCount)
+            ? ` tokens="${options.tokenCount}"`
+            : '';
+        return `<file path="${relativePath}"${tokenAttribute} binary="false"><![CDATA[Mocked content]]></file>\n`;
+      }
+
       if (filePath.includes('binary') || filePath.endsWith('.png') || filePath.endsWith('.ico')) {
         return `${relativePath} (binary file)\n[BINARY FILE]\n`;
       }
@@ -107,6 +118,11 @@ require('../../../src/main/index');
 describe('Main Process IPC Handlers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    const { dialog } = require('electron');
+    dialog.showSaveDialog.mockResolvedValue({
+      canceled: false,
+      filePath: '/mock/repo/output.md',
+    });
 
     // Basic mocks for file system
     fs.readdirSync.mockImplementation((dir) => {
@@ -391,6 +407,37 @@ describe('Main Process IPC Handlers', () => {
       expect(result.content).toContain('package.json');
     });
 
+    test('should generate xml output when exportFormat is xml', async () => {
+      const rootPath = '/mock/repo';
+      const filesInfo = [
+        { path: 'src/index.js', tokens: 100 },
+        { path: 'package.json', tokens: 50 },
+      ];
+      const options = {
+        showTokenCount: true,
+        includeTreeView: true,
+        exportFormat: 'xml',
+      };
+
+      const handler = mockIpcHandlers['repo:process'];
+      const result = await handler(null, {
+        rootPath,
+        filesInfo,
+        treeView: '/ mock-repo\n  ├── src\n  │   └── index.js\n  └── package.json',
+        options,
+      });
+
+      expect(result.content).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+      expect(result.content).toContain('<repositoryContent>');
+      expect(result.content).toContain('<fileStructure><![CDATA[');
+      expect(result.content).toContain('<files>');
+      expect(result.content).toContain('<file path="src/index.js" tokens="100" binary="false">');
+      expect(result.content).toContain(
+        '<summary totalTokens="150" processedFiles="2" skippedFiles="0" />'
+      );
+      expect(result.content).toContain('</repositoryContent>');
+    });
+
     test('should handle binary files correctly', async () => {
       // Setup
       const rootPath = '/mock/repo';
@@ -446,6 +493,68 @@ describe('Main Process IPC Handlers', () => {
 
       // Should have skipped files count
       expect(result.skippedFiles).toBe(1);
+    });
+  });
+
+  describe('fs:saveFile', () => {
+    test('should prioritize xml filter when default path uses .xml extension', async () => {
+      const { dialog } = require('electron');
+      dialog.showSaveDialog.mockResolvedValue({
+        canceled: false,
+        filePath: '/mock/repo/output.xml',
+      });
+
+      const handler = mockIpcHandlers['fs:saveFile'];
+      const result = await handler(null, {
+        content: '<xml />',
+        defaultPath: '/mock/repo/output.xml',
+      });
+
+      const saveDialogOptions = dialog.showSaveDialog.mock.calls[0][1];
+      expect(saveDialogOptions.filters[0]).toEqual({
+        name: 'XML Files',
+        extensions: ['xml'],
+      });
+      expect(result).toBe('/mock/repo/output.xml');
+      expect(fs.writeFileSync).toHaveBeenCalledWith('/mock/repo/output.xml', '<xml />');
+    });
+
+    test('should prioritize markdown filter when default path uses .md extension', async () => {
+      const { dialog } = require('electron');
+      dialog.showSaveDialog.mockResolvedValue({
+        canceled: false,
+        filePath: '/mock/repo/output.md',
+      });
+
+      const handler = mockIpcHandlers['fs:saveFile'];
+      await handler(null, {
+        content: '# output',
+        defaultPath: '/mock/repo/output.md',
+      });
+
+      const saveDialogOptions = dialog.showSaveDialog.mock.calls[0][1];
+      expect(saveDialogOptions.filters[0]).toEqual({
+        name: 'Markdown Files',
+        extensions: ['md'],
+      });
+      expect(fs.writeFileSync).toHaveBeenCalledWith('/mock/repo/output.md', '# output');
+    });
+
+    test('should return null when save dialog is canceled', async () => {
+      const { dialog } = require('electron');
+      dialog.showSaveDialog.mockResolvedValue({
+        canceled: true,
+        filePath: undefined,
+      });
+
+      const handler = mockIpcHandlers['fs:saveFile'];
+      const result = await handler(null, {
+        content: '# output',
+        defaultPath: '/mock/repo/output.md',
+      });
+
+      expect(result).toBeNull();
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
     });
   });
 

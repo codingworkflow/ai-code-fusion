@@ -2,10 +2,23 @@ import fs from 'fs';
 import path from 'path';
 import { isBinaryFile } from './file-analyzer';
 import type { TokenCounter } from './token-counter';
+import type { ExportFormat } from '../types/ipc';
+import {
+  escapeXmlAttribute,
+  normalizeExportFormat,
+  normalizeTokenCount,
+  wrapXmlCdata,
+} from './export-format';
 
 interface AnalysisEntry {
   path: string;
   tokens: number;
+}
+
+interface ProcessFileOptions {
+  exportFormat?: ExportFormat;
+  showTokenCount?: boolean;
+  tokenCount?: number;
 }
 
 export class ContentProcessor {
@@ -15,8 +28,14 @@ export class ContentProcessor {
     this.tokenCounter = tokenCounter;
   }
 
-  processFile(filePath: string, relativePath: string): string | null {
+  processFile(
+    filePath: string,
+    relativePath: string,
+    options: ProcessFileOptions = {}
+  ): string | null {
     try {
+      const exportFormat: ExportFormat = normalizeExportFormat(options.exportFormat);
+
       // For binary files, show a note instead of content
       if (isBinaryFile(filePath)) {
         console.log(`Binary file detected during processing: ${filePath}`);
@@ -26,6 +45,20 @@ export class ContentProcessor {
         const fileSizeInKB = (stats.size / 1024).toFixed(2);
 
         const headerContent = `${relativePath} (binary file)`;
+
+        if (exportFormat === 'xml') {
+          const fileType = path.extname(filePath).replace('.', '').toUpperCase();
+          return (
+            `<file path="${escapeXmlAttribute(relativePath)}" binary="true" ` +
+            `fileType="${escapeXmlAttribute(fileType)}" sizeKB="${escapeXmlAttribute(
+              fileSizeInKB
+            )}">\n` +
+            `<note>${wrapXmlCdata(
+              'Binary files are included in the file tree but not processed for content.'
+            )}</note>\n` +
+            '</file>\n'
+          );
+        }
 
         const formattedContent =
           '######\n' +
@@ -43,6 +76,21 @@ export class ContentProcessor {
       // This is important for the refresh functionality
       console.log(`Reading fresh content from: ${filePath}`);
       const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
+
+      if (exportFormat === 'xml') {
+        const resolvedTokenCount =
+          options.tokenCount !== undefined
+            ? normalizeTokenCount(options.tokenCount)
+            : this.tokenCounter.countTokens(content);
+        const tokenAttribute = options.showTokenCount
+          ? ` tokens="${escapeXmlAttribute(String(resolvedTokenCount))}"`
+          : '';
+        return (
+          `<file path="${escapeXmlAttribute(relativePath)}"${tokenAttribute} binary="false">\n` +
+          `${wrapXmlCdata(content)}\n` +
+          '</file>\n'
+        );
+      }
 
       // Always use just the path without token count
       const headerContent = `${relativePath}`;

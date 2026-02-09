@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import yaml from 'yaml';
 import { yamlArrayToPlainText } from '../../utils/formatters/list-formatter';
-import type { ConfigObject } from '../../types/ipc';
+import { normalizeExportFormat } from '../../utils/export-format';
+import type { ConfigObject, ExportFormat } from '../../types/ipc';
 
 type ConfigTabProps = {
   configContent: string;
@@ -18,6 +19,7 @@ type ConfigStateSetters = {
   setExcludeSuspiciousFiles: React.Dispatch<React.SetStateAction<boolean>>;
   setIncludeTreeView: React.Dispatch<React.SetStateAction<boolean>>;
   setShowTokenCount: React.Dispatch<React.SetStateAction<boolean>>;
+  setExportFormat: React.Dispatch<React.SetStateAction<ExportFormat>>;
 };
 
 // Helper functions for extension and pattern handling to reduce complexity
@@ -55,6 +57,7 @@ const updateConfigStates = (config: ConfigObject, stateSetters: ConfigStateSette
     setExcludeSuspiciousFiles,
     setIncludeTreeView,
     setShowTokenCount,
+    setExportFormat,
   } = stateSetters;
 
   // Process extensions and patterns
@@ -89,6 +92,10 @@ const updateConfigStates = (config: ConfigObject, stateSetters: ConfigStateSette
   if (config?.show_token_count !== undefined) {
     setShowTokenCount(config.show_token_count === true);
   }
+
+  if (config?.export_format !== undefined) {
+    setExportFormat(normalizeExportFormat(config.export_format));
+  }
 };
 
 const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
@@ -100,6 +107,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
   const [excludeSuspiciousFiles, setExcludeSuspiciousFiles] = useState(true);
   const [includeTreeView, setIncludeTreeView] = useState(true);
   const [showTokenCount, setShowTokenCount] = useState(true);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('markdown');
   const [fileExtensions, setFileExtensions] = useState('');
   const [excludePatterns, setExcludePatterns] = useState('');
 
@@ -120,6 +128,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
         setExcludeSuspiciousFiles,
         setIncludeTreeView,
         setShowTokenCount,
+        setExportFormat,
       });
     } catch (error) {
       console.error('Error parsing config:', error);
@@ -151,6 +160,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
       config.exclude_suspicious_files = excludeSuspiciousFiles;
       config.include_tree_view = includeTreeView;
       config.show_token_count = showTokenCount;
+      config.export_format = exportFormat;
 
       // Process file extensions from the textarea
       config.include_extensions = fileExtensions
@@ -189,6 +199,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
     excludeSuspiciousFiles,
     includeTreeView,
     showTokenCount,
+    exportFormat,
     fileExtensions,
     excludePatterns,
     onConfigChange,
@@ -207,6 +218,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
     excludeSuspiciousFiles,
     includeTreeView,
     showTokenCount,
+    exportFormat,
     saveConfig,
   ]);
 
@@ -439,6 +451,24 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                   >
                     Display token counts
                   </label>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor='export-format'
+                    className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
+                  >
+                    Export format
+                  </label>
+                  <select
+                    id='export-format'
+                    value={exportFormat}
+                    onChange={(event) => setExportFormat(normalizeExportFormat(event.target.value))}
+                    className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+                  >
+                    <option value='markdown'>Markdown</option>
+                    <option value='xml'>XML</option>
+                  </select>
                 </div>
               </div>
             </div>
