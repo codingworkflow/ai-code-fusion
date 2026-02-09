@@ -4,6 +4,7 @@ const FAKE_GITHUB_TOKEN = ['ghp', 'AAAAAAAAAAAAAAAAAAAAAAAA'].join('_');
 
 // Mock electron ipcMain
 const mockIpcHandlers = {};
+const mockProtocolHandlers = {};
 const mockIpcMain = {
   handle: jest.fn((channel, handler) => {
     mockIpcHandlers[channel] = handler;
@@ -32,7 +33,9 @@ jest.mock('electron', () => ({
     showSaveDialog: jest.fn(),
   },
   protocol: {
-    registerFileProtocol: jest.fn(),
+    registerFileProtocol: jest.fn((scheme, handler) => {
+      mockProtocolHandlers[scheme] = handler;
+    }),
   },
 }));
 
@@ -175,6 +178,34 @@ describe('Main Process IPC Handlers', () => {
       include_extensions: ['.js', '.jsx', '.json', '.log'], // Include .log extension
       exclude_patterns: ['**/node_modules/**'],
     }));
+  });
+
+  describe('assets protocol', () => {
+    test('should reject traversal in assets protocol requests', async () => {
+      await Promise.resolve();
+      const handler = mockProtocolHandlers['assets'];
+      expect(handler).toBeDefined();
+
+      const callback = jest.fn();
+      handler({ url: 'assets://../../etc/passwd' }, callback);
+
+      expect(callback).toHaveBeenCalledWith({ error: -6 });
+    });
+
+    test('should resolve valid assets protocol requests', async () => {
+      await Promise.resolve();
+      const handler = mockProtocolHandlers['assets'];
+      expect(handler).toBeDefined();
+
+      const callback = jest.fn();
+      handler({ url: 'assets://icon.png' }, callback);
+
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: expect.stringContaining('icon.png'),
+        })
+      );
+    });
   });
 
   describe('fs:getDirectoryTree', () => {
@@ -493,6 +524,27 @@ describe('Main Process IPC Handlers', () => {
 
       expect(result.exportFormat).toBe('xml');
       expect(result.content).toContain('<file path="src/index.js" tokens="100" binary="false">');
+    });
+
+    test('should omit xml token attributes when showTokenCount is false', async () => {
+      const rootPath = '/mock/repo';
+      const filesInfo = [{ path: 'src/index.js', tokens: 100 }];
+      const options = {
+        showTokenCount: false,
+        exportFormat: 'xml',
+      };
+
+      const handler = mockIpcHandlers['repo:process'];
+      const result = await handler(null, {
+        rootPath,
+        filesInfo,
+        treeView: '',
+        options,
+      });
+
+      expect(result.exportFormat).toBe('xml');
+      expect(result.content).toContain('<file path="src/index.js" binary="false">');
+      expect(result.content).not.toContain('tokens="100"');
     });
 
     test('should handle binary files correctly', async () => {

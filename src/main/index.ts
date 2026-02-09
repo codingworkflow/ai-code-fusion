@@ -87,6 +87,10 @@ app.whenReady().then(() => {
   protocol.registerFileProtocol('assets', (request, callback) => {
     const url = request.url.replace('assets://', '');
     const assetPath = path.normalize(path.join(PUBLIC_ASSETS_DIR, url));
+    if (!isPathWithinRoot(PUBLIC_ASSETS_DIR, assetPath)) {
+      callback({ error: -6 });
+      return;
+    }
     callback({ path: assetPath });
   });
 

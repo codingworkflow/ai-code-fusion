@@ -314,6 +314,9 @@ const App = () => {
       if (segment === '..') {
         if (resolvedSegments.length > 0 && resolvedSegments[resolvedSegments.length - 1] !== '..') {
           resolvedSegments.pop();
+        } else if (!hasLeadingSlash) {
+          // Preserve relative parent traversals so boundary checks can reject them.
+          resolvedSegments.push('..');
         }
         continue;
       }
