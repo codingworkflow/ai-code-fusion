@@ -10,7 +10,8 @@ jest.mock('../../../src/utils/formatters/list-formatter', () => ({
 
 // Mock yaml package
 jest.mock('yaml', () => ({
-  parse: jest.fn().mockImplementation((str) => {
+  parse: jest.fn().mockImplementation((str = '') => {
+    const exportFormat = str.includes('export_format: xml') ? 'xml' : 'markdown';
     if (str && str.includes('include_extensions')) {
       return {
         include_extensions: ['.js', '.jsx'],
@@ -19,10 +20,15 @@ jest.mock('yaml', () => ({
         use_custom_includes: true,
         enable_secret_scanning: true,
         exclude_suspicious_files: true,
-        export_format: 'markdown',
+        export_format: exportFormat,
       };
     }
-    return {};
+    if (str && str.includes('export_format')) {
+      return {
+        export_format: exportFormat,
+      };
+    }
+    return { export_format: 'markdown' };
   }),
   stringify: jest.fn().mockReturnValue('mocked yaml string'),
 }));
@@ -141,6 +147,13 @@ describe('ConfigTab', () => {
     expect(yamlLib.stringify).toHaveBeenCalled();
     const savedConfig = yamlLib.stringify.mock.calls.at(-1)[0];
     expect(savedConfig.export_format).toBe('xml');
+  });
+
+  test('initializes export format selector to xml when config specifies export_format: xml', () => {
+    const xmlConfigContent = `${mockConfigContent}\nexport_format: xml`;
+    render(<ConfigTab configContent={xmlConfigContent} onConfigChange={mockOnConfigChange} />);
+
+    expect(screen.getByLabelText('Export format')).toHaveValue('xml');
   });
 
   test('calls selectDirectory when folder button is clicked', async () => {

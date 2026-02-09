@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, shell } from 'electron';
 import type {
   AnalyzeRepositoryOptions,
   AnalyzeRepositoryResult,
+  CountFilesTokensOptions,
   CountFilesTokensResult,
   DirectoryTreeItem,
   ElectronApi,
@@ -37,7 +38,9 @@ const electronShellApi: ElectronShellApi = {
 const electronAPI: ElectronApi = {
   selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory') as Promise<string | null>,
   getDirectoryTree: (dirPath: string, configContent?: string | null) =>
-    ipcRenderer.invoke('fs:getDirectoryTree', dirPath, configContent) as Promise<DirectoryTreeItem[]>,
+    ipcRenderer.invoke('fs:getDirectoryTree', dirPath, configContent) as Promise<
+      DirectoryTreeItem[]
+    >,
   saveFile: (options: SaveFileOptions) =>
     ipcRenderer.invoke('fs:saveFile', options) as Promise<string | null>,
   resetGitignoreCache: () => ipcRenderer.invoke('gitignore:resetCache') as Promise<boolean>,
@@ -48,8 +51,8 @@ const electronAPI: ElectronApi = {
   getDefaultConfig: () => ipcRenderer.invoke('config:getDefault') as Promise<string>,
   getAssetPath: (assetName: string) =>
     ipcRenderer.invoke('assets:getPath', assetName) as Promise<string | null>,
-  countFilesTokens: (filePaths: string[]) =>
-    ipcRenderer.invoke('tokens:countFiles', filePaths) as Promise<CountFilesTokensResult>,
+  countFilesTokens: (options: CountFilesTokensOptions) =>
+    ipcRenderer.invoke('tokens:countFiles', options) as Promise<CountFilesTokensResult>,
 };
 
 contextBridge.exposeInMainWorld('devUtils', devUtils);

@@ -5,7 +5,7 @@ import yaml from 'yaml';
 import { loadDefaultConfig } from '../utils/config-manager';
 import { ContentProcessor } from '../utils/content-processor';
 import { FileAnalyzer, isBinaryFile } from '../utils/file-analyzer';
-import { normalizePath, getRelativePath, shouldExclude } from '../utils/filter-utils';
+import { getRelativePath, shouldExclude } from '../utils/filter-utils';
 import { GitignoreParser } from '../utils/gitignore-parser';
 import { TokenCounter } from '../utils/token-counter';
 import {
@@ -18,6 +18,7 @@ import type {
   AnalyzeRepositoryOptions,
   AnalyzeRepositoryResult,
   ConfigObject,
+  CountFilesTokensOptions,
   CountFilesTokensResult,
   DirectoryTreeItem,
   FileInfo,
@@ -132,8 +133,9 @@ ipcMain.handle(
 
     // Parse config to get settings and exclude patterns
     let excludePatterns: FilterPatternBundle = [];
+    let config: ConfigObject = { exclude_patterns: [] };
     try {
-      const config = (configContent
+      config = (configContent
         ? (yaml.parse(configContent) as ConfigObject)
         : ({ exclude_patterns: [] } as ConfigObject)) || { exclude_patterns: [] };
 
@@ -178,14 +180,8 @@ ipcMain.handle(
       console.error('Error parsing config:', error);
       // Fall back to only hiding .git folder
       excludePatterns = ['**/.git/**'];
+      config = { exclude_patterns: [] };
     }
-
-    // Import the fnmatch module
-
-    // Get the config for filtering
-    const config = (configContent
-      ? (yaml.parse(configContent) as ConfigObject)
-      : ({ exclude_patterns: [] } as ConfigObject)) || { exclude_patterns: [] };
 
     // Use the shared shouldExclude function from filter-utils
     const localShouldExclude = (itemPath: string) => {
@@ -255,7 +251,17 @@ ipcMain.handle(
   }
 );
 
-// Use the imported normalizePath from filter-utils
+const isPathWithinRoot = (rootPath: string, candidatePath: string): boolean => {
+  if (!rootPath || !candidatePath) {
+    return false;
+  }
+
+  const resolvedRootPath = path.resolve(rootPath);
+  const resolvedCandidatePath = path.resolve(candidatePath);
+  const relativePath = path.relative(resolvedRootPath, resolvedCandidatePath);
+
+  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+};
 
 // Analyze repository
 ipcMain.handle(
@@ -270,7 +276,7 @@ ipcMain.handle(
 
       // Process gitignore if enabled
       let gitignorePatterns = { excludePatterns: [], includePatterns: [] };
-      if (config.use_gitignore === true) {
+      if (config.use_gitignore !== false) {
         gitignorePatterns = gitignoreParser.parseGitignore(rootPath);
       }
 
@@ -287,7 +293,7 @@ ipcMain.handle(
 
       for (const filePath of selectedFiles) {
         // Verify the file is within the current root path
-        if (!filePath.startsWith(rootPath)) {
+        if (!isPathWithinRoot(rootPath, filePath)) {
           console.warn(`Skipping file outside current root directory: ${filePath}`);
           continue;
         }
@@ -466,14 +472,10 @@ ipcMain.handle(
           const filePath = fileInfo.path;
           const tokenCount = normalizeTokenCount(fileInfo.tokens);
 
-          // Use consistent path joining
-          const fullPath = path.join(rootPath, filePath);
+          // Resolve and validate against root path to prevent traversal and prefix bypasses.
+          const fullPath = path.resolve(rootPath, filePath);
 
-          // Validate the full path is within the root path
-          const normalizedFullPath = normalizePath(fullPath);
-          const normalizedRootPath = normalizePath(rootPath);
-
-          if (!normalizedFullPath.startsWith(normalizedRootPath)) {
+          if (!isPathWithinRoot(rootPath, fullPath)) {
             console.warn(`Skipping file outside root directory: ${filePath}`);
             skippedFiles++;
             continue;
@@ -544,12 +546,17 @@ ipcMain.handle('fs:saveFile', async (_event, { content, defaultPath }: SaveFileO
           { name: 'All Files', extensions: ['*'] },
         ];
 
-  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow ?? undefined, {
-    defaultPath,
-    filters,
-  });
+  const { canceled, filePath } = mainWindow
+    ? await dialog.showSaveDialog(mainWindow, {
+        defaultPath,
+        filters,
+      })
+    : await dialog.showSaveDialog({
+        defaultPath,
+        filters,
+      });
 
-  if (canceled) {
+  if (canceled || !filePath) {
     return null;
   }
 
@@ -591,14 +598,25 @@ ipcMain.handle('assets:getPath', (_event, assetName: string) => {
 // Count tokens for multiple files in a single call
 ipcMain.handle(
   'tokens:countFiles',
-  async (_event, filePaths: string[]): Promise<CountFilesTokensResult> => {
+  async (_event, options: CountFilesTokensOptions): Promise<CountFilesTokensResult> => {
     try {
+      const { rootPath, filePaths } = options ?? {};
+      if (!rootPath || !Array.isArray(filePaths) || filePaths.length === 0) {
+        return { results: {}, stats: {} };
+      }
+
       const results: Record<string, number> = {};
       const stats: Record<string, { size: number; mtime: number }> = {};
 
       // Process each file
       for (const filePath of filePaths) {
         try {
+          if (!isPathWithinRoot(rootPath, filePath)) {
+            console.warn(`Skipping file outside current root directory: ${filePath}`);
+            results[filePath] = 0;
+            continue;
+          }
+
           // Check if file exists
           if (!fs.existsSync(filePath)) {
             console.warn(`File not found for token counting: ${filePath}`);

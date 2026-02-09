@@ -1,36 +1,21 @@
 import type { ExportFormat } from '../types/ipc';
 
-const isValidXmlCodePoint = (codePoint: number): boolean =>
-  codePoint === 0x9 ||
-  codePoint === 0xa ||
-  codePoint === 0xd ||
-  (codePoint >= 0x20 && codePoint <= 0xd7ff) ||
-  (codePoint >= 0xe000 && codePoint <= 0xfffd) ||
-  (codePoint >= 0x10000 && codePoint <= 0x10ffff);
+const INVALID_XML_CHARACTERS_REGEX =
+  /[^\u0009\u000A\u000D\u0020-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/gu; // eslint-disable-line no-control-regex
 
 export const normalizeExportFormat = (format: unknown): ExportFormat =>
   format === 'xml' ? 'xml' : 'markdown';
 
+export const sanitizeXmlContent = (value: string): string =>
+  value.replace(INVALID_XML_CHARACTERS_REGEX, '');
+
 export const escapeXmlAttribute = (value: string): string =>
-  value
+  sanitizeXmlContent(value)
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-
-export const sanitizeXmlContent = (value: string): string => {
-  let sanitized = '';
-
-  for (const char of value) {
-    const codePoint = char.codePointAt(0);
-    if (codePoint !== undefined && isValidXmlCodePoint(codePoint)) {
-      sanitized += char;
-    }
-  }
-
-  return sanitized;
-};
 
 export const wrapXmlCdata = (value: string): string =>
   `<![CDATA[${sanitizeXmlContent(value).replace(/]]>/g, ']]]]><![CDATA[>')}]]>`;

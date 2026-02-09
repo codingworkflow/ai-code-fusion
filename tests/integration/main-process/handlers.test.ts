@@ -37,26 +37,23 @@ jest.mock('electron', () => ({
 }));
 
 jest.mock('fs');
-jest.mock('path', () => ({
-  ...jest.requireActual('path'),
-  join: jest.fn().mockImplementation((...args) => args.join('/')),
-  normalize: jest.fn().mockImplementation((p) => p),
-  relative: jest.fn().mockImplementation((from, to) => {
-    // Simple implementation for testing
-    if (to.startsWith(from)) {
-      return to.substring(from.length).replace(/^\//, '');
-    }
-    return to;
-  }),
-  extname: jest.fn().mockImplementation((filePath) => {
-    const parts = filePath.split('.');
-    return parts.length > 1 ? `.${parts[parts.length - 1]}` : '';
-  }),
-  basename: jest.fn().mockImplementation((filePath) => {
-    const parts = filePath.split('/');
-    return parts[parts.length - 1];
-  }),
-}));
+jest.mock('path', () => {
+  const realPath = jest.requireActual('path');
+  return {
+    ...realPath,
+    join: jest.fn().mockImplementation((...args) => args.join('/')),
+    normalize: jest.fn().mockImplementation((p) => p),
+    relative: jest.fn().mockImplementation((from, to) => realPath.posix.relative(from, to)),
+    extname: jest.fn().mockImplementation((filePath) => {
+      const parts = filePath.split('.');
+      return parts.length > 1 ? `.${parts[parts.length - 1]}` : '';
+    }),
+    basename: jest.fn().mockImplementation((filePath) => {
+      const parts = filePath.split('/');
+      return parts[parts.length - 1];
+    }),
+  };
+});
 
 jest.mock('yaml');
 
@@ -326,6 +323,8 @@ describe('Main Process IPC Handlers', () => {
       const selectedFiles = [
         '/mock/repo/src/index.js',
         '/another/path/file.js', // Outside root
+        '/mock/repo-secrets/config.js', // Prefix collision should be rejected
+        '/mock/repo/../repo-secrets/hidden.js', // Traversal should be rejected
       ];
 
       // Execute
@@ -494,6 +493,27 @@ describe('Main Process IPC Handlers', () => {
       // Should have skipped files count
       expect(result.skippedFiles).toBe(1);
     });
+
+    test('should skip files outside root even with traversal or prefix-collision paths', async () => {
+      const rootPath = '/mock/repo';
+      const filesInfo = [
+        { path: 'src/index.js', tokens: 100 },
+        { path: '../repo-secrets/config.js', tokens: 50 },
+      ];
+
+      const handler = mockIpcHandlers['repo:process'];
+      const result = await handler(null, {
+        rootPath,
+        filesInfo,
+        treeView: '',
+        options: {},
+      });
+
+      expect(result.processedFiles).toBe(1);
+      expect(result.skippedFiles).toBe(1);
+      expect(result.content).toContain('src/index.js');
+      expect(result.content).not.toContain('../repo-secrets/config.js');
+    });
   });
 
   describe('fs:saveFile', () => {
@@ -510,7 +530,8 @@ describe('Main Process IPC Handlers', () => {
         defaultPath: '/mock/repo/output.xml',
       });
 
-      const saveDialogOptions = dialog.showSaveDialog.mock.calls[0][1];
+      const saveDialogCallArgs = dialog.showSaveDialog.mock.calls[0];
+      const saveDialogOptions = saveDialogCallArgs[saveDialogCallArgs.length - 1];
       expect(saveDialogOptions.filters[0]).toEqual({
         name: 'XML Files',
         extensions: ['xml'],
@@ -532,7 +553,8 @@ describe('Main Process IPC Handlers', () => {
         defaultPath: '/mock/repo/output.md',
       });
 
-      const saveDialogOptions = dialog.showSaveDialog.mock.calls[0][1];
+      const saveDialogCallArgs = dialog.showSaveDialog.mock.calls[0];
+      const saveDialogOptions = saveDialogCallArgs[saveDialogCallArgs.length - 1];
       expect(saveDialogOptions.filters[0]).toEqual({
         name: 'Markdown Files',
         extensions: ['md'],
@@ -561,6 +583,7 @@ describe('Main Process IPC Handlers', () => {
   describe('tokens:countFiles', () => {
     test('should count tokens for multiple files', async () => {
       // Setup
+      const rootPath = '/mock/repo';
       const filePaths = [
         '/mock/repo/src/file1.js',
         '/mock/repo/src/file2.js',
@@ -569,7 +592,7 @@ describe('Main Process IPC Handlers', () => {
 
       // Execute
       const handler = mockIpcHandlers['tokens:countFiles'];
-      const result = await handler(null, filePaths);
+      const result = await handler(null, { rootPath, filePaths });
 
       // Verify
       expect(result).toBeDefined();
@@ -584,6 +607,7 @@ describe('Main Process IPC Handlers', () => {
 
     test('should handle binary files correctly', async () => {
       // Setup
+      const rootPath = '/mock/repo';
       const filePaths = [
         '/mock/repo/src/file.js',
         '/mock/repo/image.png', // binary file
@@ -591,7 +615,7 @@ describe('Main Process IPC Handlers', () => {
 
       // Execute
       const handler = mockIpcHandlers['tokens:countFiles'];
-      const result = await handler(null, filePaths);
+      const result = await handler(null, { rootPath, filePaths });
 
       // Verify
       expect(result).toBeDefined();
@@ -604,6 +628,7 @@ describe('Main Process IPC Handlers', () => {
 
     test('should handle missing files gracefully', async () => {
       // Setup
+      const rootPath = '/mock/repo';
       const filePaths = ['/mock/repo/src/file.js', '/mock/repo/nonexistent/file.js'];
 
       // Mock to make nonexistent file fail
@@ -613,7 +638,7 @@ describe('Main Process IPC Handlers', () => {
 
       // Execute
       const handler = mockIpcHandlers['tokens:countFiles'];
-      const result = await handler(null, filePaths);
+      const result = await handler(null, { rootPath, filePaths });
 
       // Verify
       expect(result).toBeDefined();
@@ -622,6 +647,18 @@ describe('Main Process IPC Handlers', () => {
       // Existing file should have tokens, nonexistent should have 0
       expect(result.results['/mock/repo/src/file.js']).toBe(100);
       expect(result.results['/mock/repo/nonexistent/file.js']).toBe(0);
+    });
+
+    test('should skip files outside root path', async () => {
+      const rootPath = '/mock/repo';
+      const filePaths = ['/mock/repo/src/file.js', '/mock/repo-secrets/secret.js'];
+
+      const handler = mockIpcHandlers['tokens:countFiles'];
+      const result = await handler(null, { rootPath, filePaths });
+
+      expect(result.results['/mock/repo/src/file.js']).toBe(100);
+      expect(result.results['/mock/repo-secrets/secret.js']).toBe(0);
+      expect(result.stats['/mock/repo-secrets/secret.js']).toBeUndefined();
     });
   });
 });

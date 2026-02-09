@@ -15,8 +15,8 @@ describe('export-format utils', () => {
     expect(normalizeExportFormat(undefined)).toBe('markdown');
   });
 
-  test('escapeXmlAttribute should escape xml-sensitive characters', () => {
-    expect(escapeXmlAttribute(`a&b"c'd<e>`)).toBe('a&amp;b&quot;c&apos;d&lt;e&gt;');
+  test('escapeXmlAttribute should escape xml-sensitive characters and remove invalid code points', () => {
+    expect(escapeXmlAttribute(`a&b"c'd<e>\u0001`)).toBe('a&amp;b&quot;c&apos;d&lt;e&gt;');
   });
 
   test('sanitizeXmlContent should remove invalid xml characters', () => {

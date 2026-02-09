@@ -130,7 +130,10 @@ const SourceTab = ({
         const batchSize = Math.min(20, filesToProcess.length);
         const fileBatch = filesToProcess.slice(0, batchSize);
 
-        const { results, stats } = await window.electronAPI!.countFilesTokens(fileBatch);
+        const { results, stats } = await window.electronAPI!.countFilesTokens({
+          rootPath,
+          filePaths: fileBatch,
+        });
 
         updateTokenCache(results, stats, setTokenCache);
 
@@ -280,7 +283,9 @@ const SourceTab = ({
         <div className='ml-auto flex items-center space-x-4'>
           <div className='flex items-center'>
             <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Files</span>
-            <span className='text-lg font-bold text-blue-600 dark:text-blue-400'>{selectedFiles.length}</span>
+            <span className='text-lg font-bold text-blue-600 dark:text-blue-400'>
+              {selectedFiles.length}
+            </span>
           </div>
 
           {showTokenCount && (
@@ -329,8 +334,14 @@ const SourceTab = ({
                 setIsAnalyzing(false);
               });
           }}
-          disabled={!rootPath || (selectedFiles.length === 0 && selectedFolders.length === 0) || isAnalyzing}
-          className={getProcessButtonClass(rootPath, selectedFiles.length > 0 || selectedFolders.length > 0, isAnalyzing)}
+          disabled={
+            !rootPath || (selectedFiles.length === 0 && selectedFolders.length === 0) || isAnalyzing
+          }
+          className={getProcessButtonClass(
+            rootPath,
+            selectedFiles.length > 0 || selectedFolders.length > 0,
+            isAnalyzing
+          )}
         >
           {isAnalyzing ? (
             <>

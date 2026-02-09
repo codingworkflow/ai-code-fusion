@@ -79,6 +79,24 @@ describe('ContentProcessor', () => {
       expect(mockTokenCounter.countTokens).not.toHaveBeenCalled();
     });
 
+    test('should sanitize invalid xml code points in xml attribute values', () => {
+      const filePath = '/project/src/weird.ts';
+      const relativePath = 'src/weird\u0001name.ts';
+      const fileContent = 'const value = "ok";';
+
+      isBinaryFile.mockReturnValue(false);
+      fs.readFileSync.mockReturnValue(fileContent);
+
+      const result = contentProcessor.processFile(filePath, relativePath, {
+        exportFormat: 'xml',
+        showTokenCount: true,
+        tokenCount: 5,
+      });
+
+      expect(result).toContain('<file path="src/weirdname.ts" tokens="5" binary="false">');
+      expect(result).not.toContain('\u0001');
+    });
+
     test('should escape cdata end markers and sanitize invalid xml characters', () => {
       const filePath = '/project/src/weird.ts';
       const relativePath = 'src/weird.ts';

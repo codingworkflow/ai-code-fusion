@@ -12,7 +12,6 @@ import type {
   ConfigObject,
   DirectoryTreeItem,
   ExportFormat,
-  ProcessRepositoryOptions,
   ProcessRepositoryResult,
   TabId,
 } from '../../types/ipc';
@@ -21,15 +20,6 @@ import type {
 const ensureError = (error: unknown): Error => {
   if (error instanceof Error) return error;
   return new Error(String(error));
-};
-
-const resolveExportFormatFromConfig = (rawConfigContent: string) => {
-  try {
-    const config = (yaml.parse(rawConfigContent) || {}) as ConfigObject;
-    return normalizeExportFormat(config.export_format);
-  } catch {
-    return 'markdown';
-  }
 };
 
 type ProcessingOptions = {
@@ -268,7 +258,7 @@ const App = () => {
       setAnalysisResult(currentAnalysisResult);
 
       // Read options from config
-      const options: ProcessRepositoryOptions['options'] = {
+      const options: ProcessingOptions = {
         showTokenCount: true,
         includeTreeView: false,
         exportFormat: 'markdown',
@@ -281,6 +271,7 @@ const App = () => {
       } catch (error) {
         console.error('Error parsing config for processing:', ensureError(error));
       }
+      setProcessingOptions(options);
 
       // Process directly without going to analyze tab
       const result = await window.electronAPI.processRepository({
@@ -340,7 +331,7 @@ const App = () => {
       setAnalysisResult(currentReanalysisResult);
 
       // Get the latest config options
-      const options: ProcessRepositoryOptions['options'] = { ...processingOptions };
+      const options: ProcessingOptions = { ...processingOptions };
       try {
         const configStr = localStorage.getItem('configContent');
         if (configStr) {
@@ -352,6 +343,7 @@ const App = () => {
       } catch (error) {
         console.error('Error parsing config for refresh:', ensureError(error));
       }
+      setProcessingOptions(options);
 
       console.log('Processing with fresh analysis and options:', options);
 
@@ -387,8 +379,7 @@ const App = () => {
     }
 
     try {
-      const exportFormat = resolveExportFormatFromConfig(configContent);
-      const outputExtension = exportFormat === 'xml' ? 'xml' : 'md';
+      const outputExtension = processingOptions.exportFormat === 'xml' ? 'xml' : 'md';
       await window.electronAPI?.saveFile?.({
         content: processedResult.content,
         defaultPath: `${rootPath}/output.${outputExtension}`,
