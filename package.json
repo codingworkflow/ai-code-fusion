@@ -34,6 +34,7 @@
     "qa:screenshot": "node scripts/capture-ui-screenshot.js",
     "security": "node scripts/index.js security",
     "gitleaks": "node scripts/index.js gitleaks",
+    "gitleaks:staged": "node scripts/index.js gitleaks-staged",
     "sbom": "node scripts/index.js sbom",
     "renovate": "node scripts/index.js renovate",
     "renovate:local": "node scripts/index.js renovate-local",

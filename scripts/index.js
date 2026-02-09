@@ -143,6 +143,11 @@ async function executeCommand() {
         await security.runGitleaks();
         break;
 
+      case 'gitleaks-staged':
+      case 'gitleaks:staged':
+        await security.runGitleaksStaged();
+        break;
+
       case 'sbom':
         await security.runSbom();
         break;

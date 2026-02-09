@@ -175,6 +175,32 @@ async function runGitleaks() {
   return reportPath;
 }
 
+async function runGitleaksStaged() {
+  const gitleaksPath = resolveCommand('gitleaks', [
+    path.join('bin', 'gitleaks'),
+    path.join('bin', 'gitleaks.exe'),
+  ]);
+
+  if (!gitleaksPath) {
+    throw new Error('gitleaks not found in PATH or ./bin (install gitleaks first)');
+  }
+  assertAllowedExecutable(gitleaksPath);
+
+  const args = ['protect', '--staged', '--redact', '--no-banner', '--verbose', '--exit-code', '1'];
+  const commandName = process.platform === 'win32' ? 'gitleaks.exe' : 'gitleaks';
+  const env = withExecutablePath({ ...process.env }, gitleaksPath);
+  const commandLine = [commandName, ...sanitizeArgs(args)].join(' ');
+
+  console.log(`Running: ${commandLine}`);
+  const result = spawnSync(commandName, args, {
+    cwd: utils.ROOT_DIR,
+    stdio: 'inherit',
+    env,
+    shell: false,
+  });
+  assertProcessResult(result, commandName, commandLine);
+}
+
 async function runSbom() {
   ensureSecurityDirs();
 
@@ -508,6 +534,7 @@ async function runSecurity() {
 
 module.exports = {
   runGitleaks,
+  runGitleaksStaged,
   runSbom,
   runRenovate,
   runRenovateLocal,
