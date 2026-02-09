@@ -42,8 +42,8 @@ const updateTokenCache = (
   });
 };
 
-const getProcessButtonClass = (rootPath: string, hasSelection: boolean, isAnalyzing: boolean) => {
-  const isDisabled = !rootPath || !hasSelection || isAnalyzing;
+const getProcessButtonClass = (rootPath: string, hasSelection: boolean, isBusy: boolean) => {
+  const isDisabled = !rootPath || !hasSelection || isBusy;
 
   const baseClass =
     'inline-flex items-center border border-transparent px-5 py-2 text-sm font-medium text-white shadow-sm';
@@ -135,10 +135,17 @@ const SourceTab = ({
           filePaths: fileBatch,
         });
 
-        updateTokenCache(results, stats, setTokenCache);
+        const normalizedResults: CountFilesTokensResult['results'] = { ...results };
+        for (const filePath of fileBatch) {
+          if (!Object.prototype.hasOwnProperty.call(normalizedResults, filePath)) {
+            normalizedResults[filePath] = 0;
+          }
+        }
+
+        updateTokenCache(normalizedResults, stats, setTokenCache);
 
         const newTotal = selectedFiles.reduce((sum, filePath) => {
-          return sum + (results[filePath] || tokenCache[filePath]?.tokenCount || 0);
+          return sum + (normalizedResults[filePath] || tokenCache[filePath]?.tokenCount || 0);
         }, 0);
 
         setTotalTokens(newTotal);
@@ -175,6 +182,10 @@ const SourceTab = ({
       window.removeEventListener('tokenCalculationContinue', handleContinue);
     };
   }, []);
+
+  const hasSelection = selectedFiles.length > 0 || selectedFolders.length > 0;
+  const isProcessBusy = isAnalyzing || isCalculating;
+  const isProcessDisabled = !rootPath || !hasSelection || isProcessBusy;
 
   return (
     <div className='flex h-full min-h-0 flex-col'>
@@ -295,28 +306,6 @@ const SourceTab = ({
                 <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Tokens</span>
                 <span className='text-lg font-bold text-green-600 dark:text-green-400'>
                   {totalTokens.toLocaleString()}
-                  {isCalculating && (
-                    <svg
-                      className='inline-block animate-spin ml-2 h-4 w-4'
-                      xmlns='http://www.w3.org/2000/svg'
-                      fill='none'
-                      viewBox='0 0 24 24'
-                    >
-                      <circle
-                        className='opacity-25'
-                        cx='12'
-                        cy='12'
-                        r='10'
-                        stroke='currentColor'
-                        strokeWidth='4'
-                      ></circle>
-                      <path
-                        className='opacity-75'
-                        fill='currentColor'
-                        d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
-                      ></path>
-                    </svg>
-                  )}
                 </span>
               </div>
             </>
@@ -324,6 +313,7 @@ const SourceTab = ({
         </div>
 
         <button
+          data-testid='process-selected-files-button'
           onClick={() => {
             setIsAnalyzing(true);
             Promise.resolve(onAnalyze())
@@ -334,18 +324,13 @@ const SourceTab = ({
                 setIsAnalyzing(false);
               });
           }}
-          disabled={
-            !rootPath || (selectedFiles.length === 0 && selectedFolders.length === 0) || isAnalyzing
-          }
-          className={getProcessButtonClass(
-            rootPath,
-            selectedFiles.length > 0 || selectedFolders.length > 0,
-            isAnalyzing
-          )}
+          disabled={isProcessDisabled}
+          className={getProcessButtonClass(rootPath, hasSelection, isProcessBusy)}
         >
           {isAnalyzing ? (
             <>
               <svg
+                data-testid='process-selected-files-spinner'
                 className='animate-spin -ml-1 mr-2 h-4 w-4 text-white'
                 xmlns='http://www.w3.org/2000/svg'
                 fill='none'
@@ -366,6 +351,31 @@ const SourceTab = ({
                 ></path>
               </svg>
               Processing...
+            </>
+          ) : isCalculating ? (
+            <>
+              <svg
+                data-testid='process-selected-files-spinner'
+                className='animate-spin -ml-1 mr-2 h-4 w-4 text-white'
+                xmlns='http://www.w3.org/2000/svg'
+                fill='none'
+                viewBox='0 0 24 24'
+              >
+                <circle
+                  className='opacity-25'
+                  cx='12'
+                  cy='12'
+                  r='10'
+                  stroke='currentColor'
+                  strokeWidth='4'
+                ></circle>
+                <path
+                  className='opacity-75'
+                  fill='currentColor'
+                  d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                ></path>
+              </svg>
+              Selecting files...
             </>
           ) : (
             <>
