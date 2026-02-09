@@ -226,6 +226,7 @@ function printHelp() {
   console.log('  test                 - Run tests');
   console.log('  test:watch           - Run tests in watch mode');
   console.log('  lint                 - Run linter');
+  console.log('  lint:md             - Validate markdown links and image paths');
   console.log('  format               - Format code');
   console.log('  validate             - Run all code quality checks');
   console.log('  qa                   - Run lint + tests + security checks');

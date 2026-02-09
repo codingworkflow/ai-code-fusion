@@ -114,6 +114,12 @@ async function executeCommand() {
         console.log('Linting completed successfully');
         break;
 
+      case 'lint:md':
+      case 'lint-md':
+        await utils.runNpmScript('lint:md');
+        console.log('Markdown linting completed successfully');
+        break;
+
       case 'format':
         await utils.runNpmScript('format');
         console.log('Formatting completed successfully');

@@ -5,7 +5,7 @@
 # Make these targets phony (they don't create files with these names)
 .PHONY: all setup dev clean clean-all build build-win build-linux \
         build-mac build-mac-arm build-mac-universal \
-        test css css-watch lint format validate qa docs-screenshots setup-hooks sonar \
+        test css css-watch lint lint-md format validate qa docs-screenshots setup-hooks sonar \
         security gitleaks sbom renovate renovate-local mend-scan \
         icons sample-logo release
 
@@ -58,6 +58,9 @@ css-watch: setup-scripts
 
 lint: setup-scripts
 	@node scripts/index.js lint
+
+lint-md: setup-scripts
+	@node scripts/index.js lint-md
 
 format: setup-scripts
 	@node scripts/index.js format

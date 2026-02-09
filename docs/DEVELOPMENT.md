@@ -46,6 +46,7 @@ make build-mac
 # Quality
 make test
 make lint
+make lint-md
 make format
 make validate
 make qa
