@@ -17,6 +17,8 @@ jest.mock('yaml', () => ({
         use_custom_excludes: true,
         use_gitignore: true,
         use_custom_includes: true,
+        enable_secret_scanning: true,
+        exclude_suspicious_files: true,
       };
     }
     return {};
@@ -69,6 +71,8 @@ describe('ConfigTab', () => {
     expect(screen.getByLabelText('Filter by file extensions')).toBeChecked();
     expect(screen.getByLabelText('Use exclude patterns')).toBeChecked();
     expect(screen.getByLabelText('Apply .gitignore rules')).toBeChecked();
+    expect(screen.getByLabelText('Scan content for secrets')).toBeChecked();
+    expect(screen.getByLabelText('Exclude suspicious files')).toBeChecked();
 
     // Check textareas
     const extensionsTextarea = screen.getByPlaceholderText(/\.py/);
@@ -90,6 +94,30 @@ describe('ConfigTab', () => {
     await waitFor(() => {
       expect(mockOnConfigChange).toHaveBeenCalled();
     });
+  });
+
+  test('persists secret scanning toggles in saved config', async () => {
+    render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
+
+    const scanSecretsCheckbox = screen.getByLabelText('Scan content for secrets');
+    const excludeSuspiciousCheckbox = screen.getByLabelText('Exclude suspicious files');
+
+    act(() => {
+      fireEvent.click(scanSecretsCheckbox);
+      fireEvent.click(excludeSuspiciousCheckbox);
+      jest.advanceTimersByTime(100); // Advance past the debounce
+    });
+
+    await waitFor(() => {
+      expect(mockOnConfigChange).toHaveBeenCalled();
+    });
+
+    const yamlLib = require('yaml');
+    expect(yamlLib.stringify).toHaveBeenCalled();
+    const savedConfig = yamlLib.stringify.mock.calls.at(-1)[0];
+
+    expect(savedConfig.enable_secret_scanning).toBe(false);
+    expect(savedConfig.exclude_suspicious_files).toBe(false);
   });
 
   test('calls selectDirectory when folder button is clicked', async () => {

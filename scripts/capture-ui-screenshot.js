@@ -12,6 +12,20 @@ const PORT = Number(process.env.UI_SCREENSHOT_PORT || 4173);
 const DEFAULT_SCREENSHOT_NAME = `ui-${process.platform}-${process.arch}.png`;
 const FIXED_MTIME = 1700000000000;
 
+function loadSecretScannerHelpers() {
+  const compiledSecretScannerPath = path.join(ROOT_DIR, 'build', 'ts', 'utils', 'secret-scanner.js');
+
+  try {
+    return require(compiledSecretScannerPath);
+  } catch (_error) {
+    throw new Error(
+      'Unable to load compiled secret scanner helpers. Run "npm run build:ts" before "npm run qa:screenshot".'
+    );
+  }
+}
+
+const { isSensitiveFilePath } = loadSecretScannerHelpers();
+
 const MIME_TYPES = {
   '.css': 'text/css; charset=UTF-8',
   '.html': 'text/html; charset=UTF-8',
@@ -104,6 +118,7 @@ function createStaticServer() {
 
 const MOCK_ROOT_PATH = '/mock-repository';
 const MOCK_APP_FILE_PATH = `${MOCK_ROOT_PATH}/src/App.tsx`;
+const MOCK_SECRET_FILE_PATH = `${MOCK_ROOT_PATH}/.env`;
 const MOCK_FEATURE_MODULE_COUNT = 24;
 const MOCK_CONFIG = [
   'include_extensions:',
@@ -214,6 +229,8 @@ const MOCK_DEEP_FEATURE_FILE_PATH = toMockPath(
 );
 
 const MOCK_DIRECTORY_TREE = [
+  createMockFile('.env'),
+  createMockFile('.npmrc'),
   createMockDirectory('src', [
     createMockFile('src/App.tsx'),
     createMockFile('src/index.tsx'),
@@ -262,7 +279,30 @@ const MOCK_DIRECTORY_TREE = [
   ]),
 ];
 
-const MOCK_TOTAL_FILE_COUNT = countMockFiles(MOCK_DIRECTORY_TREE);
+function cloneAndFilterMockTree(items, excludeSensitiveFiles) {
+  const filtered = [];
+
+  for (const item of items) {
+    if (item.type === 'file') {
+      if (excludeSensitiveFiles && isSensitiveFilePath(item.path)) {
+        continue;
+      }
+
+      filtered.push({ ...item });
+      continue;
+    }
+
+    const children = Array.isArray(item.children)
+      ? cloneAndFilterMockTree(item.children, excludeSensitiveFiles)
+      : [];
+    filtered.push({ ...item, children });
+  }
+
+  return filtered;
+}
+
+const MOCK_FILTERED_DIRECTORY_TREE = cloneAndFilterMockTree(MOCK_DIRECTORY_TREE, true);
+const MOCK_VISIBLE_FILE_COUNT_WITH_SECRET_FILTER = countMockFiles(MOCK_FILTERED_DIRECTORY_TREE);
 
 const SCREENSHOT_NAME = sanitizeScreenshotName(process.env.UI_SCREENSHOT_NAME);
 const SCREENSHOT_BASE_NAME = path.parse(SCREENSHOT_NAME).name;
@@ -279,25 +319,41 @@ const UI_SELECTORS = {
   appRoot: '#app',
   configTab: '[data-tab="config"]',
   sourceTab: '[data-tab="source"]',
+  secretScanningToggle: '#enable-secret-scanning',
+  suspiciousFilesToggle: '#exclude-suspicious-files',
   sourceFolderExpandButton: 'button[aria-label="Expand folder src"]',
   sourceFeaturesFolderExpandButton: 'button[aria-label="Expand folder features"]',
   sourceDeepFeatureFolderExpandButton: `button[aria-label="Expand folder ${MOCK_DEEP_FEATURE_NAME}"]`,
   sourceDeepUiFolderExpandButton: 'button[aria-label="Expand folder ui"]',
   appFileEntry: `[title="${MOCK_APP_FILE_PATH}"]`,
   deepFeatureFileEntry: `[title="${MOCK_DEEP_FEATURE_FILE_PATH}"]`,
+  secretFileEntry: `[title="${MOCK_SECRET_FILE_PATH}"]`,
+  refreshFileListButton: 'button[title="Refresh the file list"]',
   fileTreeScrollContainer: '.file-tree .overflow-auto',
 };
 
 async function setupMockElectronApi(page) {
   await page.addInitScript(
-    ({ mockRootPath, mockConfig, mockDirectoryTree, fixedMtime }) => {
+    ({ mockRootPath, mockConfig, mockDirectoryTree, mockFilteredDirectoryTree, fixedMtime }) => {
       localStorage.setItem('rootPath', mockRootPath);
       localStorage.setItem('configContent', mockConfig);
+
+      const cloneTree = (treeItems) => JSON.parse(JSON.stringify(treeItems));
 
       window.electronAPI = {
         getDefaultConfig: async () => mockConfig,
         selectDirectory: async () => mockRootPath,
-        getDirectoryTree: async () => mockDirectoryTree,
+        getDirectoryTree: async (_dirPath, configContent) => {
+          const activeConfig =
+            typeof configContent === 'string' && configContent.trim()
+              ? configContent
+              : localStorage.getItem('configContent') || '';
+          const excludeSensitiveFiles = !/(^|\n)\s*enable_secret_scanning\s*:\s*false\b/i.test(
+            activeConfig
+          ) && !/(^|\n)\s*exclude_suspicious_files\s*:\s*false\b/i.test(activeConfig);
+          const tree = excludeSensitiveFiles ? mockFilteredDirectoryTree : mockDirectoryTree;
+          return cloneTree(tree);
+        },
         analyzeRepository: async () => ({
           totalFiles: 0,
           totalTokens: 0,
@@ -337,6 +393,7 @@ async function setupMockElectronApi(page) {
       mockRootPath: MOCK_ROOT_PATH,
       mockConfig: MOCK_CONFIG,
       mockDirectoryTree: MOCK_DIRECTORY_TREE,
+      mockFilteredDirectoryTree: MOCK_FILTERED_DIRECTORY_TREE,
       fixedMtime: FIXED_MTIME,
     }
   );
@@ -384,11 +441,40 @@ async function captureAppStateScreenshots(page) {
       }
       const summaryText = fileTreeRoot.textContent || '';
       return summaryText.includes(`of ${totalFiles} files selected`);
-    }, MOCK_TOTAL_FILE_COUNT);
+    }, MOCK_VISIBLE_FILE_COUNT_WITH_SECRET_FILTER);
+  });
+
+  await runStep('Verify secret files are hidden by default', async () => {
+    await page.waitForFunction((selector) => !document.querySelector(selector), UI_SELECTORS.secretFileEntry);
   });
 
   await runStep('Capture source tab screenshot', async () => {
     await page.screenshot({ path: SCREENSHOTS.sourceTab, fullPage: true });
+  });
+
+  await runStep('Disable secret filtering in config tab', async () => {
+    await page.click(UI_SELECTORS.configTab);
+    await page.waitForSelector(UI_SELECTORS.secretScanningToggle, { timeout: 10000 });
+    await page.uncheck(UI_SELECTORS.secretScanningToggle);
+    await page.uncheck(UI_SELECTORS.suspiciousFilesToggle);
+    await page.getByRole('button', { name: /save config|saved/i }).click();
+    await page.waitForFunction(() => {
+      const configContent = localStorage.getItem('configContent') || '';
+      return (
+        /(^|\n)\s*enable_secret_scanning\s*:\s*false\b/i.test(configContent) &&
+        /(^|\n)\s*exclude_suspicious_files\s*:\s*false\b/i.test(configContent)
+      );
+    });
+  });
+
+  await runStep('Switch back to source tab and refresh file list', async () => {
+    await page.click(UI_SELECTORS.sourceTab);
+    await page.waitForSelector(UI_SELECTORS.refreshFileListButton, { timeout: 10000 });
+    await page.click(UI_SELECTORS.refreshFileListButton);
+  });
+
+  await runStep('Verify secret file appears when filtering is disabled', async () => {
+    await page.waitForSelector(UI_SELECTORS.secretFileEntry, { timeout: 10000 });
   });
 
   await runStep('Expand source folder', async () => {

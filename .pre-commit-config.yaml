@@ -14,7 +14,7 @@ repos:
     rev: v8.56.0
     hooks:
       - id: eslint
-        files: \.(js|jsx)$
+        files: \.(js|jsx|ts|tsx)$
         types: [file]
         additional_dependencies:
           - eslint@8.56.0
@@ -29,4 +29,9 @@ repos:
     rev: v3.1.0
     hooks:
       - id: prettier
-        types_or: [javascript, jsx, json, css, html]
+        files: \.(js|jsx|ts|tsx|json|css|html)$
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.3
+    hooks:
+      - id: gitleaks

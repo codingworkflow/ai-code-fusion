@@ -236,6 +236,28 @@ describe('filter-utils', () => {
       expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
     });
 
+    test('should exclude sensitive files by default', () => {
+      const itemPath = '/project/.env.production';
+      const rootPath = '/project';
+      const excludePatterns = [];
+      const config = {};
+
+      expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(true);
+    });
+
+    test('should allow sensitive files when secret scanning is disabled', () => {
+      const itemPath = '/project/.env.production';
+      const rootPath = '/project';
+      const excludePatterns = [];
+      const config = {
+        enable_secret_scanning: false,
+        use_custom_excludes: false,
+        use_gitignore: false,
+      };
+
+      expect(shouldExclude(itemPath, rootPath, excludePatterns, config)).toBe(false);
+    });
+
     test('should handle empty patterns', () => {
       const itemPath = '/project/src/file.js';
       const rootPath = '/project';

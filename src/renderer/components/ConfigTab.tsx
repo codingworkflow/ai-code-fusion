@@ -14,6 +14,8 @@ type ConfigStateSetters = {
   setUseCustomExcludes: React.Dispatch<React.SetStateAction<boolean>>;
   setUseCustomIncludes: React.Dispatch<React.SetStateAction<boolean>>;
   setUseGitignore: React.Dispatch<React.SetStateAction<boolean>>;
+  setEnableSecretScanning: React.Dispatch<React.SetStateAction<boolean>>;
+  setExcludeSuspiciousFiles: React.Dispatch<React.SetStateAction<boolean>>;
   setIncludeTreeView: React.Dispatch<React.SetStateAction<boolean>>;
   setShowTokenCount: React.Dispatch<React.SetStateAction<boolean>>;
 };
@@ -49,6 +51,8 @@ const updateConfigStates = (config: ConfigObject, stateSetters: ConfigStateSette
     setUseCustomExcludes,
     setUseCustomIncludes,
     setUseGitignore,
+    setEnableSecretScanning,
+    setExcludeSuspiciousFiles,
     setIncludeTreeView,
     setShowTokenCount,
   } = stateSetters;
@@ -70,6 +74,14 @@ const updateConfigStates = (config: ConfigObject, stateSetters: ConfigStateSette
     setUseGitignore(config.use_gitignore !== false);
   }
 
+  if (config?.enable_secret_scanning !== undefined) {
+    setEnableSecretScanning(config.enable_secret_scanning !== false);
+  }
+
+  if (config?.exclude_suspicious_files !== undefined) {
+    setExcludeSuspiciousFiles(config.exclude_suspicious_files !== false);
+  }
+
   if (config?.include_tree_view !== undefined) {
     setIncludeTreeView(config.include_tree_view === true);
   }
@@ -84,6 +96,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
   const [useCustomExcludes, setUseCustomExcludes] = useState(true);
   const [useCustomIncludes, setUseCustomIncludes] = useState(true);
   const [useGitignore, setUseGitignore] = useState(true);
+  const [enableSecretScanning, setEnableSecretScanning] = useState(true);
+  const [excludeSuspiciousFiles, setExcludeSuspiciousFiles] = useState(true);
   const [includeTreeView, setIncludeTreeView] = useState(true);
   const [showTokenCount, setShowTokenCount] = useState(true);
   const [fileExtensions, setFileExtensions] = useState('');
@@ -102,6 +116,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
         setUseCustomExcludes,
         setUseCustomIncludes,
         setUseGitignore,
+        setEnableSecretScanning,
+        setExcludeSuspiciousFiles,
         setIncludeTreeView,
         setShowTokenCount,
       });
@@ -131,6 +147,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
       config.use_custom_excludes = useCustomExcludes;
       config.use_custom_includes = useCustomIncludes;
       config.use_gitignore = useGitignore;
+      config.enable_secret_scanning = enableSecretScanning;
+      config.exclude_suspicious_files = excludeSuspiciousFiles;
       config.include_tree_view = includeTreeView;
       config.show_token_count = showTokenCount;
 
@@ -167,6 +185,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
     useCustomExcludes,
     useCustomIncludes,
     useGitignore,
+    enableSecretScanning,
+    excludeSuspiciousFiles,
     includeTreeView,
     showTokenCount,
     fileExtensions,
@@ -183,6 +203,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
     useCustomExcludes,
     useCustomIncludes,
     useGitignore,
+    enableSecretScanning,
+    excludeSuspiciousFiles,
     includeTreeView,
     showTokenCount,
     saveConfig,
@@ -343,6 +365,38 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     className='ml-2 block text-sm text-gray-700 dark:text-gray-300'
                   >
                     Apply .gitignore rules
+                  </label>
+                </div>
+
+                <div className='flex items-center'>
+                  <input
+                    type='checkbox'
+                    id='enable-secret-scanning'
+                    checked={enableSecretScanning}
+                    onChange={(e) => setEnableSecretScanning(e.target.checked)}
+                    className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
+                  />
+                  <label
+                    htmlFor='enable-secret-scanning'
+                    className='ml-2 block text-sm text-gray-700 dark:text-gray-300'
+                  >
+                    Scan content for secrets
+                  </label>
+                </div>
+
+                <div className='flex items-center'>
+                  <input
+                    type='checkbox'
+                    id='exclude-suspicious-files'
+                    checked={excludeSuspiciousFiles}
+                    onChange={(e) => setExcludeSuspiciousFiles(e.target.checked)}
+                    className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
+                  />
+                  <label
+                    htmlFor='exclude-suspicious-files'
+                    className='ml-2 block text-sm text-gray-700 dark:text-gray-300'
+                  >
+                    Exclude suspicious files
                   </label>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import path from 'path';
 import fnmatch from './fnmatch';
 import type { ConfigObject } from '../types/ipc';
+import { shouldExcludeSensitiveFilePath } from './secret-scanner';
 
 type ExcludePatterns = string[] & { includePatterns?: string[]; includeExtensions?: string[] };
 
@@ -73,6 +74,10 @@ export const shouldExclude = (
     const useCustomExcludes = config?.use_custom_excludes !== false;
     const customExcludes =
       useCustomExcludes && Array.isArray(config?.exclude_patterns) ? config.exclude_patterns : [];
+
+    if (shouldExcludeSensitiveFilePath(itemPath, config)) {
+      return true;
+    }
 
     if (shouldExcludeByExtension(itemPath, config)) {
       return true;

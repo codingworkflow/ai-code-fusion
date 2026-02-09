@@ -1,5 +1,4 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
 
 set -e
 
@@ -7,4 +6,4 @@ set -e
 npx lint-staged
 
 # Block commits that introduce secrets.
-npm run gitleaks
+npm run gitleaks:staged

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const yaml = require('yaml');
+const FAKE_GITHUB_TOKEN = ['ghp', 'AAAAAAAAAAAAAAAAAAAAAAAA'].join('_');
 
 // Mock electron ipcMain
 const mockIpcHandlers = {};
@@ -324,6 +325,32 @@ describe('Main Process IPC Handlers', () => {
 
       // Should have correct number of files (only those inside root)
       expect(result.filesInfo.length).toBe(1);
+    });
+
+    test('should skip suspicious file content when secret scanning is enabled', async () => {
+      const rootPath = '/mock/repo';
+      const configContent = `
+        use_custom_excludes: true
+        use_gitignore: true
+        include_extensions:
+          - .js
+        exclude_patterns:
+          - "**/node_modules/**"
+      `;
+      const selectedFiles = ['/mock/repo/src/index.js', '/mock/repo/src/secrets.js'];
+
+      fs.readFileSync.mockImplementation((filePath) => {
+        if (filePath.endsWith('secrets.js')) {
+          return `const token = "${FAKE_GITHUB_TOKEN}";`;
+        }
+        return 'console.log("Hello world");';
+      });
+
+      const handler = mockIpcHandlers['repo:analyze'];
+      const result = await handler(null, { rootPath, configContent, selectedFiles });
+
+      expect(result.filesInfo.find((file) => file.path === 'src/index.js')).toBeDefined();
+      expect(result.filesInfo.find((file) => file.path === 'src/secrets.js')).toBeUndefined();
     });
   });
 

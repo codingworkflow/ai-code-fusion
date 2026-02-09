@@ -15,6 +15,7 @@ jest.mock('../../src/utils/file-analyzer', () => {
 // Now import the module with its mocked functions
 const fileAnalyzerModule = require('../../src/utils/file-analyzer');
 const { FileAnalyzer, isBinaryFile } = fileAnalyzerModule;
+const FAKE_GITHUB_TOKEN = ['ghp', 'AAAAAAAAAAAAAAAAAAAAAAAA'].join('_');
 
 // Mock fs
 jest.mock('fs');
@@ -403,6 +404,56 @@ describe('FileAnalyzer', () => {
       const result = fileAnalyzer.analyzeFile('error.js');
 
       expect(result).toBeNull();
+    });
+
+    test('should skip suspicious files when secret scanning is enabled', () => {
+      isBinaryFile.mockReturnValue(false);
+      fs.readFileSync.mockReturnValue(`const token = "${FAKE_GITHUB_TOKEN}";`);
+
+      const result = fileAnalyzer.analyzeFile('src/secrets.ts');
+
+      expect(result).toBeNull();
+      expect(mockTokenCounter.countTokens).not.toHaveBeenCalled();
+    });
+
+    test('should analyze suspicious files when secret scanning is disabled', () => {
+      isBinaryFile.mockReturnValue(false);
+      fs.readFileSync.mockReturnValue(`const token = "${FAKE_GITHUB_TOKEN}";`);
+
+      const analyzer = new FileAnalyzer(
+        {
+          ...mockConfig,
+          enable_secret_scanning: false,
+        },
+        mockTokenCounter
+      );
+
+      const result = analyzer.analyzeFile('src/secrets.ts');
+
+      expect(result).toBe(100);
+      expect(mockTokenCounter.countTokens).toHaveBeenCalledWith(
+        `const token = "${FAKE_GITHUB_TOKEN}";`
+      );
+    });
+
+    test('should analyze suspicious files when suspicious file exclusion is disabled', () => {
+      isBinaryFile.mockReturnValue(false);
+      fs.readFileSync.mockReturnValue(`const token = "${FAKE_GITHUB_TOKEN}";`);
+
+      const analyzer = new FileAnalyzer(
+        {
+          ...mockConfig,
+          exclude_suspicious_files: false,
+        },
+        mockTokenCounter
+      );
+
+      const result = analyzer.analyzeFile('src/secrets.ts');
+
+      expect(result).toBe(100);
+      expect(mockTokenCounter.countTokens).toHaveBeenCalledWith(
+        `const token = "${FAKE_GITHUB_TOKEN}";`
+      );
     });
   });
 

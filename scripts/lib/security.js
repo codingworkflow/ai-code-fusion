@@ -13,6 +13,7 @@ const GITLEAKS_DIR = path.join(SECURITY_DIR, 'gitleaks');
 const SBOM_DIR = path.join(SECURITY_DIR, 'sbom');
 const RENOVATE_DIR = path.join(SECURITY_DIR, 'renovate');
 const SAFE_COMMAND_PATTERN = /^[A-Za-z0-9._/\-]+$/;
+const SAFE_WINDOWS_COMMAND_PATH_PATTERN = /^[A-Za-z0-9._/\\:()\- ]+$/;
 const ALLOWED_EXECUTABLES = new Set([
   'gh',
   'gh.exe',
@@ -31,14 +32,31 @@ function assertSafeCommand(command) {
     throw new Error('Command must be a non-empty string');
   }
 
-  if (!SAFE_COMMAND_PATTERN.test(command) || command.includes('..')) {
+  if (command.includes('\0')) {
+    throw new Error(`Unsafe command rejected: ${command}`);
+  }
+
+  const normalized = command.replace(/\\/g, '/');
+  if (normalized.includes('..')) {
+    throw new Error(`Unsafe command rejected: ${command}`);
+  }
+
+  const isWindowsAbsolutePath = /^[A-Za-z]:[\\/]/.test(command);
+  if (isWindowsAbsolutePath) {
+    if (!SAFE_WINDOWS_COMMAND_PATH_PATTERN.test(command)) {
+      throw new Error(`Unsafe command rejected: ${command}`);
+    }
+    return;
+  }
+
+  if (!SAFE_COMMAND_PATTERN.test(command)) {
     throw new Error(`Unsafe command rejected: ${command}`);
   }
 }
 
 function assertAllowedExecutable(command) {
   assertSafeCommand(command);
-  const baseName = path.basename(command).toLowerCase();
+  const baseName = path.basename(command.replace(/\\/g, '/')).toLowerCase();
 
   if (!ALLOWED_EXECUTABLES.has(baseName)) {
     throw new Error(`Executable not allowed: ${baseName}`);
@@ -173,6 +191,32 @@ async function runGitleaks() {
 
   console.log(`Gitleaks report written to: ${reportPath}`);
   return reportPath;
+}
+
+async function runGitleaksStaged() {
+  const gitleaksPath = resolveCommand('gitleaks', [
+    path.join('bin', 'gitleaks'),
+    path.join('bin', 'gitleaks.exe'),
+  ]);
+
+  if (!gitleaksPath) {
+    throw new Error('gitleaks not found in PATH or ./bin (install gitleaks first)');
+  }
+  assertAllowedExecutable(gitleaksPath);
+
+  const args = ['protect', '--staged', '--redact', '--no-banner', '--verbose', '--exit-code', '1'];
+  const commandName = process.platform === 'win32' ? 'gitleaks.exe' : 'gitleaks';
+  const env = withExecutablePath({ ...process.env }, gitleaksPath);
+  const commandLine = [commandName, ...sanitizeArgs(args)].join(' ');
+
+  console.log(`Running: ${commandLine}`);
+  const result = spawnSync(commandName, args, {
+    cwd: utils.ROOT_DIR,
+    stdio: 'inherit',
+    env,
+    shell: false,
+  });
+  assertProcessResult(result, commandName, commandLine);
 }
 
 async function runSbom() {
@@ -508,9 +552,14 @@ async function runSecurity() {
 
 module.exports = {
   runGitleaks,
+  runGitleaksStaged,
   runSbom,
   runRenovate,
   runRenovateLocal,
   runMendScan,
   runSecurity,
+  __testUtils: {
+    assertSafeCommand,
+    assertAllowedExecutable,
+  },
 };
