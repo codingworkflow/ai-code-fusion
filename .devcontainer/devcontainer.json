@@ -12,10 +12,7 @@
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind,consistency=cached",
   "remoteUser": "vscode",
   "containerUser": "vscode",
-  "updateRemoteUserUID": false,
-  "mounts": ["source=${localEnv:HOME},target=/host-home,type=bind,readonly"],
   "postCreateCommand": "npm ci",
-  "postStartCommand": "bash .devcontainer/post-start.sh",
   "customizations": {
     "vscode": {
       "extensions": [

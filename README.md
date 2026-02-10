@@ -95,12 +95,9 @@ This repo includes `.devcontainer/` for a reproducible local environment.
 
 - Node.js: 20 (matches CI)
 - npm: bundled with Node 20 (currently 10.x)
-- Container user: `vscode` (`uid=1000`)
-- Host git/ssh path mounted from `${HOME}` at `/host-home` and linked to container home
-
-Windows note:
-
-- If `${HOME}` is not set in your shell, set it to your user profile before `devcontainer up`.
+- Container user: `vscode`
+- UID/GID is aligned by Dev Containers defaults for bind-mount compatibility
+- No host home or SSH key directory is mounted in the container by default
 
 Smoke test with Dev Containers CLI:
 
