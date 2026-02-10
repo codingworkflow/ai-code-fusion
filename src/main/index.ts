@@ -236,13 +236,17 @@ const resolveRealPath = (inputPath: string): string => {
 const readPathStats = (itemPath: string): { stats: fs.Stats; isSymbolicLink: boolean } => {
   const lstatFn = fs.lstatSync;
   if (typeof lstatFn === 'function') {
-    const lstatResult = lstatFn(itemPath) as fs.Stats | undefined;
-    if (lstatResult && typeof lstatResult.isDirectory === 'function') {
-      return {
-        stats: lstatResult,
-        isSymbolicLink:
-          typeof lstatResult.isSymbolicLink === 'function' && lstatResult.isSymbolicLink(),
-      };
+    try {
+      const lstatResult = lstatFn(itemPath) as fs.Stats | undefined;
+      if (lstatResult && typeof lstatResult.isDirectory === 'function') {
+        return {
+          stats: lstatResult,
+          isSymbolicLink:
+            typeof lstatResult.isSymbolicLink === 'function' && lstatResult.isSymbolicLink(),
+        };
+      }
+    } catch {
+      // Fall back to statSync when lstatSync fails (e.g., transient ENOENT in mocked/fs race scenarios).
     }
   }
 

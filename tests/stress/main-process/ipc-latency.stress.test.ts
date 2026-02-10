@@ -81,6 +81,42 @@ const MOCK_ROOT_DIR = path.resolve('/mock/repo');
 const isMockRootDirectory = (dirPath: unknown): boolean =>
   typeof dirPath === 'string' && path.resolve(dirPath) === MOCK_ROOT_DIR;
 
+const createMockStats = ({
+  isDirectory = false,
+  isSymbolicLink = false,
+  size = 1000,
+}: {
+  isDirectory?: boolean;
+  isSymbolicLink?: boolean;
+  size?: number;
+} = {}) => ({
+  isDirectory: () => isDirectory,
+  isSymbolicLink: () => isSymbolicLink,
+  size,
+  mtime: new Date(),
+});
+
+const configureFlatRepositoryMock = (files: string[], size: number) => {
+  if (typeof fs.readdirSync !== 'function') {
+    fs.readdirSync = jest.fn();
+  }
+  if (typeof fs.statSync !== 'function') {
+    fs.statSync = jest.fn();
+  }
+  if (typeof fs.lstatSync !== 'function') {
+    fs.lstatSync = jest.fn();
+  }
+
+  fs.readdirSync.mockImplementation((dirPath) => {
+    if (isMockRootDirectory(dirPath)) {
+      return files;
+    }
+    return [];
+  });
+  fs.statSync.mockImplementation(() => createMockStats({ size }));
+  fs.lstatSync.mockImplementation(() => createMockStats({ size }));
+};
+
 const percentile = (values: number[], p: number): number => {
   if (!Array.isArray(values) || values.length === 0) {
     return 0;
@@ -103,27 +139,7 @@ describe('Main Process IPC Stress Benchmarks', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    fs.readdirSync.mockImplementation((dirPath) => {
-      if (isMockRootDirectory(dirPath)) {
-        return [];
-      }
-      return [];
-    });
-    fs.statSync.mockImplementation(() => ({
-      isDirectory: () => false,
-      isSymbolicLink: () => false,
-      size: 1000,
-      mtime: new Date(),
-    }));
-    if (typeof fs.lstatSync !== 'function') {
-      fs.lstatSync = jest.fn();
-    }
-    fs.lstatSync.mockImplementation(() => ({
-      isDirectory: () => false,
-      isSymbolicLink: () => false,
-      size: 1000,
-      mtime: new Date(),
-    }));
+    configureFlatRepositoryMock([], 1000);
     if (typeof fs.realpathSync !== 'function') {
       fs.realpathSync = jest.fn();
     }
@@ -146,24 +162,7 @@ describe('Main Process IPC Stress Benchmarks', () => {
     const fileCount = 5000;
     const files = Array.from({ length: fileCount }, (_, index) => `file-${index}.ts`);
 
-    fs.readdirSync.mockImplementation((dirPath) => {
-      if (isMockRootDirectory(dirPath)) {
-        return files;
-      }
-      return [];
-    });
-    fs.statSync.mockImplementation(() => ({
-      isDirectory: () => false,
-      isSymbolicLink: () => false,
-      size: 128,
-      mtime: new Date(),
-    }));
-    fs.lstatSync.mockImplementation(() => ({
-      isDirectory: () => false,
-      isSymbolicLink: () => false,
-      size: 128,
-      mtime: new Date(),
-    }));
+    configureFlatRepositoryMock(files, 128);
 
     const handler = mockIpcHandlers['fs:getDirectoryTree'];
     expect(handler).toBeDefined();
@@ -201,24 +200,7 @@ describe('Main Process IPC Stress Benchmarks', () => {
     const fileCount = 2000;
     const files = Array.from({ length: fileCount }, (_, index) => `node-${index}.ts`);
 
-    fs.readdirSync.mockImplementation((dirPath) => {
-      if (isMockRootDirectory(dirPath)) {
-        return files;
-      }
-      return [];
-    });
-    fs.statSync.mockImplementation(() => ({
-      isDirectory: () => false,
-      isSymbolicLink: () => false,
-      size: 64,
-      mtime: new Date(),
-    }));
-    fs.lstatSync.mockImplementation(() => ({
-      isDirectory: () => false,
-      isSymbolicLink: () => false,
-      size: 64,
-      mtime: new Date(),
-    }));
+    configureFlatRepositoryMock(files, 64);
 
     const handler = mockIpcHandlers['fs:getDirectoryTree'];
     expect(handler).toBeDefined();
