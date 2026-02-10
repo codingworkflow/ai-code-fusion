@@ -81,7 +81,7 @@ const createFixtureProject = (): string => {
   );
   writeFixtureFile(projectDir, 'README.md', '# Fixture Project\n\nUsed for Electron E2E coverage.\n');
   writeFixtureFile(projectDir, '.gitignore', 'dist/\n*.log\n!important.log\n');
-  writeFixtureFile(projectDir, '.env', 'LOCAL_SECRET_TOKEN=abc123\n');
+  writeFixtureFile(projectDir, '.env', 'LOCAL_TEST_VALUE=fixture\n');
   writeFixtureFile(projectDir, 'dist/bundle.js', 'console.log("should be excluded");\n');
   writeFixtureFile(projectDir, 'important.log', 'this file is intentionally present\n');
   writeFixtureFile(projectDir, 'assets/logo.bin', Buffer.from([0, 1, 2, 3, 4, 255]));

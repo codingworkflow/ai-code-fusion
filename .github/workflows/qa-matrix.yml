@@ -58,15 +58,17 @@ jobs:
         run: npx playwright install chromium
 
       - name: Capture UI screenshot
+        id: capture_ui_screenshot
         run: npm run qa:screenshot
         env:
           UI_SCREENSHOT_NAME: ui-${{ runner.os }}.png
 
       - name: Run Electron E2E (Playwright)
         if: runner.os == 'Linux'
-        run: xvfb-run -a npm run e2e:playwright
+        run: xvfb-run -a npm run e2e:playwright:ci
 
       - name: Upload UI screenshot
+        if: always() && steps.capture_ui_screenshot.outcome == 'success'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: ui-screenshot-${{ runner.os }}

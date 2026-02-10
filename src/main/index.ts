@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, net, protocol } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { pathToFileURL } from 'node:url';
 import yaml from 'yaml';
@@ -60,11 +61,27 @@ const createForbiddenAssetResponse = (): Response => new Response('Forbidden', {
 // Set environment
 const isDevelopment = process.env.NODE_ENV === 'development';
 const e2eUserDataPath = process.env.ELECTRON_USER_DATA_PATH;
+const isPathWithinTempRoot = (candidatePath: string): boolean => {
+  const tempRootPath = path.resolve(os.tmpdir());
+  const resolvedCandidatePath = path.resolve(candidatePath);
+  const relativePath = path.relative(tempRootPath, resolvedCandidatePath);
 
-if (typeof e2eUserDataPath === 'string' && e2eUserDataPath.trim().length > 0) {
+  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+};
+
+if (
+  process.env.NODE_ENV === 'test' &&
+  typeof e2eUserDataPath === 'string' &&
+  e2eUserDataPath.trim().length > 0
+) {
   const resolvedUserDataPath = path.resolve(e2eUserDataPath);
-  fs.mkdirSync(resolvedUserDataPath, { recursive: true });
-  app.setPath('userData', resolvedUserDataPath);
+
+  if (isPathWithinTempRoot(resolvedUserDataPath)) {
+    fs.mkdirSync(resolvedUserDataPath, { recursive: true });
+    app.setPath('userData', resolvedUserDataPath);
+  } else {
+    console.warn(`Ignoring ELECTRON_USER_DATA_PATH outside temp root: ${resolvedUserDataPath}`);
+  }
 }
 
 async function createWindow() {
