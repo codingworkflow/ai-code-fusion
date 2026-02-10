@@ -215,6 +215,47 @@ ipcMain.handle('updater:check', async () => {
 
 type FilterPatternBundle = string[] & { includePatterns?: string[]; includeExtensions?: string[] };
 
+const resolveRealPath = (inputPath: string): string => {
+  const resolvedPath = path.resolve(inputPath);
+  const realpathFn = fs.realpathSync?.native ?? fs.realpathSync;
+
+  if (typeof realpathFn === 'function') {
+    try {
+      const realPathResult = realpathFn(resolvedPath);
+      return typeof realPathResult === 'string' && realPathResult.length > 0
+        ? realPathResult
+        : resolvedPath;
+    } catch {
+      return resolvedPath;
+    }
+  }
+
+  return resolvedPath;
+};
+
+const readPathStats = (itemPath: string): { stats: fs.Stats; isSymbolicLink: boolean } => {
+  const lstatFn = fs.lstatSync;
+  if (typeof lstatFn === 'function') {
+    try {
+      const lstatResult = lstatFn(itemPath) as fs.Stats | undefined;
+      if (lstatResult && typeof lstatResult.isDirectory === 'function') {
+        return {
+          stats: lstatResult,
+          isSymbolicLink:
+            typeof lstatResult.isSymbolicLink === 'function' && lstatResult.isSymbolicLink(),
+        };
+      }
+    } catch {
+      // Fall back to statSync when lstatSync fails (e.g., transient ENOENT in mocked/fs race scenarios).
+    }
+  }
+
+  return {
+    stats: fs.statSync(itemPath),
+    isSymbolicLink: false,
+  };
+};
+
 const resolveAuthorizedPath = (candidatePath: string): string | null => {
   if (!authorizedRootPath || !candidatePath) {
     return null;
@@ -314,7 +355,15 @@ ipcMain.handle(
       return shouldExclude(itemPath, authorizedDirPath, excludePatterns, config);
     };
 
+    const visitedDirectoryRealPaths = new Set<string>();
     const walkDirectory = (dir: string): DirectoryTreeItem[] => {
+      const realDirectoryPath = resolveRealPath(dir);
+      if (visitedDirectoryRealPaths.has(realDirectoryPath)) {
+        console.warn(`Skipping previously visited directory to avoid recursion loops: ${dir}`);
+        return [];
+      }
+      visitedDirectoryRealPaths.add(realDirectoryPath);
+
       const items = fs.readdirSync(dir);
       const result: DirectoryTreeItem[] = [];
 
@@ -327,7 +376,21 @@ ipcMain.handle(
             continue;
           }
 
-          const stats = fs.statSync(itemPath);
+          const { stats, isSymbolicLink } = readPathStats(itemPath);
+          if (isSymbolicLink) {
+            const resolvedSymlinkPath = resolveRealPath(itemPath);
+            if (!isPathWithinRoot(authorizedDirPath, resolvedSymlinkPath)) {
+              console.warn(`Skipping symlink outside current root directory: ${itemPath}`);
+            }
+            // Skip symlinks to prevent traversal aliasing and recursion loops.
+            continue;
+          }
+
+          if (!isPathWithinRoot(authorizedDirPath, itemPath)) {
+            console.warn(`Skipping path outside current root directory: ${itemPath}`);
+            continue;
+          }
+
           const ext = path.extname(item).toLowerCase();
 
           if (stats.isDirectory()) {
@@ -382,23 +445,8 @@ const isPathWithinRoot = (rootPath: string, candidatePath: string): boolean => {
     return false;
   }
 
-  const resolveForBoundaryCheck = (inputPath: string): string => {
-    const resolvedPath = path.resolve(inputPath);
-    const realpathFn = fs.realpathSync?.native ?? fs.realpathSync;
-
-    if (typeof realpathFn === 'function') {
-      try {
-        return realpathFn(resolvedPath);
-      } catch {
-        return resolvedPath;
-      }
-    }
-
-    return resolvedPath;
-  };
-
-  const resolvedRootPath = resolveForBoundaryCheck(rootPath);
-  const resolvedCandidatePath = resolveForBoundaryCheck(candidatePath);
+  const resolvedRootPath = resolveRealPath(rootPath);
+  const resolvedCandidatePath = resolveRealPath(candidatePath);
   const relativePath = path.relative(resolvedRootPath, resolvedCandidatePath);
 
   return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));

@@ -135,6 +135,21 @@ jest.mock('../../../src/utils/content-processor', () => ({
 // Import the main process AFTER setting up all mocks
 require('../../../src/main/index');
 
+const buildMockStats = ({
+  isDirectory = false,
+  isSymbolicLink = false,
+  size = 1000,
+}: {
+  isDirectory?: boolean;
+  isSymbolicLink?: boolean;
+  size?: number;
+} = {}) => ({
+  isDirectory: () => isDirectory,
+  isSymbolicLink: () => isSymbolicLink,
+  size,
+  mtime: new Date(),
+});
+
 describe('Main Process IPC Handlers', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -170,19 +185,27 @@ describe('Main Process IPC Handlers', () => {
       return [];
     });
 
-    fs.statSync.mockImplementation((itemPath) => {
-      const isDirectory =
-        itemPath.endsWith('src') ||
-        itemPath.endsWith('utils') ||
-        itemPath.endsWith('node_modules') ||
-        itemPath.endsWith('react');
+    const isDefaultDirectoryPath = (itemPath) =>
+      itemPath.endsWith('src') ||
+      itemPath.endsWith('utils') ||
+      itemPath.endsWith('node_modules') ||
+      itemPath.endsWith('react');
 
-      return {
-        isDirectory: () => isDirectory,
-        size: 1000,
-        mtime: new Date(),
-      };
-    });
+    fs.statSync.mockImplementation((itemPath) =>
+      buildMockStats({ isDirectory: isDefaultDirectoryPath(itemPath) })
+    );
+    if (typeof fs.lstatSync !== 'function') {
+      fs.lstatSync = jest.fn();
+    }
+    fs.lstatSync.mockImplementation((itemPath) =>
+      buildMockStats({ isDirectory: isDefaultDirectoryPath(itemPath) })
+    );
+
+    if (typeof fs.realpathSync !== 'function') {
+      fs.realpathSync = jest.fn();
+    }
+    fs.realpathSync.mockImplementation((inputPath) => inputPath);
+    fs.realpathSync.native = fs.realpathSync;
 
     fs.existsSync.mockImplementation((path) => {
       return !path.includes('nonexistent');
@@ -358,6 +381,84 @@ describe('Main Process IPC Handlers', () => {
       const handler = mockIpcHandlers['fs:getDirectoryTree'];
       const result = await handler(null, '/unauthorized/path', '');
       expect(result).toEqual([]);
+    });
+
+    test('should skip symlinks that resolve outside the selected root', async () => {
+      fs.readdirSync.mockImplementation((dir) => {
+        if (dir === '/mock/repo') {
+          return ['src', 'outside-link'];
+        }
+        if (dir === '/mock/repo/src') {
+          return ['index.js'];
+        }
+        return [];
+      });
+
+      fs.statSync.mockImplementation((itemPath) =>
+        buildMockStats({ isDirectory: itemPath.endsWith('/src') })
+      );
+      fs.lstatSync.mockImplementation((itemPath) =>
+        buildMockStats({
+          isDirectory: itemPath.endsWith('/src'),
+          isSymbolicLink: itemPath.endsWith('/outside-link'),
+        })
+      );
+      fs.realpathSync.mockImplementation((inputPath) => {
+        if (inputPath === '/mock/repo/outside-link') {
+          return '/outside/world';
+        }
+        return inputPath;
+      });
+      fs.realpathSync.native = fs.realpathSync;
+
+      const handler = mockIpcHandlers['fs:getDirectoryTree'];
+      const result = await handler(null, '/mock/repo', '');
+
+      expect(result.find((item) => item.name === 'src')).toBeDefined();
+      expect(result.find((item) => item.name === 'outside-link')).toBeUndefined();
+    });
+
+    test('should avoid directory traversal loops caused by symlink cycles', async () => {
+      let readdirCalls = 0;
+      const maxReaddirCalls = 10;
+      fs.readdirSync.mockImplementation((dir) => {
+        readdirCalls += 1;
+        if (readdirCalls > maxReaddirCalls) {
+          throw new Error(`Exceeded directory traversal safety budget (${maxReaddirCalls})`);
+        }
+
+        if (dir === '/mock/repo') {
+          return ['src', 'loop-link'];
+        }
+        if (dir === '/mock/repo/src') {
+          return ['index.js'];
+        }
+        return [];
+      });
+
+      fs.statSync.mockImplementation((itemPath) =>
+        buildMockStats({ isDirectory: itemPath.endsWith('/src') })
+      );
+      fs.lstatSync.mockImplementation((itemPath) =>
+        buildMockStats({
+          isDirectory: itemPath.endsWith('/src'),
+          isSymbolicLink: itemPath.endsWith('/loop-link'),
+        })
+      );
+      fs.realpathSync.mockImplementation((inputPath) => {
+        if (inputPath === '/mock/repo/loop-link') {
+          return '/mock/repo';
+        }
+        return inputPath;
+      });
+      fs.realpathSync.native = fs.realpathSync;
+
+      const handler = mockIpcHandlers['fs:getDirectoryTree'];
+      const result = await handler(null, '/mock/repo', '');
+
+      expect(result.find((item) => item.name === 'src')).toBeDefined();
+      expect(result.find((item) => item.name === 'loop-link')).toBeUndefined();
+      expect(readdirCalls).toBeLessThanOrEqual(maxReaddirCalls);
     });
   });
 
