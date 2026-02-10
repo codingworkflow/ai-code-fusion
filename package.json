@@ -144,7 +144,7 @@
     "@types/node": "^22.13.4",
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.24.0",
+    "@typescript-eslint/eslint-plugin": "^8.55.0",
     "@typescript-eslint/parser": "^8.55.0",
     "autoprefixer": "^10.4.17",
     "babel-jest": "^29.7.0",
