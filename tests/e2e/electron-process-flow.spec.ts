@@ -35,6 +35,15 @@ const sanitizeForPath = (value: string): string =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'run';
 
+const getElectronLaunchArgs = (): string[] => {
+  if (process.platform === 'linux') {
+    // GitHub Linux runners do not expose setuid chrome-sandbox permissions to workspace files.
+    return ['--no-sandbox', '--disable-setuid-sandbox', MAIN_ENTRY_PATH];
+  }
+
+  return [MAIN_ENTRY_PATH];
+};
+
 const writeFixtureFile = (projectDir: string, relativePath: string, content: string | Buffer) => {
   const filePath = path.join(projectDir, relativePath);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -185,16 +194,21 @@ const test = base.extend<E2EFixtures>({
 
   electronApp: async ({ projectDir, savePath, userDataDir }, use) => {
     ensureMainEntryExists();
+    const launchEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      NODE_ENV: 'test',
+      ELECTRON_USER_DATA_PATH: userDataDir,
+      ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
+    };
+
+    if (process.platform === 'linux') {
+      launchEnv.ELECTRON_DISABLE_SANDBOX = 'true';
+    }
 
     const electronApp = await electron.launch({
-      args: [MAIN_ENTRY_PATH],
+      args: getElectronLaunchArgs(),
       cwd: REPO_ROOT,
-      env: {
-        ...process.env,
-        NODE_ENV: 'test',
-        ELECTRON_USER_DATA_PATH: userDataDir,
-        ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
-      },
+      env: launchEnv,
     });
 
     await stubNativeDialogs(electronApp, projectDir, savePath);
