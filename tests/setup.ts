@@ -41,6 +41,28 @@ window.electronAPI = {
     results: {},
     stats: {},
   }),
+  getUpdaterStatus: jest.fn().mockResolvedValue({
+    enabled: false,
+    platformSupported: false,
+    channel: 'stable',
+    allowPrerelease: false,
+    currentVersion: '0.0.0',
+    owner: 'codingworkflow',
+    repo: 'ai-code-fusion',
+    reason: 'Updater is disabled in tests',
+  }),
+  checkForUpdates: jest.fn().mockResolvedValue({
+    enabled: false,
+    platformSupported: false,
+    channel: 'stable',
+    allowPrerelease: false,
+    currentVersion: '0.0.0',
+    owner: 'codingworkflow',
+    repo: 'ai-code-fusion',
+    state: 'disabled',
+    updateAvailable: false,
+    reason: 'Updater is disabled in tests',
+  }),
 };
 
 if (!window.matchMedia) {
@@ -57,6 +79,27 @@ if (!window.matchMedia) {
       dispatchEvent: jest.fn(),
     })),
   });
+}
+
+if (typeof globalThis.Response === 'undefined') {
+  class MockResponse {
+    readonly status: number;
+    readonly ok: boolean;
+    private readonly bodyValue: unknown;
+
+    constructor(body?: unknown, init: { status?: number } = {}) {
+      this.status = init.status ?? 200;
+      this.ok = this.status >= 200 && this.status < 300;
+      this.bodyValue = body;
+    }
+
+    async text(): Promise<string> {
+      return typeof this.bodyValue === 'string' ? this.bodyValue : '';
+    }
+  }
+
+  (globalThis as unknown as { Response: typeof Response }).Response =
+    MockResponse as unknown as typeof Response;
 }
 
 // Mock fs module functions that we use in various tests

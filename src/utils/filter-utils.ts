@@ -5,7 +5,7 @@ import { shouldExcludeSensitiveFilePath } from './secret-scanner';
 
 type ExcludePatterns = string[] & { includePatterns?: string[]; includeExtensions?: string[] };
 
-export const normalizePath = (inputPath: string): string => inputPath.replace(/\\/g, '/');
+export const normalizePath = (inputPath: string): string => inputPath.replaceAll('\\', '/');
 
 export const getRelativePath = (filePath: string, rootPath: string): string =>
   normalizePath(path.relative(rootPath, filePath));
@@ -55,12 +55,41 @@ const matchesExcludePatterns = (
   excludePatterns: string[]
 ): boolean =>
   Array.isArray(excludePatterns) &&
-  excludePatterns.length > 0 &&
   excludePatterns.some(
     (pattern) =>
       fnmatch.fnmatch(normalizedPath, pattern) ||
       (!pattern.includes('/') && fnmatch.fnmatch(itemName, pattern))
   );
+
+const shouldExcludeByCustomPatterns = (
+  normalizedPath: string,
+  itemName: string,
+  customExcludes: string[]
+): boolean =>
+  customExcludes.length > 0 && matchesExcludePatterns(normalizedPath, itemName, customExcludes);
+
+const shouldExcludeByGitignorePatterns = (
+  normalizedPath: string,
+  itemName: string,
+  excludePatterns: ExcludePatterns | undefined,
+  customExcludes: string[],
+  config?: ConfigObject
+): boolean => {
+  if (config?.use_gitignore === false) {
+    return false;
+  }
+
+  const gitignoreIncludes = excludePatterns?.includePatterns || [];
+  if (gitignoreIncludes.length > 0 && matchesIncludePatterns(normalizedPath, itemName, gitignoreIncludes)) {
+    return false;
+  }
+
+  const gitignoreExcludes = Array.isArray(excludePatterns)
+    ? excludePatterns.filter((pattern) => !customExcludes.includes(pattern))
+    : [];
+
+  return gitignoreExcludes.length > 0 && matchesExcludePatterns(normalizedPath, itemName, gitignoreExcludes);
+};
 
 export const shouldExclude = (
   itemPath: string,
@@ -83,32 +112,17 @@ export const shouldExclude = (
       return true;
     }
 
-    if (customExcludes.length > 0 && matchesExcludePatterns(normalizedPath, itemName, customExcludes)) {
+    if (shouldExcludeByCustomPatterns(normalizedPath, itemName, customExcludes)) {
       return true;
     }
 
-    if (config?.use_gitignore !== false) {
-      const gitignoreIncludes = excludePatterns?.includePatterns || [];
-      if (
-        gitignoreIncludes.length > 0 &&
-        matchesIncludePatterns(normalizedPath, itemName, gitignoreIncludes)
-      ) {
-        return false;
-      }
-
-      const gitignoreExcludes = Array.isArray(excludePatterns)
-        ? excludePatterns.filter((pattern) => !customExcludes.includes(pattern))
-        : [];
-
-      if (
-        gitignoreExcludes.length > 0 &&
-        matchesExcludePatterns(normalizedPath, itemName, gitignoreExcludes)
-      ) {
-        return true;
-      }
-    }
-
-    return false;
+    return shouldExcludeByGitignorePatterns(
+      normalizedPath,
+      itemName,
+      excludePatterns,
+      customExcludes,
+      config
+    );
   } catch (error) {
     console.error(`Error in shouldExclude for ${itemPath}:`, error);
     return false;

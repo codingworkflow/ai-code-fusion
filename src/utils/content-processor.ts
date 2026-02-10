@@ -22,7 +22,7 @@ interface ProcessFileOptions {
 }
 
 export class ContentProcessor {
-  private tokenCounter: TokenCounter;
+  private readonly tokenCounter: TokenCounter;
 
   constructor(tokenCounter: TokenCounter) {
     this.tokenCounter = tokenCounter;
@@ -47,7 +47,7 @@ export class ContentProcessor {
         const headerContent = `${relativePath} (binary file)`;
 
         if (exportFormat === 'xml') {
-          const fileType = path.extname(filePath).replace('.', '').toUpperCase();
+          const fileType = path.extname(filePath).replaceAll('.', '').toUpperCase();
           return (
             `<file path="${escapeXmlAttribute(relativePath)}" binary="true" ` +
             `fileType="${escapeXmlAttribute(fileType)}" sizeKB="${escapeXmlAttribute(
@@ -65,7 +65,7 @@ export class ContentProcessor {
           `${headerContent}\n` +
           '######\n\n' +
           '[BINARY FILE]\n' +
-          `File Type: ${path.extname(filePath).replace('.', '').toUpperCase()}\n` +
+          `File Type: ${path.extname(filePath).replaceAll('.', '').toUpperCase()}\n` +
           `Size: ${fileSizeInKB} KB\n\n` +
           'Note: Binary files are included in the file tree but not processed for content.\n\n';
 
@@ -78,10 +78,10 @@ export class ContentProcessor {
       const content = fs.readFileSync(filePath, { encoding: 'utf-8', flag: 'r' });
 
       if (exportFormat === 'xml') {
-        const resolvedTokenCount =
-          options.tokenCount !== undefined
-            ? normalizeTokenCount(options.tokenCount)
-            : this.tokenCounter.countTokens(content);
+        const hasTokenCount = typeof options.tokenCount === 'number';
+        const resolvedTokenCount = hasTokenCount
+          ? normalizeTokenCount(options.tokenCount)
+          : this.tokenCounter.countTokens(content);
         const tokenAttribute = options.showTokenCount
           ? ` tokens="${escapeXmlAttribute(String(resolvedTokenCount))}"`
           : '';
@@ -124,14 +124,14 @@ export class ContentProcessor {
         }
 
         try {
-          const tokens = parseInt(lines[i + 1].trim());
+          const tokens = Number.parseInt(lines[i + 1].trim(), 10);
           // Skip entries with invalid token counts (NaN)
-          if (isNaN(tokens)) {
+          if (Number.isNaN(tokens)) {
             console.warn(`Skipping entry with invalid token count: ${linePath}`);
             continue;
           }
           // Clean up the path
-          const cleanPath = linePath.replace(/\\/g, '/').trim();
+          const cleanPath = linePath.replaceAll('\\', '/').trim();
           filesToProcess.push({ path: cleanPath, tokens });
         } catch (error) {
           console.warn(`Failed to parse line ${i}:`, error);

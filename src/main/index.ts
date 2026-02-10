@@ -1,7 +1,12 @@
-import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, net, protocol } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'node:url';
 import yaml from 'yaml';
+import { getErrorMessage } from './errors';
+import { initializeUpdaterFeatureFlags } from './feature-flags';
+import { createUpdaterService, resolveUpdaterRuntimeOptions } from './updater';
 import { loadDefaultConfig } from '../utils/config-manager';
 import { ContentProcessor } from '../utils/content-processor';
 import { FileAnalyzer, isBinaryFile } from '../utils/file-analyzer';
@@ -37,10 +42,20 @@ const tokenCounter = new TokenCounter();
 let mainWindow: BrowserWindow | null = null;
 let authorizedRootPath: string | null = null;
 
+let updaterService = createUpdaterService(
+  autoUpdater,
+  resolveUpdaterRuntimeOptions({
+    currentVersion: app.getVersion(),
+    platform: process.platform,
+    env: process.env,
+  })
+);
+
 const APP_ROOT = path.resolve(__dirname, '../../..');
 const RENDERER_INDEX_PATH = path.join(APP_ROOT, 'src', 'renderer', 'index.html');
 const ASSETS_DIR = path.join(APP_ROOT, 'src', 'assets');
 const PUBLIC_ASSETS_DIR = path.join(APP_ROOT, 'public', 'assets');
+const createForbiddenAssetResponse = (): Response => new Response('Forbidden', { status: 403 });
 
 // Set environment
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -82,21 +97,74 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.ai.code.fusion');
 }
 
-// Create window when Electron is ready
-app.whenReady().then(() => {
-  // Register assets protocol
-  protocol.registerFileProtocol('assets', (request, callback) => {
-    const url = request.url.replace('assets://', '');
-    const assetPath = path.normalize(path.join(PUBLIC_ASSETS_DIR, url));
-    if (!isPathWithinRoot(PUBLIC_ASSETS_DIR, assetPath)) {
-      callback({ error: -6 });
-      return;
+const runStartupUpdateCheck = () => {
+  if (!updaterService.shouldCheckOnStart) {
+    return;
+  }
+
+  void updaterService.checkForUpdates().then((result) => {
+    if (result.state === 'error') {
+      console.warn(`Startup update check failed: ${result.errorMessage}`);
+    } else if (result.state === 'update-available') {
+      console.info(`Update available: ${result.latestVersion ?? 'unknown version'}`);
     }
-    callback({ path: assetPath });
+  });
+};
+
+const initializeUpdater = async () => {
+  try {
+    const flagOverrides = await initializeUpdaterFeatureFlags({ env: process.env });
+    updaterService = createUpdaterService(
+      autoUpdater,
+      resolveUpdaterRuntimeOptions({
+        currentVersion: app.getVersion(),
+        platform: process.platform,
+        env: process.env,
+        flagOverrides,
+      })
+    );
+  } catch (error) {
+    console.warn(`Failed to initialize OpenFeature updater flags: ${getErrorMessage(error)}`);
+  } finally {
+    runStartupUpdateCheck();
+  }
+};
+
+const bootstrapApp = async () => {
+  await app.whenReady();
+
+  // Register assets protocol
+  protocol.handle('assets', async (request) => {
+    try {
+      const requestUrl = new URL(request.url);
+      const hostSegment = decodeURIComponent(requestUrl.hostname);
+      const pathSegment = requestUrl.pathname.replace(/^\/+/, '');
+      const relativeAssetPath = decodeURIComponent(
+        [hostSegment, pathSegment].filter((segment) => segment.length > 0).join('/')
+      );
+      const assetPath = path.normalize(path.join(PUBLIC_ASSETS_DIR, relativeAssetPath));
+
+      if (!isPathWithinRoot(PUBLIC_ASSETS_DIR, assetPath)) {
+        return createForbiddenAssetResponse();
+      }
+
+      try {
+        return await net.fetch(pathToFileURL(assetPath).toString());
+      } catch (error) {
+        console.warn(`Failed to load asset from assets protocol: ${getErrorMessage(error)}`);
+        return new Response('Not Found', { status: 404 });
+      }
+    } catch (error) {
+      console.warn(`Rejected malformed assets protocol request: ${getErrorMessage(error)}`);
+      return createForbiddenAssetResponse();
+    }
   });
 
-  void createWindow();
-});
+  await createWindow();
+  await initializeUpdater();
+};
+
+void bootstrapApp();
 
 // Quit when all windows are closed
 app.on('window-all-closed', () => {
@@ -107,8 +175,16 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (mainWindow === null) {
-    createWindow();
+    void createWindow();
   }
+});
+
+ipcMain.handle('updater:getStatus', () => {
+  return updaterService.getStatus();
+});
+
+ipcMain.handle('updater:check', async () => {
+  return updaterService.checkForUpdates();
 });
 
 // IPC Event Handlers
@@ -409,7 +485,7 @@ function generateTreeView(filesInfo: FileInfo[]): string {
   }
   const pathTree: PathTree = {};
   sortedFiles.forEach((file) => {
-    if (!file || !file.path) return;
+    if (!file?.path) return;
 
     const parts = file.path.split('/');
     let currentLevel: PathTree = pathTree;
@@ -452,8 +528,106 @@ function generateTreeView(filesInfo: FileInfo[]): string {
   return printTree(pathTree);
 }
 
-const getErrorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
+type RepositoryProcessingOptions = {
+  showTokenCount: boolean;
+  includeTreeView: boolean;
+  exportFormat: ReturnType<typeof normalizeExportFormat>;
+};
+
+type ProcessedRepositoryFileResult = {
+  content: string;
+  tokenCount: number;
+} | null;
+
+const resolveRepositoryProcessingOptions = (
+  options: ProcessRepositoryOptions['options'] = {}
+): RepositoryProcessingOptions => ({
+  showTokenCount: options.showTokenCount !== false,
+  includeTreeView: options.includeTreeView === true,
+  exportFormat: normalizeExportFormat(options.exportFormat),
+});
+
+const buildRepositoryHeader = (
+  processingOptions: RepositoryProcessingOptions,
+  treeView: string | undefined,
+  filesInfo: FileInfo[]
+): string => {
+  let header =
+    processingOptions.exportFormat === 'xml'
+      ? '<?xml version="1.0" encoding="UTF-8"?>\n<repositoryContent>\n'
+      : '# Repository Content\n\n';
+
+  if (processingOptions.includeTreeView) {
+    const resolvedTreeView = treeView || generateTreeView(filesInfo);
+    if (processingOptions.exportFormat === 'xml') {
+      header += `<fileStructure>${wrapXmlCdata(resolvedTreeView)}</fileStructure>\n`;
+    } else {
+      header += '## File Structure\n\n';
+      header += '```\n';
+      header += resolvedTreeView;
+      header += '```\n\n';
+    }
+  }
+
+  if (processingOptions.exportFormat === 'markdown' && processingOptions.includeTreeView) {
+    header += '## File Contents\n\n';
+  }
+
+  if (processingOptions.exportFormat === 'xml') {
+    header += '<files>\n';
+  }
+
+  return header;
+};
+
+const processRepositoryFile = (
+  authorizedProcessRoot: string,
+  fileInfo: FileInfo,
+  contentProcessor: ContentProcessor,
+  processingOptions: RepositoryProcessingOptions
+): ProcessedRepositoryFileResult => {
+  const filePath = fileInfo.path;
+  const tokenCount = normalizeTokenCount(fileInfo.tokens);
+  const fullPath = path.resolve(authorizedProcessRoot, filePath);
+
+  if (!isPathWithinRoot(authorizedProcessRoot, fullPath)) {
+    console.warn(`Skipping file outside root directory: ${filePath}`);
+    return null;
+  }
+
+  if (!fs.existsSync(fullPath)) {
+    console.warn(`File not found: ${filePath}`);
+    return null;
+  }
+
+  const content = contentProcessor.processFile(fullPath, filePath, {
+    exportFormat: processingOptions.exportFormat,
+    showTokenCount: processingOptions.showTokenCount,
+    tokenCount,
+  });
+  if (!content) {
+    return null;
+  }
+
+  return { content, tokenCount };
+};
+
+const buildRepositoryFooter = (
+  processingOptions: RepositoryProcessingOptions,
+  summary: { totalTokens: number; processedFiles: number; skippedFiles: number }
+): string => {
+  if (processingOptions.exportFormat === 'xml') {
+    return (
+      '</files>\n' +
+      `<summary totalTokens="${toXmlNumericAttribute(summary.totalTokens)}" ` +
+      `processedFiles="${toXmlNumericAttribute(summary.processedFiles)}" ` +
+      `skippedFiles="${toXmlNumericAttribute(summary.skippedFiles)}" />\n` +
+      '</repositoryContent>\n'
+    );
+  }
+
+  return '\n--END--\n';
+};
 
 // Process repository
 ipcMain.handle(
@@ -470,102 +644,49 @@ ipcMain.handle(
 
       const tokenCounter = new TokenCounter();
       const contentProcessor = new ContentProcessor(tokenCounter);
-
-      // Ensure options is an object with default values if missing
-      const processingOptions = {
-        showTokenCount: options.showTokenCount !== false, // Default to true if not explicitly false
-        includeTreeView: options.includeTreeView === true,
-        exportFormat: normalizeExportFormat(options.exportFormat),
-      };
+      const processingOptions = resolveRepositoryProcessingOptions(options);
 
       console.log('Processing with options:', processingOptions);
 
-      let processedContent = '';
-
-      if (processingOptions.exportFormat === 'xml') {
-        processedContent += '<?xml version="1.0" encoding="UTF-8"?>\n';
-        processedContent += '<repositoryContent>\n';
-      } else {
-        processedContent += '# Repository Content\n\n';
-      }
-
-      // Add tree view if requested in options, whether provided or not
-      if (processingOptions.includeTreeView) {
-        const resolvedTreeView = treeView || generateTreeView(filesInfo);
-        if (processingOptions.exportFormat === 'xml') {
-          processedContent += `<fileStructure>${wrapXmlCdata(resolvedTreeView)}</fileStructure>\n`;
-        } else {
-          processedContent += '## File Structure\n\n';
-          processedContent += '```\n';
-          processedContent += resolvedTreeView;
-          processedContent += '```\n\n';
-        }
-      }
-
-      if (processingOptions.exportFormat === 'markdown' && processingOptions.includeTreeView) {
-        processedContent += '## File Contents\n\n';
-      }
-
-      if (processingOptions.exportFormat === 'xml') {
-        processedContent += '<files>\n';
-      }
+      const normalizedFilesInfo = filesInfo ?? [];
+      let processedContent = buildRepositoryHeader(processingOptions, treeView, normalizedFilesInfo);
 
       let totalTokens = 0;
       let processedFiles = 0;
       let skippedFiles = 0;
 
-      for (const fileInfo of filesInfo ?? []) {
+      for (const fileInfo of normalizedFilesInfo) {
+        if (!fileInfo?.path) {
+          console.warn('Skipping invalid file info entry');
+          skippedFiles++;
+          continue;
+        }
+
         try {
-          if (!fileInfo || !fileInfo.path) {
-            console.warn('Skipping invalid file info entry');
+          const processedFile = processRepositoryFile(
+            authorizedProcessRoot,
+            fileInfo,
+            contentProcessor,
+            processingOptions
+          );
+          if (!processedFile) {
             skippedFiles++;
             continue;
           }
 
-          const filePath = fileInfo.path;
-          const tokenCount = normalizeTokenCount(fileInfo.tokens);
-
-          // Resolve and validate against root path to prevent traversal and prefix bypasses.
-          const fullPath = path.resolve(authorizedProcessRoot, filePath);
-
-          if (!isPathWithinRoot(authorizedProcessRoot, fullPath)) {
-            console.warn(`Skipping file outside root directory: ${filePath}`);
-            skippedFiles++;
-            continue;
-          }
-
-          if (fs.existsSync(fullPath)) {
-            const content = contentProcessor.processFile(fullPath, filePath, {
-              exportFormat: processingOptions.exportFormat,
-              showTokenCount: processingOptions.showTokenCount,
-              tokenCount,
-            });
-
-            if (content) {
-              processedContent += content;
-              totalTokens += tokenCount;
-              processedFiles++;
-            }
-          } else {
-            console.warn(`File not found: ${filePath}`);
-            skippedFiles++;
-          }
+          processedContent += processedFile.content;
+          totalTokens += processedFile.tokenCount;
+          processedFiles++;
         } catch (error) {
           console.warn(`Failed to process file: ${getErrorMessage(error)}`);
           skippedFiles++;
         }
       }
-
-      if (processingOptions.exportFormat === 'xml') {
-        processedContent += '</files>\n';
-        processedContent +=
-          `<summary totalTokens="${toXmlNumericAttribute(totalTokens)}" ` +
-          `processedFiles="${toXmlNumericAttribute(processedFiles)}" ` +
-          `skippedFiles="${toXmlNumericAttribute(skippedFiles)}" />\n`;
-        processedContent += '</repositoryContent>\n';
-      } else {
-        processedContent += '\n--END--\n';
-      }
+      processedContent += buildRepositoryFooter(processingOptions, {
+        totalTokens,
+        processedFiles,
+        skippedFiles,
+      });
 
       return {
         content: processedContent,
@@ -573,7 +694,7 @@ ipcMain.handle(
         totalTokens,
         processedFiles,
         skippedFiles,
-        filesInfo: filesInfo, // Add filesInfo to the response
+        filesInfo: normalizedFilesInfo,
       };
     } catch (error) {
       console.error('Error processing repository:', error);

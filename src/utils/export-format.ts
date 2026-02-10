@@ -7,18 +7,18 @@ export const normalizeExportFormat = (format: unknown): ExportFormat =>
   format === 'xml' ? 'xml' : 'markdown';
 
 export const sanitizeXmlContent = (value: string): string =>
-  value.replace(INVALID_XML_CHARACTERS_REGEX, '');
+  value.replaceAll(INVALID_XML_CHARACTERS_REGEX, '');
 
 export const escapeXmlAttribute = (value: string): string =>
   sanitizeXmlContent(value)
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
 
 export const wrapXmlCdata = (value: string): string =>
-  `<![CDATA[${sanitizeXmlContent(value).replace(/]]>/g, ']]]]><![CDATA[>')}]]>`;
+  `<![CDATA[${sanitizeXmlContent(value).replaceAll(']]>', ']]]]><![CDATA[>')}]]>`;
 
 export const normalizeTokenCount = (value: unknown): number => {
   const numericValue = typeof value === 'number' ? value : Number(value);

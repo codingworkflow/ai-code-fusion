@@ -70,12 +70,13 @@ const SourceTab = ({
   const [isCalculating, setIsCalculating] = useState(false);
   const [tokenCache, setTokenCache] = useState<TokenCache>({});
   const pendingCalculationRef = useRef<number | null>(null);
+  const appWindow = globalThis as Window & typeof globalThis;
 
   const handleDirectorySelect = async () => {
     setTokenCache({});
     setTotalTokens(0);
     if (pendingCalculationRef.current !== null) {
-      window.clearTimeout(pendingCalculationRef.current);
+      appWindow.clearTimeout(pendingCalculationRef.current);
       pendingCalculationRef.current = null;
     }
     await onDirectorySelect();
@@ -95,7 +96,7 @@ const SourceTab = ({
 
   useEffect(() => {
     if (pendingCalculationRef.current !== null) {
-      window.clearTimeout(pendingCalculationRef.current);
+      appWindow.clearTimeout(pendingCalculationRef.current);
       pendingCalculationRef.current = null;
     }
 
@@ -105,7 +106,8 @@ const SourceTab = ({
       return undefined;
     }
 
-    if (!window.electronAPI?.countFilesTokens) {
+    const electronAPI = appWindow.electronAPI;
+    if (!electronAPI?.countFilesTokens) {
       setIsCalculating(false);
       return undefined;
     }
@@ -125,19 +127,19 @@ const SourceTab = ({
       return undefined;
     }
 
-    pendingCalculationRef.current = window.setTimeout(async () => {
+    pendingCalculationRef.current = appWindow.setTimeout(async () => {
       try {
         const batchSize = Math.min(20, filesToProcess.length);
         const fileBatch = filesToProcess.slice(0, batchSize);
 
-        const { results, stats } = await window.electronAPI!.countFilesTokens({
+        const { results, stats } = await electronAPI.countFilesTokens({
           rootPath,
           filePaths: fileBatch,
         });
 
         const normalizedResults: CountFilesTokensResult['results'] = { ...results };
         for (const filePath of fileBatch) {
-          if (!Object.prototype.hasOwnProperty.call(normalizedResults, filePath)) {
+          if (!Object.hasOwn(normalizedResults, filePath)) {
             normalizedResults[filePath] = 0;
           }
         }
@@ -151,8 +153,8 @@ const SourceTab = ({
         setTotalTokens(newTotal);
 
         if (filesToProcess.length > batchSize) {
-          pendingCalculationRef.current = window.setTimeout(() => {
-            window.dispatchEvent(new Event('tokenCalculationContinue'));
+          pendingCalculationRef.current = appWindow.setTimeout(() => {
+            appWindow.dispatchEvent(new Event('tokenCalculationContinue'));
           }, 10);
         } else {
           setIsCalculating(false);
@@ -165,27 +167,139 @@ const SourceTab = ({
 
     return () => {
       if (pendingCalculationRef.current !== null) {
-        window.clearTimeout(pendingCalculationRef.current);
+        appWindow.clearTimeout(pendingCalculationRef.current);
         pendingCalculationRef.current = null;
       }
     };
-  }, [selectedFiles, tokenCache]);
+  }, [selectedFiles, tokenCache, rootPath, appWindow]);
 
   useEffect(() => {
     const handleContinue = () => {
       setTokenCache((prevCache) => ({ ...prevCache }));
     };
 
-    window.addEventListener('tokenCalculationContinue', handleContinue);
+    appWindow.addEventListener('tokenCalculationContinue', handleContinue);
 
     return () => {
-      window.removeEventListener('tokenCalculationContinue', handleContinue);
+      appWindow.removeEventListener('tokenCalculationContinue', handleContinue);
     };
-  }, []);
+  }, [appWindow]);
 
   const hasSelection = selectedFiles.length > 0 || selectedFolders.length > 0;
   const isProcessBusy = isAnalyzing || isCalculating;
   const isProcessDisabled = !rootPath || !hasSelection || isProcessBusy;
+  const renderProcessButtonContent = () => {
+    const spinnerIcon = (
+      <svg
+        data-testid='process-selected-files-spinner'
+        className='animate-spin -ml-1 mr-2 h-4 w-4 text-white'
+        xmlns='http://www.w3.org/2000/svg'
+        fill='none'
+        viewBox='0 0 24 24'
+      >
+        <circle
+          className='opacity-25'
+          cx='12'
+          cy='12'
+          r='10'
+          stroke='currentColor'
+          strokeWidth='4'
+        ></circle>
+        <path
+          className='opacity-75'
+          fill='currentColor'
+          d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+        ></path>
+      </svg>
+    );
+
+    if (isAnalyzing) {
+      return (
+        <>
+          {spinnerIcon}
+          Processing...
+        </>
+      );
+    }
+
+    if (isCalculating) {
+      return (
+        <>
+          {spinnerIcon}
+          Selecting files...
+        </>
+      );
+    }
+
+    return (
+      <>
+        <svg
+          className='w-4 h-4 mr-2'
+          xmlns='http://www.w3.org/2000/svg'
+          fill='none'
+          viewBox='0 0 24 24'
+          stroke='currentColor'
+        >
+          <path
+            strokeLinecap='round'
+            strokeLinejoin='round'
+            strokeWidth={2}
+            d='M13 10V3L4 14h7v7l9-11h-7z'
+          />
+        </svg>
+        Process Selected Files
+      </>
+    );
+  };
+
+  let fileSelectionContent: React.ReactNode = null;
+  if (directoryTree.length > 0) {
+    fileSelectionContent = (
+      <div className='mb-6 flex min-h-0 flex-1 flex-col'>
+        <div className='mb-2 flex items-center'>
+          <label
+            htmlFor='file-folder-selection'
+            className='block text-sm font-medium text-gray-700 dark:text-gray-300'
+          >
+            Select Files and Folders
+          </label>
+        </div>
+
+        <div
+          id='file-folder-selection'
+          className='flex min-h-0 flex-1 rounded-md border border-gray-200 dark:border-gray-700 shadow-sm'
+        >
+          <FileTree
+            items={directoryTree}
+            selectedFiles={selectedFiles}
+            selectedFolders={selectedFolders}
+            onFileSelect={onFileSelect}
+            onFolderSelect={onFolderSelect}
+          />
+        </div>
+      </div>
+    );
+  } else if (rootPath) {
+    fileSelectionContent = (
+      <div className='mb-6 rounded-md border border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800'>
+        <svg
+          className='mx-auto size-12 text-gray-400'
+          fill='none'
+          stroke='currentColor'
+          viewBox='0 0 24 24'
+          xmlns='http://www.w3.org/2000/svg'
+        >
+          <path
+            strokeLinecap='round'
+            strokeLinejoin='round'
+            strokeWidth='2'
+            d='M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z'
+          ></path>
+        </svg>
+        <p className='mt-2 text-gray-500 dark:text-gray-400'>Loading directory content...</p>
+      </div>
+    );
+  }
 
   return (
     <div className='flex h-full min-h-0 flex-col'>
@@ -231,11 +345,11 @@ const SourceTab = ({
                 setTokenCache({});
                 setTotalTokens(0);
                 if (pendingCalculationRef.current !== null) {
-                  window.clearTimeout(pendingCalculationRef.current);
+                  appWindow.clearTimeout(pendingCalculationRef.current);
                   pendingCalculationRef.current = null;
                 }
-                if (window.refreshDirectoryTree) {
-                  await window.refreshDirectoryTree();
+                if (appWindow.refreshDirectoryTree) {
+                  await appWindow.refreshDirectoryTree();
                 }
               }}
               className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
@@ -264,7 +378,7 @@ const SourceTab = ({
                 selectedFolders.forEach((folderPath) => onFolderSelect(folderPath, false));
                 setTotalTokens(0);
                 if (pendingCalculationRef.current !== null) {
-                  window.clearTimeout(pendingCalculationRef.current);
+                  appWindow.clearTimeout(pendingCalculationRef.current);
                   pendingCalculationRef.current = null;
                 }
                 setIsCalculating(false);
@@ -327,121 +441,11 @@ const SourceTab = ({
           disabled={isProcessDisabled}
           className={getProcessButtonClass(rootPath, hasSelection, isProcessBusy)}
         >
-          {isAnalyzing ? (
-            <>
-              <svg
-                data-testid='process-selected-files-spinner'
-                className='animate-spin -ml-1 mr-2 h-4 w-4 text-white'
-                xmlns='http://www.w3.org/2000/svg'
-                fill='none'
-                viewBox='0 0 24 24'
-              >
-                <circle
-                  className='opacity-25'
-                  cx='12'
-                  cy='12'
-                  r='10'
-                  stroke='currentColor'
-                  strokeWidth='4'
-                ></circle>
-                <path
-                  className='opacity-75'
-                  fill='currentColor'
-                  d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
-                ></path>
-              </svg>
-              Processing...
-            </>
-          ) : isCalculating ? (
-            <>
-              <svg
-                data-testid='process-selected-files-spinner'
-                className='animate-spin -ml-1 mr-2 h-4 w-4 text-white'
-                xmlns='http://www.w3.org/2000/svg'
-                fill='none'
-                viewBox='0 0 24 24'
-              >
-                <circle
-                  className='opacity-25'
-                  cx='12'
-                  cy='12'
-                  r='10'
-                  stroke='currentColor'
-                  strokeWidth='4'
-                ></circle>
-                <path
-                  className='opacity-75'
-                  fill='currentColor'
-                  d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
-                ></path>
-              </svg>
-              Selecting files...
-            </>
-          ) : (
-            <>
-              <svg
-                className='w-4 h-4 mr-2'
-                xmlns='http://www.w3.org/2000/svg'
-                fill='none'
-                viewBox='0 0 24 24'
-                stroke='currentColor'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth={2}
-                  d='M13 10V3L4 14h7v7l9-11h-7z'
-                />
-              </svg>
-              Process Selected Files
-            </>
-          )}
+          {renderProcessButtonContent()}
         </button>
       </div>
 
-      {directoryTree.length > 0 ? (
-        <div className='mb-6 flex min-h-0 flex-1 flex-col'>
-          <div className='mb-2 flex items-center'>
-            <label
-              htmlFor='file-folder-selection'
-              className='block text-sm font-medium text-gray-700 dark:text-gray-300'
-            >
-              Select Files and Folders
-            </label>
-          </div>
-
-          <div
-            id='file-folder-selection'
-            className='flex min-h-0 flex-1 rounded-md border border-gray-200 dark:border-gray-700 shadow-sm'
-          >
-            <FileTree
-              items={directoryTree}
-              selectedFiles={selectedFiles}
-              selectedFolders={selectedFolders}
-              onFileSelect={onFileSelect}
-              onFolderSelect={onFolderSelect}
-            />
-          </div>
-        </div>
-      ) : rootPath ? (
-        <div className='mb-6 rounded-md border border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800'>
-          <svg
-            className='mx-auto size-12 text-gray-400'
-            fill='none'
-            stroke='currentColor'
-            viewBox='0 0 24 24'
-            xmlns='http://www.w3.org/2000/svg'
-          >
-            <path
-              strokeLinecap='round'
-              strokeLinejoin='round'
-              strokeWidth='2'
-              d='M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z'
-            ></path>
-          </svg>
-          <p className='mt-2 text-gray-500 dark:text-gray-400'>Loading directory content...</p>
-        </div>
-      ) : null}
+      {fileSelectionContent}
 
       {isAnalyzing && (
         <div className='mt-4 p-4 bg-blue-50 rounded-md border border-blue-100 dark:border-blue-800 dark:bg-blue-900/30'>

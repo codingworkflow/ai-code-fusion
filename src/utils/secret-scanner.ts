@@ -5,7 +5,8 @@ import type { ConfigObject } from '../types/ipc';
 type SecretRule = {
   id: string;
   description: string;
-  pattern: RegExp;
+  pattern?: RegExp;
+  matches?: (content: string) => boolean;
 };
 
 export interface SecretMatch {
@@ -18,6 +19,47 @@ export interface SecretScanResult {
   matches: SecretMatch[];
   error?: string;
 }
+
+const AWS_SECRET_KEY_ASSIGNMENT_PREFIX =
+  /aws(?:\s|_|-)?secret(?:\s|_|-)?access(?:\s|_|-)?key\s*[:=]\s*/gi;
+
+const AWS_SECRET_KEY_VALUE = /^[A-Za-z0-9+/=]{40}$/;
+
+const extractAssignedValue = (input: string): string => {
+  const trimmed = input.trimStart();
+  if (!trimmed) {
+    return '';
+  }
+
+  const quoteCharacter = trimmed[0];
+  if (quoteCharacter === '"' || quoteCharacter === "'") {
+    const endQuoteIndex = trimmed.indexOf(quoteCharacter, 1);
+    if (endQuoteIndex <= 0) {
+      return '';
+    }
+    return trimmed.slice(1, endQuoteIndex);
+  }
+
+  const stopCharacterIndex = trimmed.search(/[\s;,]/);
+  return stopCharacterIndex === -1 ? trimmed : trimmed.slice(0, stopCharacterIndex);
+};
+
+const hasAwsSecretAssignment = (content: string): boolean => {
+  AWS_SECRET_KEY_ASSIGNMENT_PREFIX.lastIndex = 0;
+
+  let assignmentMatch: RegExpExecArray | null;
+  while ((assignmentMatch = AWS_SECRET_KEY_ASSIGNMENT_PREFIX.exec(content)) !== null) {
+    const startIndex = assignmentMatch.index + assignmentMatch[0].length;
+    const candidateValue = extractAssignedValue(content.slice(startIndex));
+    if (AWS_SECRET_KEY_VALUE.test(candidateValue)) {
+      AWS_SECRET_KEY_ASSIGNMENT_PREFIX.lastIndex = 0;
+      return true;
+    }
+  }
+
+  AWS_SECRET_KEY_ASSIGNMENT_PREFIX.lastIndex = 0;
+  return false;
+};
 
 const SECRET_RULES: SecretRule[] = [
   {
@@ -38,8 +80,7 @@ const SECRET_RULES: SecretRule[] = [
   {
     id: 'aws-secret-assignment',
     description: 'AWS secret key assignment detected',
-    pattern:
-      /aws(?:_|[\s-])?secret(?:_|[\s-])?access(?:_|[\s-])?key\s*[:=]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/i,
+    matches: hasAwsSecretAssignment,
   },
   {
     id: 'slack-token',
@@ -57,10 +98,15 @@ const SECRET_RULES: SecretRule[] = [
     pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/,
   },
   {
-    id: 'generic-credential-assignment',
-    description: 'Credential assignment detected',
+    id: 'token-assignment',
+    description: 'Token assignment detected',
     pattern:
-      /(?:api[_-]?key|access[_-]?token|auth[_-]?token|secret|password|passwd|client[_-]?secret)\s*[:=]\s*['"][^'"\n]{8,}['"]/i,
+      /(?:api[_-]?key|access[_-]?token|auth[_-]?token)\s*[:=]\s*['"][^'"\n]{8,}['"]/i,
+  },
+  {
+    id: 'credential-assignment',
+    description: 'Credential assignment detected',
+    pattern: /(?:secret|password|passwd|client[_-]?secret)\s*[:=]\s*['"][^'"\n]{8,}['"]/i,
   },
 ];
 
@@ -75,7 +121,7 @@ const SENSITIVE_FILE_EXTENSION_PATTERN =
 
 const SENSITIVE_PATH_SEGMENTS = ['.aws/credentials', '.npmrc', '.pypirc', '.docker/config.json'];
 
-const normalizeFilePath = (filePath: string): string => filePath.replace(/\\/g, '/').toLowerCase();
+const normalizeFilePath = (filePath: string): string => filePath.replaceAll('\\', '/').toLowerCase();
 
 export const shouldExcludeSuspiciousFiles = (config?: ConfigObject): boolean =>
   config?.enable_secret_scanning !== false && config?.exclude_suspicious_files !== false;
@@ -114,7 +160,11 @@ export const scanContentForSecrets = (content: string): SecretScanResult => {
   const matches: SecretMatch[] = [];
 
   for (const rule of SECRET_RULES) {
-    if (rule.pattern.test(content)) {
+    const isMatch =
+      typeof rule.matches === 'function'
+        ? rule.matches(content)
+        : rule.pattern?.test(content) === true;
+    if (isMatch) {
       matches.push({ id: rule.id, description: rule.description });
     }
   }

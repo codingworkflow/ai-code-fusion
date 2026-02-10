@@ -5,7 +5,7 @@ type Encoder = {
 };
 
 export class TokenCounter {
-  private encoder: Encoder | null;
+  private readonly encoder: Encoder | null;
 
   constructor(modelName = 'gpt-4') {
     try {
@@ -22,7 +22,10 @@ export class TokenCounter {
         return 0;
       }
 
-      const textStr = String(text);
+      const textStr = this.normalizeTokenInput(text);
+      if (!textStr) {
+        return 0;
+      }
 
       if (this.encoder) {
         return this.encoder.encode(textStr).length;
@@ -34,5 +37,30 @@ export class TokenCounter {
       console.error('Error counting tokens:', error);
       return 0;
     }
+  }
+
+  private normalizeTokenInput(value: unknown): string {
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (
+      typeof value === 'number' ||
+      typeof value === 'boolean' ||
+      typeof value === 'bigint' ||
+      typeof value === 'symbol'
+    ) {
+      return String(value);
+    }
+
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value) ?? '';
+      } catch {
+        return '';
+      }
+    }
+
+    return '';
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import TabBar from './TabBar';
 import SourceTab from './SourceTab';
 import ConfigTab from './ConfigTab';
@@ -18,8 +18,27 @@ import type {
 
 // Helper function to ensure consistent error handling
 const ensureError = (error: unknown): Error => {
-  if (error instanceof Error) return error;
-  return new Error(String(error));
+  if (error instanceof Error) {
+    return error;
+  }
+
+  if (typeof error === 'string') {
+    return new Error(error);
+  }
+
+  if (typeof error === 'number' || typeof error === 'boolean' || typeof error === 'bigint') {
+    return new Error(String(error));
+  }
+
+  if (typeof error === 'object' && error !== null) {
+    try {
+      return new Error(JSON.stringify(error));
+    } catch {
+      return new Error('Unknown error');
+    }
+  }
+
+  return new Error('Unknown error');
 };
 
 type ProcessingOptions = {
@@ -34,7 +53,7 @@ const App = () => {
   const [directoryTree, setDirectoryTree] = useState<DirectoryTreeItem[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
-  const [, setAnalysisResult] = useState<AnalyzeRepositoryResult | null>(null);
+  const analysisResultRef = useRef<AnalyzeRepositoryResult | null>(null);
   const [processedResult, setProcessedResult] = useState<ProcessRepositoryResult | null>(null);
   const [processingOptions, setProcessingOptions] = useState<ProcessingOptions>({
     showTokenCount: true,
@@ -43,6 +62,7 @@ const App = () => {
   });
   // Load config from localStorage or via API, no fallbacks
   const [configContent, setConfigContent] = useState('# Loading configuration...');
+  const appWindow = globalThis as Window & typeof globalThis;
 
   // Load config from localStorage or default config
   useEffect(() => {
@@ -50,9 +70,9 @@ const App = () => {
     const savedConfig = localStorage.getItem('configContent');
     if (savedConfig) {
       setConfigContent(savedConfig);
-    } else if (window.electronAPI?.getDefaultConfig) {
+    } else if (appWindow.electronAPI?.getDefaultConfig) {
       // Otherwise load from the main process
-      window.electronAPI
+      appWindow.electronAPI
         .getDefaultConfig?.()
         .then((defaultConfig) => {
           if (defaultConfig) {
@@ -70,8 +90,8 @@ const App = () => {
     if (savedRootPath) {
       setRootPath(savedRootPath);
       // Load directory tree for the saved path
-      if (window.electronAPI?.getDirectoryTree) {
-        window.electronAPI
+      if (appWindow.electronAPI?.getDirectoryTree) {
+        appWindow.electronAPI
           .getDirectoryTree?.(savedRootPath, localStorage.getItem('configContent'))
           .then((tree) => {
             setDirectoryTree(tree ?? []);
@@ -94,7 +114,7 @@ const App = () => {
     };
 
     // Add event listener for localStorage changes
-    window.addEventListener('storage', handleStorageChange);
+    appWindow.addEventListener('storage', handleStorageChange);
 
     // Create an interval to check localStorage directly (for cross-component updates)
     const pathSyncInterval = setInterval(() => {
@@ -106,10 +126,10 @@ const App = () => {
 
     // Cleanup
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      appWindow.removeEventListener('storage', handleStorageChange);
       clearInterval(pathSyncInterval);
     };
-  }, [rootPath]);
+  }, [rootPath, appWindow]);
 
   // Whenever configContent changes, save to localStorage
   useEffect(() => {
@@ -149,14 +169,14 @@ const App = () => {
     // This allows the exclude patterns to be applied when the config is updated
     if (activeTab === 'config' && tab === 'source' && rootPath) {
       // Reset gitignore parser cache to ensure fresh parsing
-      window.electronAPI?.resetGitignoreCache?.();
+      appWindow.electronAPI?.resetGitignoreCache?.();
       // refreshDirectoryTree now resets selection states and gets a fresh tree
       refreshDirectoryTree();
     }
 
     // Clear analysis results when switching to source tab
     if (tab === 'source') {
-      setAnalysisResult(null);
+      analysisResultRef.current = null;
     }
 
     if (tab === 'source') {
@@ -165,7 +185,7 @@ const App = () => {
   };
 
   // Expose the tab change function for other components to use
-  window.switchToTab = handleTabChange;
+  appWindow.switchToTab = handleTabChange;
 
   // Function to refresh the directory tree with current config
   const refreshDirectoryTree = async () => {
@@ -175,29 +195,29 @@ const App = () => {
       setSelectedFolders([]);
 
       // Reset analysis results to prevent stale data
-      setAnalysisResult(null);
+      analysisResultRef.current = null;
       setProcessedResult(null);
 
       // Reset gitignore cache to ensure fresh parsing
-      await window.electronAPI?.resetGitignoreCache?.();
+      await appWindow.electronAPI?.resetGitignoreCache?.();
 
       // Get fresh directory tree
-      const tree = await window.electronAPI?.getDirectoryTree?.(rootPath, configContent);
+      const tree = await appWindow.electronAPI?.getDirectoryTree?.(rootPath, configContent);
       setDirectoryTree(tree ?? []);
     }
   };
 
-  // Expose the refreshDirectoryTree function to the window object for SourceTab to use
-  window.refreshDirectoryTree = refreshDirectoryTree;
+  // Expose the refreshDirectoryTree function to the global window object for SourceTab to use
+  appWindow.refreshDirectoryTree = refreshDirectoryTree;
 
   const handleDirectorySelect = async () => {
-    const dirPath = await window.electronAPI?.selectDirectory?.();
+    const dirPath = await appWindow.electronAPI?.selectDirectory?.();
 
     if (dirPath) {
       // First reset selection states and analysis results
       setSelectedFiles([]);
       setSelectedFolders([]);
-      setAnalysisResult(null);
+      analysisResultRef.current = null;
       setProcessedResult(null);
 
       // Update rootPath and save to localStorage
@@ -205,13 +225,13 @@ const App = () => {
       localStorage.setItem('rootPath', dirPath);
 
       // Dispatch a custom event to notify all components of the path change
-      window.dispatchEvent(new CustomEvent('rootPathChanged', { detail: dirPath }));
+      appWindow.dispatchEvent(new CustomEvent('rootPathChanged', { detail: dirPath }));
 
       // Reset gitignore cache to ensure fresh parsing
-      await window.electronAPI?.resetGitignoreCache?.();
+      await appWindow.electronAPI?.resetGitignoreCache?.();
 
       // Get fresh directory tree
-      const tree = await window.electronAPI?.getDirectoryTree?.(dirPath, configContent);
+      const tree = await appWindow.electronAPI?.getDirectoryTree?.(dirPath, configContent);
       setDirectoryTree(tree ?? []);
     }
   };
@@ -243,19 +263,19 @@ const App = () => {
         throw new Error('No valid files selected');
       }
 
-      if (!window.electronAPI?.analyzeRepository || !window.electronAPI?.processRepository) {
+      if (!appWindow.electronAPI?.analyzeRepository || !appWindow.electronAPI?.processRepository) {
         throw new Error('Electron API is not available.');
       }
 
       // Apply current config before analyzing
-      const currentAnalysisResult = await window.electronAPI.analyzeRepository({
+      const currentAnalysisResult = await appWindow.electronAPI.analyzeRepository({
         rootPath,
         configContent,
         selectedFiles: validFiles, // Use validated files only
       });
 
       // Store analysis result
-      setAnalysisResult(currentAnalysisResult);
+      analysisResultRef.current = currentAnalysisResult;
 
       // Read options from config
       const options: ProcessingOptions = {
@@ -274,7 +294,7 @@ const App = () => {
       setProcessingOptions(options);
 
       // Process directly without going to analyze tab
-      const result = await window.electronAPI.processRepository({
+      const result = await appWindow.electronAPI.processRepository({
         rootPath,
         filesInfo: currentAnalysisResult.filesInfo ?? [],
         treeView: null, // Let the main process handle tree generation
@@ -301,8 +321,8 @@ const App = () => {
   };
 
   const normalizePathForBoundaryCheck = (inputPath: string): string => {
-    const normalizedSlashes = inputPath.replace(/\\/g, '/');
-    const driveMatch = normalizedSlashes.match(/^[A-Za-z]:/);
+    const normalizedSlashes = inputPath.replaceAll('\\', '/');
+    const driveMatch = /^[A-Za-z]:/.exec(normalizedSlashes);
     const drivePrefix = driveMatch ? driveMatch[0].toLowerCase() : '';
     const pathWithoutDrive = drivePrefix ? normalizedSlashes.slice(2) : normalizedSlashes;
     const hasLeadingSlash = pathWithoutDrive.startsWith('/');
@@ -312,7 +332,7 @@ const App = () => {
 
     for (const segment of segments) {
       if (segment === '..') {
-        if (resolvedSegments.length > 0 && resolvedSegments[resolvedSegments.length - 1] !== '..') {
+        if (resolvedSegments.length > 0 && resolvedSegments.at(-1) !== '..') {
           resolvedSegments.pop();
         } else if (!hasLeadingSlash) {
           // Preserve relative parent traversals so boundary checks can reject them.
@@ -352,21 +372,21 @@ const App = () => {
         return null;
       }
 
-      if (!window.electronAPI?.analyzeRepository || !window.electronAPI?.processRepository) {
+      if (!appWindow.electronAPI?.analyzeRepository || !appWindow.electronAPI?.processRepository) {
         throw new Error('Electron API is not available.');
       }
 
       console.log('Reloading and processing files...');
 
       // Run a fresh analysis to re-read all files from disk
-      const currentReanalysisResult = await window.electronAPI.analyzeRepository({
+      const currentReanalysisResult = await appWindow.electronAPI.analyzeRepository({
         rootPath,
         configContent,
         selectedFiles: selectedFiles,
       });
 
       // Update our state with the fresh analysis
-      setAnalysisResult(currentReanalysisResult);
+      analysisResultRef.current = currentReanalysisResult;
 
       // Get the latest config options
       const options: ProcessingOptions = { ...processingOptions };
@@ -386,7 +406,7 @@ const App = () => {
       console.log('Processing with fresh analysis and options:', options);
 
       // Process with the fresh analysis
-      const result = await window.electronAPI.processRepository({
+      const result = await appWindow.electronAPI.processRepository({
         rootPath,
         filesInfo: currentReanalysisResult.filesInfo ?? [],
         treeView: null, // Let server generate
@@ -418,7 +438,7 @@ const App = () => {
 
     try {
       const outputExtension = processedResult.exportFormat === 'xml' ? 'xml' : 'md';
-      await window.electronAPI?.saveFile?.({
+      await appWindow.electronAPI?.saveFile?.({
         content: processedResult.content,
         defaultPath: `${rootPath}/output.${outputExtension}`,
       });
@@ -569,7 +589,7 @@ const App = () => {
               <DarkModeToggle />
               <button
                 onClick={() => {
-                  window.electron?.shell?.openExternal?.(
+                  appWindow.electron?.shell?.openExternal?.(
                     'https://github.com/codingworkflow/ai-code-fusion'
                   );
                 }}

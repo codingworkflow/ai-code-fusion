@@ -49,10 +49,10 @@ export const isBinaryFile = (filePath: string): boolean => {
 };
 
 class FileAnalyzer {
-  private config: ConfigObject;
-  private tokenCounter: TokenCounter;
-  private useGitignore: boolean;
-  private gitignorePatterns: GitignorePatterns;
+  private readonly config: ConfigObject;
+  private readonly tokenCounter: TokenCounter;
+  private readonly useGitignore: boolean;
+  private readonly gitignorePatterns: GitignorePatterns;
 
   constructor(
     config: ConfigObject,
@@ -61,7 +61,7 @@ class FileAnalyzer {
   ) {
     this.config = config;
     this.tokenCounter = tokenCounter;
-    this.useGitignore = options.useGitignore || false;
+    this.useGitignore = options.useGitignore ?? false;
     this.gitignorePatterns = options.gitignorePatterns || {
       excludePatterns: [],
       includePatterns: [],
@@ -70,7 +70,7 @@ class FileAnalyzer {
 
   shouldProcessFile(filePath: string): boolean {
     // Convert path to forward slashes for consistent pattern matching
-    const normalizedPath = filePath.replace(/\\/g, '/');
+    const normalizedPath = filePath.replaceAll('\\', '/');
     const ext = path.extname(filePath);
 
     // Explicit check for node_modules
@@ -103,12 +103,12 @@ class FileAnalyzer {
     }
 
     // Add gitignore exclude patterns
-    if (this.useGitignore && this.gitignorePatterns && this.gitignorePatterns.excludePatterns) {
+    if (this.useGitignore) {
       patterns.push(...this.gitignorePatterns.excludePatterns);
     }
 
     // Add include patterns property for gitignore negated patterns
-    if (this.useGitignore && this.gitignorePatterns && this.gitignorePatterns.includePatterns) {
+    if (this.useGitignore) {
       patterns.includePatterns = this.gitignorePatterns.includePatterns;
     }
 

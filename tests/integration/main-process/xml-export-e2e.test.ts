@@ -11,6 +11,7 @@ describe('XML export end-to-end', () => {
   let tempRoot = '';
   let mockShowOpenDialog;
   let mockShowSaveDialog;
+  let mockNetFetch;
 
   beforeEach(() => {
     jest.resetModules();
@@ -20,6 +21,7 @@ describe('XML export end-to-end', () => {
     });
     mockShowOpenDialog = jest.fn();
     mockShowSaveDialog = jest.fn();
+    mockNetFetch = jest.fn().mockResolvedValue({ ok: true, status: 200, url: 'file:///mock.png' });
 
     jest.doMock('electron', () => ({
       app: {
@@ -27,6 +29,7 @@ describe('XML export end-to-end', () => {
         on: jest.fn(),
         setAppUserModelId: jest.fn(),
         quit: jest.fn(),
+        getVersion: jest.fn().mockReturnValue('0.2.0'),
       },
       BrowserWindow: jest.fn().mockImplementation(() => ({
         loadFile: jest.fn().mockResolvedValue(null),
@@ -45,8 +48,24 @@ describe('XML export end-to-end', () => {
         showOpenDialog: mockShowOpenDialog,
         showSaveDialog: mockShowSaveDialog,
       },
+      net: {
+        fetch: mockNetFetch,
+      },
       protocol: {
-        registerFileProtocol: jest.fn(),
+        handle: jest.fn(),
+      },
+    }));
+
+    jest.doMock('electron-updater', () => ({
+      autoUpdater: {
+        checkForUpdates: jest.fn().mockResolvedValue({
+          updateInfo: { version: '0.2.1' },
+        }),
+        setFeedURL: jest.fn(),
+        allowPrerelease: false,
+        autoDownload: true,
+        autoInstallOnAppQuit: false,
+        channel: undefined,
       },
     }));
 

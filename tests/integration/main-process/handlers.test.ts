@@ -5,6 +5,15 @@ const FAKE_GITHUB_TOKEN = ['ghp', 'AAAAAAAAAAAAAAAAAAAAAAAA'].join('_');
 // Mock electron ipcMain
 const mockIpcHandlers = {};
 const mockProtocolHandlers = {};
+const mockNetFetch = jest.fn();
+const mockAutoUpdater = {
+  checkForUpdates: jest.fn(),
+  setFeedURL: jest.fn(),
+  allowPrerelease: false,
+  autoDownload: true,
+  autoInstallOnAppQuit: false,
+  channel: undefined,
+};
 const mockIpcMain = {
   handle: jest.fn((channel, handler) => {
     mockIpcHandlers[channel] = handler;
@@ -18,6 +27,7 @@ jest.mock('electron', () => ({
     on: jest.fn(),
     setAppUserModelId: jest.fn(),
     quit: jest.fn(),
+    getVersion: jest.fn().mockReturnValue('0.2.0'),
   },
   BrowserWindow: jest.fn().mockImplementation(() => ({
     loadFile: jest.fn().mockResolvedValue(null),
@@ -33,9 +43,12 @@ jest.mock('electron', () => ({
     showSaveDialog: jest.fn(),
   },
   protocol: {
-    registerFileProtocol: jest.fn((scheme, handler) => {
+    handle: jest.fn((scheme, handler) => {
       mockProtocolHandlers[scheme] = handler;
     }),
+  },
+  net: {
+    fetch: mockNetFetch,
   },
 }));
 
@@ -63,6 +76,9 @@ jest.mock('path', () => {
 });
 
 jest.mock('yaml');
+jest.mock('electron-updater', () => ({
+  autoUpdater: mockAutoUpdater,
+}));
 
 // Mock core utils
 jest.mock('../../../src/utils/token-counter', () => ({
@@ -122,6 +138,14 @@ require('../../../src/main/index');
 describe('Main Process IPC Handlers', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockNetFetch.mockResolvedValue({ ok: true, status: 200, url: 'file:///mock/icon.png' });
+    mockAutoUpdater.allowPrerelease = false;
+    mockAutoUpdater.autoDownload = true;
+    mockAutoUpdater.autoInstallOnAppQuit = false;
+    mockAutoUpdater.channel = undefined;
+    mockAutoUpdater.checkForUpdates.mockResolvedValue({
+      updateInfo: { version: '0.2.1', releaseName: 'Mock Update' },
+    });
     const { dialog } = require('electron');
     dialog.showOpenDialog.mockResolvedValue({
       canceled: false,
@@ -199,10 +223,10 @@ describe('Main Process IPC Handlers', () => {
       const handler = mockProtocolHandlers['assets'];
       expect(handler).toBeDefined();
 
-      const callback = jest.fn();
-      handler({ url: 'assets://../../etc/passwd' }, callback);
-
-      expect(callback).toHaveBeenCalledWith({ error: -6 });
+      const response = await handler({ url: 'assets://../../etc/passwd' });
+      expect(response).toBeDefined();
+      expect(response.status).toBe(403);
+      expect(mockNetFetch).not.toHaveBeenCalled();
     });
 
     test('should resolve valid assets protocol requests', async () => {
@@ -210,14 +234,59 @@ describe('Main Process IPC Handlers', () => {
       const handler = mockProtocolHandlers['assets'];
       expect(handler).toBeDefined();
 
-      const callback = jest.fn();
-      handler({ url: 'assets://icon.png' }, callback);
+      const basicResponse = await handler({ url: 'assets://icon.png' });
+      expect(basicResponse).toBeDefined();
 
-      expect(callback).toHaveBeenCalledWith(
-        expect.objectContaining({
-          path: expect.stringContaining('icon.png'),
-        })
+      const hostPathResponse = await handler({ url: 'assets://public/icon.png' });
+      expect(hostPathResponse).toBeDefined();
+
+      const nestedResponse = await handler({ url: 'assets://host/dir/file.png' });
+      expect(nestedResponse).toBeDefined();
+
+      const encodedResponse = await handler({ url: 'assets://host/dir/space%20file.png' });
+      expect(encodedResponse).toBeDefined();
+
+      expect(mockNetFetch).toHaveBeenNthCalledWith(1, expect.stringContaining('icon.png'));
+      expect(mockNetFetch).toHaveBeenNthCalledWith(2, expect.stringContaining('public/icon.png'));
+      expect(mockNetFetch).toHaveBeenNthCalledWith(3, expect.stringContaining('host/dir/file.png'));
+      expect(mockNetFetch).toHaveBeenNthCalledWith(
+        4,
+        expect.stringContaining('host/dir/space%20file.png')
       );
+    });
+
+    test('should reject encoded traversal in assets protocol requests', async () => {
+      await Promise.resolve();
+      const handler = mockProtocolHandlers['assets'];
+      expect(handler).toBeDefined();
+
+      const response = await handler({ url: 'assets://%2e%2e%2f%2e%2e/etc/passwd' });
+      expect(response).toBeDefined();
+      expect(response.status).toBe(403);
+      expect(mockNetFetch).not.toHaveBeenCalled();
+    });
+
+    test('should reject malformed assets protocol requests', async () => {
+      await Promise.resolve();
+      const handler = mockProtocolHandlers['assets'];
+      expect(handler).toBeDefined();
+
+      const response = await handler({ url: 'assets://host/%E0%A4%A' });
+      expect(response).toBeDefined();
+      expect(response.status).toBe(403);
+      expect(mockNetFetch).not.toHaveBeenCalled();
+    });
+
+    test('should return 404 when asset fetch fails', async () => {
+      await Promise.resolve();
+      const handler = mockProtocolHandlers['assets'];
+      expect(handler).toBeDefined();
+
+      mockNetFetch.mockRejectedValueOnce(new Error('asset missing'));
+
+      const response = await handler({ url: 'assets://icon.png' });
+      expect(response).toBeDefined();
+      expect(response.status).toBe(404);
     });
   });
 
@@ -289,6 +358,60 @@ describe('Main Process IPC Handlers', () => {
       const handler = mockIpcHandlers['fs:getDirectoryTree'];
       const result = await handler(null, '/unauthorized/path', '');
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('updater handlers', () => {
+    test('should expose updater status from runtime', async () => {
+      const handler = mockIpcHandlers['updater:getStatus'];
+      expect(handler).toBeDefined();
+
+      const result = await handler(null);
+      const platformSupported = process.platform === 'win32' || process.platform === 'darwin';
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          currentVersion: '0.2.0',
+          channel: 'stable',
+          allowPrerelease: false,
+          platformSupported,
+          enabled: platformSupported,
+        })
+      );
+    });
+
+    test('should check updates with platform-aware behavior', async () => {
+      const handler = mockIpcHandlers['updater:check'];
+      expect(handler).toBeDefined();
+
+      const result = await handler(null);
+      const platformSupported = process.platform === 'win32' || process.platform === 'darwin';
+
+      if (platformSupported) {
+        expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith(
+          expect.objectContaining({
+            provider: 'github',
+            owner: 'codingworkflow',
+            repo: 'ai-code-fusion',
+          })
+        );
+        expect(mockAutoUpdater.checkForUpdates).toHaveBeenCalled();
+        expect(result).toEqual(
+          expect.objectContaining({
+            state: 'update-available',
+            updateAvailable: true,
+            latestVersion: '0.2.1',
+          })
+        );
+      } else {
+        expect(mockAutoUpdater.checkForUpdates).not.toHaveBeenCalled();
+        expect(result).toEqual(
+          expect.objectContaining({
+            state: 'disabled',
+            updateAvailable: false,
+          })
+        );
+      }
     });
   });
 

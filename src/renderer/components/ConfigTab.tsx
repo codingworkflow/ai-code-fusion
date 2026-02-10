@@ -110,6 +110,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
   const [exportFormat, setExportFormat] = useState<ExportFormat>('markdown');
   const [fileExtensions, setFileExtensions] = useState('');
   const [excludePatterns, setExcludePatterns] = useState('');
+  const appWindow = globalThis as Window & typeof globalThis;
 
   // Extract and set file extensions and exclude patterns sections
   useEffect(() => {
@@ -250,25 +251,25 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
       }
     };
 
-    window.addEventListener('rootPathChanged', handleRootPathChanged);
+    appWindow.addEventListener('rootPathChanged', handleRootPathChanged);
 
     return () => {
       clearInterval(pathCheckInterval);
-      window.removeEventListener('rootPathChanged', handleRootPathChanged);
+      appWindow.removeEventListener('rootPathChanged', handleRootPathChanged);
     };
-  }, [folderPath]);
+  }, [folderPath, appWindow]);
 
   // Handle folder selection
   const handleFolderSelect = async () => {
-    if (window.electronAPI?.selectDirectory) {
-      const dirPath = await window.electronAPI.selectDirectory?.();
+    if (appWindow.electronAPI?.selectDirectory) {
+      const dirPath = await appWindow.electronAPI.selectDirectory?.();
       if (dirPath) {
         // Store the selected path in localStorage for use across the app
         localStorage.setItem('rootPath', dirPath);
         setFolderPath(dirPath);
 
         // Dispatch a custom event to notify other components
-        window.dispatchEvent(new CustomEvent('rootPathChanged', { detail: dirPath }));
+        appWindow.dispatchEvent(new CustomEvent('rootPathChanged', { detail: dirPath }));
 
         // Automatically switch to Select Files tab
         setTimeout(() => {
@@ -280,8 +281,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
 
   const goToSourceTab = () => {
     // Switch to the Source tab
-    if (window.switchToTab) {
-      window.switchToTab('source');
+    if (appWindow.switchToTab) {
+      appWindow.switchToTab('source');
     }
   };
 

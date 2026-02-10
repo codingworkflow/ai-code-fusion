@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { execSync, spawnSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const sonarqubeScanner = require('sonarqube-scanner');
@@ -12,6 +12,24 @@ function redactUrlForLogs(rawUrl) {
   } catch (_error) {
     return '<redacted-url>';
   }
+}
+
+function resolveNpmCliPath() {
+  const npmExecPath = process.env.npm_execpath;
+  if (npmExecPath && path.isAbsolute(npmExecPath) && fs.existsSync(npmExecPath)) {
+    return npmExecPath;
+  }
+
+  try {
+    const resolvedNpmCliPath = require.resolve('npm/bin/npm-cli.js');
+    if (path.isAbsolute(resolvedNpmCliPath) && fs.existsSync(resolvedNpmCliPath)) {
+      return resolvedNpmCliPath;
+    }
+  } catch (_error) {
+    // Keep fallback behavior below.
+  }
+
+  return null;
 }
 
 function parseEnvValue(rawValue) {
@@ -275,15 +293,32 @@ if (!sonarToken) {
   console.log('SONAR_TOKEN not set; attempting unauthenticated scan');
 }
 
-// Run code coverage if it doesn't exist yet
+// Generate a fresh coverage report so Sonar never uses stale lcov data.
+const shouldGenerateCoverage = process.env.SONAR_GENERATE_COVERAGE !== 'false';
 const coveragePath = path.join(__dirname, '..', 'coverage', 'lcov.info');
-if (!fs.existsSync(coveragePath)) {
-  console.log('No coverage data found. Running tests with coverage...');
+if (shouldGenerateCoverage) {
+  const coverageDir = path.join(__dirname, '..', 'coverage');
+  fs.rmSync(coverageDir, { recursive: true, force: true });
+  console.log('Generating fresh Jest coverage report for SonarQube...');
   try {
-    execSync('npm test -- --coverage', { stdio: 'inherit' });
+    const npmCliPath = resolveNpmCliPath();
+    if (!npmCliPath) {
+      console.error('Error: Unable to resolve npm CLI path for coverage generation.');
+      process.exit(1);
+    }
+
+    execFileSync(process.execPath, [npmCliPath, 'test', '--', '--coverage', '--runInBand'], {
+      stdio: 'inherit',
+    });
   } catch (error) {
-    console.warn('Warning: Test coverage generation had issues, but continuing with scan.');
+    console.error('Error: Failed to generate coverage report for SonarQube.');
+    process.exit(1);
   }
+}
+
+if (!fs.existsSync(coveragePath)) {
+  console.error(`Error: Coverage report not found at ${coveragePath}`);
+  process.exit(1);
 }
 
 // Read properties from sonar-project.properties

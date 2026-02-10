@@ -10,7 +10,7 @@ export interface GitignorePatterns {
  * A utility class for parsing and applying gitignore rules.
  */
 export class GitignoreParser {
-  private cache: Map<string, GitignorePatterns>;
+  private readonly cache: Map<string, GitignorePatterns>;
 
   constructor() {
     this.cache = new Map<string, GitignorePatterns>();
@@ -30,8 +30,9 @@ export class GitignoreParser {
    */
   parseGitignore(rootPath: string): GitignorePatterns {
     // Check if we have a cached result for this root path
-    if (this.cache.has(rootPath)) {
-      return this.cache.get(rootPath);
+    const cachedResult = this.cache.get(rootPath);
+    if (cachedResult) {
+      return cachedResult;
     }
 
     const gitignorePath = path.join(rootPath, '.gitignore');
@@ -107,14 +108,7 @@ export class GitignoreParser {
       }
 
       this._addPattern(result, pattern, isNegated);
-    } else if (!pattern.includes('*')) {
-      // Pattern without leading slash and without wildcards
-      const rootPattern = pattern;
-      const subdirPattern = `**/${pattern}`;
-
-      this._addPattern(result, rootPattern, isNegated);
-      this._addPattern(result, subdirPattern, isNegated);
-    } else {
+    } else if (pattern.includes('*')) {
       // Pattern with wildcards and path separators, but not starting with /
       this._addPattern(result, pattern, isNegated);
 
@@ -122,6 +116,13 @@ export class GitignoreParser {
       if (pattern.includes('/')) {
         this._addPattern(result, `**/${pattern}`, isNegated);
       }
+    } else {
+      // Pattern without leading slash and without wildcards
+      const rootPattern = pattern;
+      const subdirPattern = `**/${pattern}`;
+
+      this._addPattern(result, rootPattern, isNegated);
+      this._addPattern(result, subdirPattern, isNegated);
     }
   }
 

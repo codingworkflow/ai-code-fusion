@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 type DarkModeContextValue = {
   darkMode: boolean;
@@ -10,6 +10,7 @@ type DarkModeProviderProps = {
 };
 
 const DarkModeContext = createContext<DarkModeContextValue | undefined>(undefined);
+const appWindow = globalThis as Window & typeof globalThis;
 
 const getInitialDarkMode = (): boolean => {
   const savedMode = localStorage.getItem('darkMode');
@@ -21,8 +22,8 @@ const getInitialDarkMode = (): boolean => {
     }
   }
 
-  if (typeof window.matchMedia === 'function') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (typeof appWindow.matchMedia === 'function') {
+    return appWindow.matchMedia('(prefers-color-scheme: dark)').matches;
   }
 
   return false;
@@ -42,11 +43,11 @@ export const DarkModeProvider = ({ children }: DarkModeProviderProps) => {
   }, [darkMode]);
 
   useEffect(() => {
-    if (typeof window.matchMedia !== 'function') {
+    if (typeof appWindow.matchMedia !== 'function') {
       return undefined;
     }
 
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaQuery = appWindow.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (event: MediaQueryListEvent) => {
       if (localStorage.getItem('darkMode') === null) {
         setDarkMode(event.matches);
@@ -58,17 +59,35 @@ export const DarkModeProvider = ({ children }: DarkModeProviderProps) => {
       return () => mediaQuery.removeEventListener('change', handleChange);
     }
 
-    const legacyHandler = (event: MediaQueryListEvent) => handleChange(event);
-    mediaQuery.addListener(legacyHandler);
-    return () => mediaQuery.removeListener(legacyHandler);
+    const legacyMediaQuery = mediaQuery as unknown as {
+      addListener?: unknown;
+      removeListener?: unknown;
+    };
+    const addListener = legacyMediaQuery.addListener;
+    const removeListener = legacyMediaQuery.removeListener;
+
+    if (typeof addListener === 'function' && typeof removeListener === 'function') {
+      addListener.call(mediaQuery, handleChange);
+      return () => removeListener.call(mediaQuery, handleChange);
+    }
+
+    return undefined;
   }, []);
 
-  const toggleDarkMode = () => {
+  const toggleDarkMode = useCallback(() => {
     setDarkMode((prevMode) => !prevMode);
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({
+      darkMode,
+      toggleDarkMode,
+    }),
+    [darkMode, toggleDarkMode]
+  );
 
   return (
-    <DarkModeContext.Provider value={{ darkMode, toggleDarkMode }}>{children}</DarkModeContext.Provider>
+    <DarkModeContext.Provider value={contextValue}>{children}</DarkModeContext.Provider>
   );
 };
 
