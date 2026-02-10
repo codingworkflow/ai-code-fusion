@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const yaml = require('yaml');
 
 const mockIpcHandlers = {};
@@ -76,6 +77,10 @@ jest.mock('../../../src/utils/file-analyzer', () => ({
 
 require('../../../src/main/index');
 
+const MOCK_ROOT_DIR = path.resolve('/mock/repo');
+const isMockRootDirectory = (dirPath: unknown): boolean =>
+  typeof dirPath === 'string' && path.resolve(dirPath) === MOCK_ROOT_DIR;
+
 const percentile = (values: number[], p: number): number => {
   if (!Array.isArray(values) || values.length === 0) {
     return 0;
@@ -99,7 +104,7 @@ describe('Main Process IPC Stress Benchmarks', () => {
     jest.clearAllMocks();
 
     fs.readdirSync.mockImplementation((dirPath) => {
-      if (dirPath === '/mock/repo') {
+      if (isMockRootDirectory(dirPath)) {
         return [];
       }
       return [];
@@ -142,7 +147,7 @@ describe('Main Process IPC Stress Benchmarks', () => {
     const files = Array.from({ length: fileCount }, (_, index) => `file-${index}.ts`);
 
     fs.readdirSync.mockImplementation((dirPath) => {
-      if (dirPath === '/mock/repo') {
+      if (isMockRootDirectory(dirPath)) {
         return files;
       }
       return [];
@@ -167,7 +172,7 @@ describe('Main Process IPC Stress Benchmarks', () => {
     let firstResultLength = 0;
     for (let i = 0; i < 7; i++) {
       const startedAt = process.hrtime.bigint();
-      const result = await handler(null, '/mock/repo', '');
+      const result = await handler(null, MOCK_ROOT_DIR, '');
       const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
       if (i === 0) {
         firstResultLength = Array.isArray(result) ? result.length : 0;
@@ -197,7 +202,7 @@ describe('Main Process IPC Stress Benchmarks', () => {
     const files = Array.from({ length: fileCount }, (_, index) => `node-${index}.ts`);
 
     fs.readdirSync.mockImplementation((dirPath) => {
-      if (dirPath === '/mock/repo') {
+      if (isMockRootDirectory(dirPath)) {
         return files;
       }
       return [];
@@ -226,7 +231,7 @@ describe('Main Process IPC Stress Benchmarks', () => {
     };
 
     for (let i = 0; i < 20; i++) {
-      await handler(null, '/mock/repo', '');
+      await handler(null, MOCK_ROOT_DIR, '');
       lagSamplesMs.push(await sampleLag());
     }
 
