@@ -1,0 +1,48 @@
+name: Poutine CI Workflow Security
+
+on:
+  pull_request:
+    branches: ['main']
+  push:
+    branches: ['main']
+  workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  poutine:
+    name: poutine
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Run poutine scan
+        uses: boostsecurityio/poutine-action@2182d43cbb4088c750e12f48713d084ae273ed3f # v0.15.2
+        with:
+          format: sarif
+          output: results.sarif
+
+      - name: Upload poutine SARIF
+        uses: github/codeql-action/upload-sarif@45cbd0c69e560cd9e7cd7f8c32362050c9b7ded2
+        with:
+          sarif_file: results.sarif
+          category: /tool:poutine
+
+      - name: Upload poutine artifact
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: poutine-sarif
+          path: results.sarif
+          if-no-files-found: error
+          retention-days: 14
