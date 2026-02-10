@@ -26,9 +26,16 @@ export interface UpdaterRuntimeOptions extends UpdaterStatus {
   checkOnStart: boolean;
 }
 
+export interface UpdaterFlagOverrides {
+  enabled?: boolean;
+  checkOnStart?: boolean;
+  owner?: string;
+  repo?: string;
+}
+
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
 
-const parseBooleanEnv = (value: string | undefined): boolean | undefined => {
+export const parseBooleanEnv = (value: string | undefined): boolean | undefined => {
   if (!value) {
     return undefined;
   }
@@ -54,22 +61,25 @@ export const resolveUpdaterRuntimeOptions = ({
   currentVersion,
   platform,
   env = process.env,
+  flagOverrides = {},
 }: {
   currentVersion: string;
   platform: NodeJS.Platform;
   env?: NodeJS.ProcessEnv;
+  flagOverrides?: UpdaterFlagOverrides;
 }): UpdaterRuntimeOptions => {
   const channel = resolveUpdaterChannel(currentVersion);
   const allowPrerelease = channel === 'alpha';
   const platformSupported = isUpdaterPlatformSupported(platform);
 
-  const enabledOverride = parseBooleanEnv(env.UPDATER_ENABLED);
+  const enabledOverride = flagOverrides.enabled ?? parseBooleanEnv(env.UPDATER_ENABLED);
   const enabledByDefault = platformSupported && env.NODE_ENV !== 'development';
   const enabled = enabledOverride ?? enabledByDefault;
 
-  const checkOnStart = parseBooleanEnv(env.UPDATER_CHECK_ON_START) ?? false;
-  const owner = env.UPDATER_GH_OWNER || 'codingworkflow';
-  const repo = env.UPDATER_GH_REPO || 'ai-code-fusion';
+  const checkOnStart =
+    flagOverrides.checkOnStart ?? parseBooleanEnv(env.UPDATER_CHECK_ON_START) ?? false;
+  const owner = flagOverrides.owner || env.UPDATER_GH_OWNER || 'codingworkflow';
+  const repo = flagOverrides.repo || env.UPDATER_GH_REPO || 'ai-code-fusion';
 
   let reason: string | undefined;
   if (!platformSupported) {

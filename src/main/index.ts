@@ -3,6 +3,7 @@ import { autoUpdater } from 'electron-updater';
 import fs from 'fs';
 import path from 'path';
 import yaml from 'yaml';
+import { initializeUpdaterFeatureFlags } from './feature-flags';
 import { createUpdaterService, resolveUpdaterRuntimeOptions } from './updater';
 import { loadDefaultConfig } from '../utils/config-manager';
 import { ContentProcessor } from '../utils/content-processor';
@@ -39,7 +40,7 @@ const tokenCounter = new TokenCounter();
 let mainWindow: BrowserWindow | null = null;
 let authorizedRootPath: string | null = null;
 
-const updaterService = createUpdaterService(
+let updaterService = createUpdaterService(
   autoUpdater,
   resolveUpdaterRuntimeOptions({
     currentVersion: app.getVersion(),
@@ -108,7 +109,11 @@ app.whenReady().then(() => {
 
   void createWindow();
 
-  if (updaterService.shouldCheckOnStart) {
+  const runStartupUpdateCheck = () => {
+    if (!updaterService.shouldCheckOnStart) {
+      return;
+    }
+
     void updaterService.checkForUpdates().then((result) => {
       if (result.state === 'error') {
         console.warn(`Startup update check failed: ${result.errorMessage}`);
@@ -116,7 +121,26 @@ app.whenReady().then(() => {
         console.info(`Update available: ${result.latestVersion ?? 'unknown version'}`);
       }
     });
-  }
+  };
+
+  void initializeUpdaterFeatureFlags({ env: process.env })
+    .then((flagOverrides) => {
+      updaterService = createUpdaterService(
+        autoUpdater,
+        resolveUpdaterRuntimeOptions({
+          currentVersion: app.getVersion(),
+          platform: process.platform,
+          env: process.env,
+          flagOverrides,
+        })
+      );
+    })
+    .catch((error) => {
+      console.warn(`Failed to initialize OpenFeature updater flags: ${String(error)}`);
+    })
+    .finally(() => {
+      runStartupUpdateCheck();
+    });
 });
 
 // Quit when all windows are closed

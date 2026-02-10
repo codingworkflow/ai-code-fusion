@@ -52,6 +52,31 @@ describe('updater utilities', () => {
     expect(stableLinuxOptions.enabled).toBe(false);
     expect(stableLinuxOptions.reason).toContain('unsupported platform');
   });
+
+  test('prioritizes normalized flag overrides over environment values', () => {
+    const options = resolveUpdaterRuntimeOptions({
+      currentVersion: '0.3.0',
+      platform: 'win32',
+      env: {
+        NODE_ENV: 'production',
+        UPDATER_ENABLED: 'false',
+        UPDATER_CHECK_ON_START: 'false',
+        UPDATER_GH_OWNER: 'env-owner',
+        UPDATER_GH_REPO: 'env-repo',
+      },
+      flagOverrides: {
+        enabled: true,
+        checkOnStart: true,
+        owner: 'flag-owner',
+        repo: 'flag-repo',
+      },
+    });
+
+    expect(options.enabled).toBe(true);
+    expect(options.checkOnStart).toBe(true);
+    expect(options.owner).toBe('flag-owner');
+    expect(options.repo).toBe('flag-repo');
+  });
 });
 
 describe('createUpdaterService', () => {
