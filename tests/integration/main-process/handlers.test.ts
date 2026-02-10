@@ -170,7 +170,7 @@ describe('Main Process IPC Handlers', () => {
       return [];
     });
 
-    fs.statSync.mockImplementation((itemPath) => {
+    const createMockStats = (itemPath, isSymbolicLink = false) => {
       const isDirectory =
         itemPath.endsWith('src') ||
         itemPath.endsWith('utils') ||
@@ -179,10 +179,23 @@ describe('Main Process IPC Handlers', () => {
 
       return {
         isDirectory: () => isDirectory,
+        isSymbolicLink: () => isSymbolicLink,
         size: 1000,
         mtime: new Date(),
       };
-    });
+    };
+
+    fs.statSync.mockImplementation((itemPath) => createMockStats(itemPath, false));
+    if (typeof fs.lstatSync !== 'function') {
+      fs.lstatSync = jest.fn();
+    }
+    fs.lstatSync.mockImplementation((itemPath) => createMockStats(itemPath, false));
+
+    if (typeof fs.realpathSync !== 'function') {
+      fs.realpathSync = jest.fn();
+    }
+    fs.realpathSync.mockImplementation((inputPath) => inputPath);
+    fs.realpathSync.native = fs.realpathSync;
 
     fs.existsSync.mockImplementation((path) => {
       return !path.includes('nonexistent');
@@ -358,6 +371,88 @@ describe('Main Process IPC Handlers', () => {
       const handler = mockIpcHandlers['fs:getDirectoryTree'];
       const result = await handler(null, '/unauthorized/path', '');
       expect(result).toEqual([]);
+    });
+
+    test('should skip symlinks that resolve outside the selected root', async () => {
+      fs.readdirSync.mockImplementation((dir) => {
+        if (dir === '/mock/repo') {
+          return ['src', 'outside-link'];
+        }
+        if (dir === '/mock/repo/src') {
+          return ['index.js'];
+        }
+        return [];
+      });
+
+      fs.statSync.mockImplementation((itemPath) => ({
+        isDirectory: () => itemPath.endsWith('/src'),
+        isSymbolicLink: () => false,
+        size: 1000,
+        mtime: new Date(),
+      }));
+      fs.lstatSync.mockImplementation((itemPath) => ({
+        isDirectory: () => itemPath.endsWith('/src'),
+        isSymbolicLink: () => itemPath.endsWith('/outside-link'),
+        size: 1000,
+        mtime: new Date(),
+      }));
+      fs.realpathSync.mockImplementation((inputPath) => {
+        if (inputPath === '/mock/repo/outside-link') {
+          return '/outside/world';
+        }
+        return inputPath;
+      });
+      fs.realpathSync.native = fs.realpathSync;
+
+      const handler = mockIpcHandlers['fs:getDirectoryTree'];
+      const result = await handler(null, '/mock/repo', '');
+
+      expect(result.find((item) => item.name === 'src')).toBeDefined();
+      expect(result.find((item) => item.name === 'outside-link')).toBeUndefined();
+    });
+
+    test('should avoid directory traversal loops caused by symlink cycles', async () => {
+      fs.readdirSync.mockImplementation((dir) => {
+        if (dir === '/mock/repo') {
+          return ['src', 'loop-link'];
+        }
+        if (dir === '/mock/repo/src') {
+          return ['index.js'];
+        }
+        return [];
+      });
+
+      fs.statSync.mockImplementation((itemPath) => ({
+        isDirectory: () => itemPath.endsWith('/src'),
+        isSymbolicLink: () => false,
+        size: 1000,
+        mtime: new Date(),
+      }));
+      fs.lstatSync.mockImplementation((itemPath) => ({
+        isDirectory: () => itemPath.endsWith('/src'),
+        isSymbolicLink: () => itemPath.endsWith('/loop-link'),
+        size: 1000,
+        mtime: new Date(),
+      }));
+      fs.realpathSync.mockImplementation((inputPath) => {
+        if (inputPath === '/mock/repo/loop-link') {
+          return '/mock/repo';
+        }
+        return inputPath;
+      });
+      fs.realpathSync.native = fs.realpathSync;
+
+      const handler = mockIpcHandlers['fs:getDirectoryTree'];
+      const runTreeRequest = handler(null, '/mock/repo', '');
+      const result = await Promise.race([
+        runTreeRequest,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Directory traversal loop timeout')), 200)
+        ),
+      ]);
+
+      expect(result.find((item) => item.name === 'src')).toBeDefined();
+      expect(result.find((item) => item.name === 'loop-link')).toBeUndefined();
     });
   });
 

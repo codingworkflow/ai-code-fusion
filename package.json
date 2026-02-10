@@ -23,6 +23,7 @@
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,html,css}\"",
     "test": "jest --config jest.config.js --passWithNoTests",
     "test:watch": "jest --watch --config jest.config.js --passWithNoTests",
+    "test:stress": "jest --config jest.config.js --runInBand --testMatch=\"**/tests/stress/**/*.{js,jsx,ts,tsx}\" --verbose",
     "test:gitignore": "jest --config jest.config.js --testMatch=\"**/tests/unit/gitignore-parser.test.{js,ts}\" --verbose",
     "test:binary": "jest --config jest.config.js --testMatch=\"**/tests/unit/binary-detection.test.{js,ts}\" --verbose",
     "test:patterns": "jest --config jest.config.js --testMatch=\"**/tests/**/*pattern*.test.{js,ts}\" --verbose",
