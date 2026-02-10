@@ -44,7 +44,7 @@ jobs:
           path: |
             dist/*.exe
             dist/*.msi
-            dist/latest*.yml
+            dist/*.yml
             dist/*.blockmap
           retention-days: 5
 
@@ -112,7 +112,7 @@ jobs:
           path: |
             dist/*.AppImage
             dist/*.AppImage.zsync
-            dist/latest*.yml
+            dist/*.yml
             dist/*.blockmap
           retention-days: 5
 
@@ -151,7 +151,7 @@ jobs:
           path: |
             dist/*.dmg
             dist/*.zip
-            dist/latest*.yml
+            dist/*.yml
             dist/*.blockmap
           retention-days: 5
 
@@ -170,6 +170,17 @@ jobs:
       - name: Get version from tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Validate tag matches package version
+        run: |
+          TAG_VERSION="${{ steps.get_version.outputs.VERSION }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+
+          if [[ "${TAG_VERSION}" != "${PACKAGE_VERSION}" ]]; then
+            echo "::error::Tag version (${TAG_VERSION}) does not match package.json version (${PACKAGE_VERSION})."
+            exit 1
+          fi
 
       - name: Get Changelog Entry
         id: changelog_reader
@@ -203,7 +214,8 @@ jobs:
         with:
           name: Release ${{ steps.get_version.outputs.VERSION }}
           body: ${{ steps.changelog_reader.outputs.changes || 'No changelog provided' }}
-          draft: true
+          draft: ${{ !contains(steps.get_version.outputs.VERSION, '-alpha') }}
+          prerelease: ${{ contains(steps.get_version.outputs.VERSION, '-alpha') }}
           files: |
             artifacts/**
         env:

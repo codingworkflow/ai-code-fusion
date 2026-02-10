@@ -4,7 +4,7 @@ import type { ProcessRepositoryResult } from '../../types/ipc';
 type ProcessedTabProps = {
   processedResult: ProcessRepositoryResult | null;
   onSave: () => Promise<void> | void;
-  onRefresh?: () => Promise<unknown> | unknown;
+  onRefresh?: () => Promise<void> | void;
 };
 
 const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps) => {

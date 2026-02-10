@@ -117,7 +117,7 @@ describe('secret-scanner', () => {
 
       const result = scanContentForSecrets(content);
       expect(result.isSuspicious).toBe(true);
-      expect(result.matches.some((match) => match.id === 'generic-credential-assignment')).toBe(true);
+      expect(result.matches.some((match) => match.id === 'credential-assignment')).toBe(true);
     });
 
     test('should return clean result for normal content', () => {

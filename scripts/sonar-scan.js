@@ -275,15 +275,24 @@ if (!sonarToken) {
   console.log('SONAR_TOKEN not set; attempting unauthenticated scan');
 }
 
-// Run code coverage if it doesn't exist yet
+// Generate a fresh coverage report so Sonar never uses stale lcov data.
+const shouldGenerateCoverage = process.env.SONAR_GENERATE_COVERAGE !== 'false';
 const coveragePath = path.join(__dirname, '..', 'coverage', 'lcov.info');
-if (!fs.existsSync(coveragePath)) {
-  console.log('No coverage data found. Running tests with coverage...');
+if (shouldGenerateCoverage) {
+  const coverageDir = path.join(__dirname, '..', 'coverage');
+  fs.rmSync(coverageDir, { recursive: true, force: true });
+  console.log('Generating fresh Jest coverage report for SonarQube...');
   try {
-    execSync('npm test -- --coverage', { stdio: 'inherit' });
+    execSync('npm test -- --coverage --runInBand', { stdio: 'inherit' });
   } catch (error) {
-    console.warn('Warning: Test coverage generation had issues, but continuing with scan.');
+    console.error('Error: Failed to generate coverage report for SonarQube.');
+    process.exit(1);
   }
+}
+
+if (!fs.existsSync(coveragePath)) {
+  console.error(`Error: Coverage report not found at ${coveragePath}`);
+  process.exit(1);
 }
 
 // Read properties from sonar-project.properties

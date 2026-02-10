@@ -7,22 +7,17 @@
     <link rel="stylesheet" href="output.css" />
     <script>
       // Apply dark mode immediately to prevent flash of light theme
-      try {
-        const savedMode = localStorage.getItem('darkMode');
-        if (
-          savedMode === 'true' || // Check for string 'true'
-          JSON.parse(savedMode) === true || // Check for boolean true
-          (savedMode === null && window.matchMedia('(prefers-color-scheme: dark)').matches)
-        ) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      } catch (e) {
-        // If any error occurs, fallback to system preference
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          document.documentElement.classList.add('dark');
-        }
+      const appWindow = globalThis;
+      const savedMode = localStorage.getItem('darkMode');
+      const prefersDark =
+        typeof appWindow.matchMedia === 'function' &&
+        appWindow.matchMedia('(prefers-color-scheme: dark)').matches;
+      const shouldEnableDarkMode = savedMode === 'true' || (savedMode === null && prefersDark);
+
+      if (shouldEnableDarkMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
       }
     </script>
   </head>

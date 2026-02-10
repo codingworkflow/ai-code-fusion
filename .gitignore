@@ -76,3 +76,6 @@ src/renderer/bundle.js
 
 # Test artifacts
 /test-results
+
+# Local planning notes (never commit)
+docs/plan/
