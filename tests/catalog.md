@@ -9,6 +9,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 - Markdown docs lint (links/images/icons): `npm run lint:md`
 - UI screenshot gate: `npm run qa:screenshot`
 - Docs screenshots: `npm run docs:screenshots`
+- Devcontainer smoke: `devcontainer up --workspace-folder .` then `devcontainer exec --workspace-folder . npm run lint`
 
 ## Unit Tests
 
