@@ -1,6 +1,6 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   _electron as electron,
   expect,
@@ -28,12 +28,37 @@ const ensureMainEntryExists = () => {
   }
 };
 
-const sanitizeForPath = (value: string): string =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'run';
+const sanitizeForPath = (value: string): string => {
+  const normalizedValue = value.trim().toLowerCase();
+  let output = '';
+  let lastCharWasDash = false;
+
+  for (const character of normalizedValue) {
+    const isLowerCaseLetter = character >= 'a' && character <= 'z';
+    const isNumber = character >= '0' && character <= '9';
+
+    if (isLowerCaseLetter || isNumber) {
+      output += character;
+      lastCharWasDash = false;
+      continue;
+    }
+
+    if (!lastCharWasDash) {
+      output += '-';
+      lastCharWasDash = true;
+    }
+  }
+
+  while (output.startsWith('-')) {
+    output = output.slice(1);
+  }
+
+  while (output.endsWith('-')) {
+    output = output.slice(0, -1);
+  }
+
+  return output || 'run';
+};
 
 const getElectronLaunchArgs = (): string[] => {
   if (process.platform === 'linux') {
@@ -54,8 +79,8 @@ const writeFixtureFile = (projectDir: string, relativePath: string, content: str
   fs.writeFileSync(filePath, content);
 };
 
-const createFixtureProject = (): string => {
-  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-code-fusion-e2e-'));
+const createFixtureProject = (browserName: string): string => {
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), `ai-code-fusion-e2e-${browserName}-`));
 
   writeFixtureFile(
     projectDir,
@@ -150,7 +175,7 @@ const selectSourceFiles = async (page: Page, fileNames: string[]) => {
   }
 
   await expect(page.locator('.file-tree')).toContainText(
-    new RegExp(`${fileNames.length} of \\d+ files selected`),
+    new RegExp(String.raw`${fileNames.length} of \d+ files selected`),
     { timeout: 15_000 }
   );
 
@@ -174,8 +199,7 @@ const processSelection = async (page: Page) => {
 
 const test = base.extend<E2EFixtures>({
   projectDir: async ({ browserName }, use) => {
-    void browserName;
-    const projectDir = createFixtureProject();
+    const projectDir = createFixtureProject(browserName);
     await use(projectDir);
     fs.rmSync(projectDir, { recursive: true, force: true });
   },
@@ -186,8 +210,9 @@ const test = base.extend<E2EFixtures>({
   },
 
   userDataDir: async ({ browserName }, use) => {
-    void browserName;
-    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-code-fusion-user-data-'));
+    const userDataDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), `ai-code-fusion-user-data-${browserName}-`)
+    );
     await use(userDataDir);
     fs.rmSync(userDataDir, { recursive: true, force: true });
   },

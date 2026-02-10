@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, net, protocol } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import fs from 'fs';
-import os from 'os';
+import os from 'node:os';
 import path from 'path';
 import { pathToFileURL } from 'node:url';
 import yaml from 'yaml';
