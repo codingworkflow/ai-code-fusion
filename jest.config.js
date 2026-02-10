@@ -6,7 +6,7 @@ module.exports = {
     '^yaml$': '<rootDir>/tests/mocks/yaml-mock.ts',
   },
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
-  testPathIgnorePatterns: ['/node_modules/'],
+  testPathIgnorePatterns: ['/node_modules/', '/tests/e2e/'],
   transform: {
     '^.+\\.(js|jsx|ts|tsx)$': 'babel-jest',
   },

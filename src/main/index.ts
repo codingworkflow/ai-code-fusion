@@ -59,6 +59,13 @@ const createForbiddenAssetResponse = (): Response => new Response('Forbidden', {
 
 // Set environment
 const isDevelopment = process.env.NODE_ENV === 'development';
+const e2eUserDataPath = process.env.ELECTRON_USER_DATA_PATH;
+
+if (typeof e2eUserDataPath === 'string' && e2eUserDataPath.trim().length > 0) {
+  const resolvedUserDataPath = path.resolve(e2eUserDataPath);
+  fs.mkdirSync(resolvedUserDataPath, { recursive: true });
+  app.setPath('userData', resolvedUserDataPath);
+}
 
 async function createWindow() {
   // Create the browser window

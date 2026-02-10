@@ -7,6 +7,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 - Full tests: `npm test -- --runInBand`
 - Lint: `npm run lint`
 - Markdown docs lint (links/images/icons): `npm run lint:md`
+- Electron E2E (Playwright): `npm run e2e:playwright`
 - UI screenshot gate: `npm run qa:screenshot`
 - Docs screenshots: `npm run docs:screenshots`
 - Devcontainer smoke: `devcontainer up --workspace-folder .` then `devcontainer exec --workspace-folder . npm run lint`
@@ -40,6 +41,12 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | `tests/integration/main-process/xml-export-e2e.test.ts` | XML export pipeline                  | End-to-end XML shape, CDATA wrapping, invalid-character sanitization, summary metrics               |
 | `tests/integration/pattern-merging.test.ts`             | Filtering + gitignore merge behavior | Combined behavior of include/exclude patterns with gitignore toggles                                |
 
+## Electron E2E Tests
+
+| File                                      | Primary Target                                | Key Use Cases                                                                                                     |
+| ----------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `tests/e2e/electron-process-flow.spec.ts` | Full renderer + preload + main-process wiring | Folder selection, file tree interaction, process flow, XML format handling, refresh-from-disk behavior, save flow |
+
 ## Visual Regression Signal
 
 | Command                    | Primary Target                                      | Key Use Cases                                                                                                 |
@@ -63,6 +70,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 - Renderer flow changes:
   - `tests/unit/components/app.test.tsx`
   - `tests/unit/components/config-tab.test.tsx`
+  - `tests/e2e/electron-process-flow.spec.ts`
 - Main process / IPC changes:
   - `tests/integration/main-process/handlers.test.ts`
   - `tests/unit/main/updater.test.ts`
