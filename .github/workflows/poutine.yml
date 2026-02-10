@@ -27,10 +27,15 @@ jobs:
           persist-credentials: false
 
       - name: Run poutine scan
-        uses: boostsecurityio/poutine-action@2182d43cbb4088c750e12f48713d084ae273ed3f # v0.15.2
+        uses: boostsecurityio/poutine-action@2182d43cbb4088c750e12f48713d084ae273ed3f
         with:
           format: sarif
           output: results.sarif
+
+      - name: Normalize poutine SARIF for GitHub upload
+        run: |
+          jq 'del(.runs[]?.tool.driver.supportedTaxonomies)' results.sarif > results.cleaned.sarif
+          mv results.cleaned.sarif results.sarif
 
       - name: Upload poutine SARIF
         uses: github/codeql-action/upload-sarif@45cbd0c69e560cd9e7cd7f8c32362050c9b7ded2
