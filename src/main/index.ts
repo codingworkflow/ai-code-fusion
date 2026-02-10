@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'node:url';
 import yaml from 'yaml';
+import { getErrorMessage } from './errors';
 import { initializeUpdaterFeatureFlags } from './feature-flags';
 import { createUpdaterService, resolveUpdaterRuntimeOptions } from './updater';
 import { loadDefaultConfig } from '../utils/config-manager';
@@ -54,10 +55,7 @@ const APP_ROOT = path.resolve(__dirname, '../../..');
 const RENDERER_INDEX_PATH = path.join(APP_ROOT, 'src', 'renderer', 'index.html');
 const ASSETS_DIR = path.join(APP_ROOT, 'src', 'assets');
 const PUBLIC_ASSETS_DIR = path.join(APP_ROOT, 'public', 'assets');
-const createForbiddenAssetResponse = (): Response =>
-  typeof Response === 'function'
-    ? new Response('Forbidden', { status: 403 })
-    : ({ ok: false, status: 403 } as Response);
+const createForbiddenAssetResponse = (): Response => new Response('Forbidden', { status: 403 });
 
 // Set environment
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -136,20 +134,30 @@ const bootstrapApp = async () => {
   await app.whenReady();
 
   // Register assets protocol
-  protocol.handle('assets', (request) => {
-    const requestUrl = new URL(request.url);
-    const hostSegment = requestUrl.hostname;
-    const pathSegment = requestUrl.pathname.replace(/^\/+/, '');
-    const relativeAssetPath = decodeURIComponent(
-      [hostSegment, pathSegment].filter((segment) => segment.length > 0).join('/')
-    );
-    const assetPath = path.normalize(path.join(PUBLIC_ASSETS_DIR, relativeAssetPath));
+  protocol.handle('assets', async (request) => {
+    try {
+      const requestUrl = new URL(request.url);
+      const hostSegment = decodeURIComponent(requestUrl.hostname);
+      const pathSegment = requestUrl.pathname.replace(/^\/+/, '');
+      const relativeAssetPath = decodeURIComponent(
+        [hostSegment, pathSegment].filter((segment) => segment.length > 0).join('/')
+      );
+      const assetPath = path.normalize(path.join(PUBLIC_ASSETS_DIR, relativeAssetPath));
 
-    if (!isPathWithinRoot(PUBLIC_ASSETS_DIR, assetPath)) {
+      if (!isPathWithinRoot(PUBLIC_ASSETS_DIR, assetPath)) {
+        return createForbiddenAssetResponse();
+      }
+
+      try {
+        return await net.fetch(pathToFileURL(assetPath).toString());
+      } catch (error) {
+        console.warn(`Failed to load asset from assets protocol: ${getErrorMessage(error)}`);
+        return new Response('Not Found', { status: 404 });
+      }
+    } catch (error) {
+      console.warn(`Rejected malformed assets protocol request: ${getErrorMessage(error)}`);
       return createForbiddenAssetResponse();
     }
-
-    return net.fetch(pathToFileURL(assetPath).toString());
   });
 
   await createWindow();
@@ -518,30 +526,6 @@ function generateTreeView(filesInfo: FileInfo[]): string {
   };
 
   return printTree(pathTree);
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (typeof error === 'object' && error !== null) {
-    try {
-      return JSON.stringify(error);
-    } catch {
-      return '[unserializable error object]';
-    }
-  }
-
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  if (typeof error === 'number' || typeof error === 'boolean' || typeof error === 'bigint') {
-    return String(error);
-  }
-
-  return 'Unknown error';
 }
 
 type RepositoryProcessingOptions = {

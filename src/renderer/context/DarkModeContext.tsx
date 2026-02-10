@@ -54,8 +54,24 @@ export const DarkModeProvider = ({ children }: DarkModeProviderProps) => {
       }
     };
 
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+
+    const legacyMediaQuery = mediaQuery as unknown as {
+      addListener?: unknown;
+      removeListener?: unknown;
+    };
+    const addListener = legacyMediaQuery.addListener;
+    const removeListener = legacyMediaQuery.removeListener;
+
+    if (typeof addListener === 'function' && typeof removeListener === 'function') {
+      addListener.call(mediaQuery, handleChange);
+      return () => removeListener.call(mediaQuery, handleChange);
+    }
+
+    return undefined;
   }, []);
 
   const toggleDarkMode = useCallback(() => {

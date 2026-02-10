@@ -234,9 +234,59 @@ describe('Main Process IPC Handlers', () => {
       const handler = mockProtocolHandlers['assets'];
       expect(handler).toBeDefined();
 
+      const basicResponse = await handler({ url: 'assets://icon.png' });
+      expect(basicResponse).toBeDefined();
+
+      const hostPathResponse = await handler({ url: 'assets://public/icon.png' });
+      expect(hostPathResponse).toBeDefined();
+
+      const nestedResponse = await handler({ url: 'assets://host/dir/file.png' });
+      expect(nestedResponse).toBeDefined();
+
+      const encodedResponse = await handler({ url: 'assets://host/dir/space%20file.png' });
+      expect(encodedResponse).toBeDefined();
+
+      expect(mockNetFetch).toHaveBeenNthCalledWith(1, expect.stringContaining('icon.png'));
+      expect(mockNetFetch).toHaveBeenNthCalledWith(2, expect.stringContaining('public/icon.png'));
+      expect(mockNetFetch).toHaveBeenNthCalledWith(3, expect.stringContaining('host/dir/file.png'));
+      expect(mockNetFetch).toHaveBeenNthCalledWith(
+        4,
+        expect.stringContaining('host/dir/space%20file.png')
+      );
+    });
+
+    test('should reject encoded traversal in assets protocol requests', async () => {
+      await Promise.resolve();
+      const handler = mockProtocolHandlers['assets'];
+      expect(handler).toBeDefined();
+
+      const response = await handler({ url: 'assets://%2e%2e%2f%2e%2e/etc/passwd' });
+      expect(response).toBeDefined();
+      expect(response.status).toBe(403);
+      expect(mockNetFetch).not.toHaveBeenCalled();
+    });
+
+    test('should reject malformed assets protocol requests', async () => {
+      await Promise.resolve();
+      const handler = mockProtocolHandlers['assets'];
+      expect(handler).toBeDefined();
+
+      const response = await handler({ url: 'assets://host/%E0%A4%A' });
+      expect(response).toBeDefined();
+      expect(response.status).toBe(403);
+      expect(mockNetFetch).not.toHaveBeenCalled();
+    });
+
+    test('should return 404 when asset fetch fails', async () => {
+      await Promise.resolve();
+      const handler = mockProtocolHandlers['assets'];
+      expect(handler).toBeDefined();
+
+      mockNetFetch.mockRejectedValueOnce(new Error('asset missing'));
+
       const response = await handler({ url: 'assets://icon.png' });
       expect(response).toBeDefined();
-      expect(mockNetFetch).toHaveBeenCalledWith(expect.stringContaining('icon.png'));
+      expect(response.status).toBe(404);
     });
   });
 

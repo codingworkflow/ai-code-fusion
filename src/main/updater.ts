@@ -1,36 +1,14 @@
 import type { AppUpdater } from 'electron-updater';
-
-export type UpdaterChannel = 'alpha' | 'stable';
-export type UpdaterState = 'disabled' | 'up-to-date' | 'update-available' | 'error';
-
-export interface UpdaterStatus {
-  enabled: boolean;
-  platformSupported: boolean;
-  channel: UpdaterChannel;
-  allowPrerelease: boolean;
-  currentVersion: string;
-  owner: string;
-  repo: string;
-  reason?: string;
-}
-
-export interface UpdateCheckResult extends UpdaterStatus {
-  state: UpdaterState;
-  updateAvailable: boolean;
-  latestVersion?: string;
-  releaseName?: string;
-  errorMessage?: string;
-}
+import type {
+  UpdateCheckResult,
+  UpdaterChannel,
+  UpdaterFlagOverrides,
+  UpdaterStatus,
+} from '../types/ipc';
+import { getErrorMessage } from './errors';
 
 export interface UpdaterRuntimeOptions extends UpdaterStatus {
   checkOnStart: boolean;
-}
-
-export interface UpdaterFlagOverrides {
-  enabled?: boolean;
-  checkOnStart?: boolean;
-  owner?: string;
-  repo?: string;
 }
 
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
@@ -73,8 +51,8 @@ export const resolveUpdaterRuntimeOptions = ({
   const platformSupported = isUpdaterPlatformSupported(platform);
 
   const enabledOverride = flagOverrides.enabled ?? parseBooleanEnv(env.UPDATER_ENABLED);
-  const enabledByDefault = platformSupported && env.NODE_ENV !== 'development';
-  const enabled = enabledOverride ?? enabledByDefault;
+  const enabledByDefault = env.NODE_ENV !== 'development';
+  const enabled = platformSupported && (enabledOverride ?? enabledByDefault);
 
   const checkOnStart =
     flagOverrides.checkOnStart ?? parseBooleanEnv(env.UPDATER_CHECK_ON_START) ?? false;
@@ -115,30 +93,6 @@ type UpdaterClient = Pick<
   'checkForUpdates' | 'setFeedURL' | 'allowPrerelease' | 'autoDownload' | 'autoInstallOnAppQuit'
 > & {
   channel?: string;
-};
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (typeof error === 'object' && error !== null) {
-    try {
-      return JSON.stringify(error);
-    } catch {
-      return '[unserializable error object]';
-    }
-  }
-
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  if (typeof error === 'number' || typeof error === 'boolean' || typeof error === 'bigint') {
-    return String(error);
-  }
-
-  return 'Unknown error';
 };
 
 export const createUpdaterService = (

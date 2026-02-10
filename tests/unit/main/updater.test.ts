@@ -77,6 +77,24 @@ describe('updater utilities', () => {
     expect(options.owner).toBe('flag-owner');
     expect(options.repo).toBe('flag-repo');
   });
+
+  test('keeps updater disabled on unsupported platform even when override enables it', () => {
+    const options = resolveUpdaterRuntimeOptions({
+      currentVersion: '0.3.0-alpha.1',
+      platform: 'linux',
+      env: {
+        NODE_ENV: 'production',
+      },
+      flagOverrides: {
+        enabled: true,
+        checkOnStart: true,
+      },
+    });
+
+    expect(options.platformSupported).toBe(false);
+    expect(options.enabled).toBe(false);
+    expect(options.reason).toContain('unsupported platform');
+  });
 });
 
 describe('createUpdaterService', () => {

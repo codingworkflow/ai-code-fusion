@@ -109,6 +109,37 @@ describe('feature-flags updater normalization', () => {
     expect(blockedResult).toEqual({});
   });
 
+  test('returns empty overrides and logs warning for non-ok remote responses', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await fetchRemoteUpdaterFlagOverrides({
+      url: 'https://example.com/flags.json',
+      fetchFn: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+      }),
+    });
+
+    expect(result).toEqual({});
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Remote flags request returned status 503')
+    );
+    warnSpy.mockRestore();
+  });
+
+  test('returns empty overrides and logs warning when remote fetch throws', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await fetchRemoteUpdaterFlagOverrides({
+      url: 'https://example.com/flags.json',
+      fetchFn: jest.fn().mockRejectedValue(new Error('network down')),
+    });
+
+    expect(result).toEqual({});
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Remote flags request failed: network down')
+    );
+    warnSpy.mockRestore();
+  });
+
   test('initializes OpenFeature client and returns normalized updater overrides', async () => {
     const result = await initializeUpdaterFeatureFlags({
       env: {

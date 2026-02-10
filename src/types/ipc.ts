@@ -101,6 +101,13 @@ export interface UpdateCheckResult extends UpdaterStatus {
   errorMessage?: string;
 }
 
+export interface UpdaterFlagOverrides {
+  enabled?: boolean;
+  checkOnStart?: boolean;
+  owner?: string;
+  repo?: string;
+}
+
 export interface ElectronApi {
   selectDirectory: () => Promise<string | null>;
   getDirectoryTree: (

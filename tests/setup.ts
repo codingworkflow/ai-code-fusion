@@ -81,6 +81,27 @@ if (!window.matchMedia) {
   });
 }
 
+if (typeof globalThis.Response === 'undefined') {
+  class MockResponse {
+    readonly status: number;
+    readonly ok: boolean;
+    private readonly bodyValue: unknown;
+
+    constructor(body?: unknown, init: { status?: number } = {}) {
+      this.status = init.status ?? 200;
+      this.ok = this.status >= 200 && this.status < 300;
+      this.bodyValue = body;
+    }
+
+    async text(): Promise<string> {
+      return typeof this.bodyValue === 'string' ? this.bodyValue : '';
+    }
+  }
+
+  (globalThis as unknown as { Response: typeof Response }).Response =
+    MockResponse as unknown as typeof Response;
+}
+
 // Mock fs module functions that we use in various tests
 jest.mock('fs', () => ({
   existsSync: jest.fn().mockReturnValue(true),

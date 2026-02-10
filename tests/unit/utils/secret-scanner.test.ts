@@ -87,6 +87,17 @@ describe('secret-scanner', () => {
       expect(result.matches.some((match) => match.id === 'aws-secret-assignment')).toBe(true);
     });
 
+    test('should detect later valid AWS assignment when earlier assignment is invalid', () => {
+      const content = `
+        AWS_SECRET_ACCESS_KEY="short"
+        AWS_SECRET_ACCESS_KEY="${FAKE_AWS_SECRET_ACCESS_KEY}"
+      `;
+
+      const result = scanContentForSecrets(content);
+      expect(result.isSuspicious).toBe(true);
+      expect(result.matches.some((match) => match.id === 'aws-secret-assignment')).toBe(true);
+    });
+
     test('should detect Slack tokens', () => {
       const content = `const slackToken = "${FAKE_SLACK_TOKEN}";`;
 

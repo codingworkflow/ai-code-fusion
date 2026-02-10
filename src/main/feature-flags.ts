@@ -1,5 +1,6 @@
 import { InMemoryProvider, OpenFeature } from '@openfeature/server-sdk';
-import type { UpdaterFlagOverrides } from './updater';
+import type { UpdaterFlagOverrides } from '../types/ipc';
+import { getErrorMessage } from './errors';
 
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
 
@@ -26,6 +27,14 @@ type FlagConfiguration = Record<
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 type RemoteFlagRecord = Record<string, unknown>;
+
+const logFlagFetchWarning = (message: string, error?: unknown) => {
+  let suffix = '';
+  if (error !== undefined) {
+    suffix = `: ${getErrorMessage(error)}`;
+  }
+  console.warn(`[updater-flags] ${message}${suffix}`);
+};
 
 const parseBoolean = (value: unknown): boolean | undefined => {
   if (typeof value === 'boolean') {
@@ -153,12 +162,14 @@ export const fetchRemoteUpdaterFlagOverrides = async ({
     });
 
     if (!response.ok) {
+      logFlagFetchWarning(`Remote flags request returned status ${response.status}`);
       return {};
     }
 
     const payload = await response.json();
     return readUpdaterFlagOverridesFromRemotePayload(payload);
-  } catch {
+  } catch (error) {
+    logFlagFetchWarning('Remote flags request failed', error);
     return {};
   } finally {
     clearTimeout(timeoutId);

@@ -21,7 +21,7 @@ export interface SecretScanResult {
 }
 
 const AWS_SECRET_KEY_ASSIGNMENT_PREFIX =
-  /aws(?:\s|_|-)?secret(?:\s|_|-)?access(?:\s|_|-)?key\s*[:=]\s*/i;
+  /aws(?:\s|_|-)?secret(?:\s|_|-)?access(?:\s|_|-)?key\s*[:=]\s*/gi;
 
 const AWS_SECRET_KEY_VALUE = /^[A-Za-z0-9+/=]{40}$/;
 
@@ -45,14 +45,20 @@ const extractAssignedValue = (input: string): string => {
 };
 
 const hasAwsSecretAssignment = (content: string): boolean => {
-  const assignmentMatch = AWS_SECRET_KEY_ASSIGNMENT_PREFIX.exec(content);
-  if (assignmentMatch?.index === undefined) {
-    return false;
+  AWS_SECRET_KEY_ASSIGNMENT_PREFIX.lastIndex = 0;
+
+  let assignmentMatch: RegExpExecArray | null;
+  while ((assignmentMatch = AWS_SECRET_KEY_ASSIGNMENT_PREFIX.exec(content)) !== null) {
+    const startIndex = assignmentMatch.index + assignmentMatch[0].length;
+    const candidateValue = extractAssignedValue(content.slice(startIndex));
+    if (AWS_SECRET_KEY_VALUE.test(candidateValue)) {
+      AWS_SECRET_KEY_ASSIGNMENT_PREFIX.lastIndex = 0;
+      return true;
+    }
   }
 
-  const startIndex = assignmentMatch.index + assignmentMatch[0].length;
-  const candidateValue = extractAssignedValue(content.slice(startIndex));
-  return AWS_SECRET_KEY_VALUE.test(candidateValue);
+  AWS_SECRET_KEY_ASSIGNMENT_PREFIX.lastIndex = 0;
+  return false;
 };
 
 const SECRET_RULES: SecretRule[] = [
