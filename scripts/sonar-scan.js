@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { execSync, spawnSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const sonarqubeScanner = require('sonarqube-scanner');
@@ -12,6 +12,24 @@ function redactUrlForLogs(rawUrl) {
   } catch (_error) {
     return '<redacted-url>';
   }
+}
+
+function resolveNpmCliPath() {
+  const npmExecPath = process.env.npm_execpath;
+  if (npmExecPath && path.isAbsolute(npmExecPath) && fs.existsSync(npmExecPath)) {
+    return npmExecPath;
+  }
+
+  try {
+    const resolvedNpmCliPath = require.resolve('npm/bin/npm-cli.js');
+    if (path.isAbsolute(resolvedNpmCliPath) && fs.existsSync(resolvedNpmCliPath)) {
+      return resolvedNpmCliPath;
+    }
+  } catch (_error) {
+    // Keep fallback behavior below.
+  }
+
+  return null;
 }
 
 function parseEnvValue(rawValue) {
@@ -283,7 +301,15 @@ if (shouldGenerateCoverage) {
   fs.rmSync(coverageDir, { recursive: true, force: true });
   console.log('Generating fresh Jest coverage report for SonarQube...');
   try {
-    execSync('npm test -- --coverage --runInBand', { stdio: 'inherit' });
+    const npmCliPath = resolveNpmCliPath();
+    if (!npmCliPath) {
+      console.error('Error: Unable to resolve npm CLI path for coverage generation.');
+      process.exit(1);
+    }
+
+    execFileSync(process.execPath, [npmCliPath, 'test', '--', '--coverage', '--runInBand'], {
+      stdio: 'inherit',
+    });
   } catch (error) {
     console.error('Error: Failed to generate coverage report for SonarQube.');
     process.exit(1);
