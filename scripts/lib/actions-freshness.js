@@ -124,7 +124,10 @@ function escapeMarkdownTableCell(value) {
     return '';
   }
 
-  return String(value).replace(/\r?\n/g, '<br>').replace(/\|/g, '\\|');
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\r?\n/g, '<br>')
+    .replace(/\|/g, '\\|');
 }
 
 function buildMarkdownReport(report) {
