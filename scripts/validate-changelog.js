@@ -5,7 +5,6 @@ const path = require('path');
 
 const ROOT_DIR = path.join(__dirname, '..');
 const DEFAULT_CHANGELOG_PATH = path.join(ROOT_DIR, 'CHANGELOG.md');
-const RELEASE_HEADING_PATTERN = /^##\s+\[(v?\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?)\]\s+-\s+(\d{4}-\d{2}-\d{2})\s*$/;
 const SECTION_HEADING_PATTERN = /^###\s+(.+?)\s*$/;
 const ALLOWED_SECTION_HEADINGS = new Set([
   'Added',
@@ -37,20 +36,129 @@ function isValidIsoDate(value) {
   );
 }
 
+function isDigitString(value) {
+  if (value.length === 0) {
+    return false;
+  }
+
+  for (let index = 0; index < value.length; index += 1) {
+    const charCode = value.charCodeAt(index);
+    if (charCode < 48 || charCode > 57) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isAllowedPrereleaseChar(charCode) {
+  const isNumeric = charCode >= 48 && charCode <= 57;
+  const isUpper = charCode >= 65 && charCode <= 90;
+  const isLower = charCode >= 97 && charCode <= 122;
+  const isDot = charCode === 46;
+  const isHyphen = charCode === 45;
+
+  return isNumeric || isUpper || isLower || isDot || isHyphen;
+}
+
+function isValidPrerelease(value) {
+  if (value.length === 0) {
+    return false;
+  }
+
+  let previousWasSeparator = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const charCode = value.charCodeAt(index);
+    if (!isAllowedPrereleaseChar(charCode)) {
+      return false;
+    }
+
+    const isSeparator = charCode === 45 || charCode === 46;
+    if (isSeparator) {
+      if (index === 0 || index === value.length - 1 || previousWasSeparator) {
+        return false;
+      }
+    }
+
+    previousWasSeparator = isSeparator;
+  }
+
+  return true;
+}
+
+function isValidVersion(value) {
+  if (typeof value !== 'string' || value.length === 0) {
+    return false;
+  }
+
+  const normalized = value.startsWith('v') ? value.slice(1) : value;
+  const dashIndex = normalized.indexOf('-');
+  if (dashIndex === normalized.length - 1) {
+    return false;
+  }
+
+  const core = dashIndex >= 0 ? normalized.slice(0, dashIndex) : normalized;
+  const prerelease = dashIndex >= 0 ? normalized.slice(dashIndex + 1) : '';
+  const coreSegments = core.split('.');
+
+  if (coreSegments.length !== 3 || !coreSegments.every(isDigitString)) {
+    return false;
+  }
+
+  if (prerelease.length > 0 && !isValidPrerelease(prerelease)) {
+    return false;
+  }
+
+  return true;
+}
+
+function parseReleaseHeading(line) {
+  const trimmed = line.trimEnd();
+  if (!trimmed.startsWith('## [')) {
+    return null;
+  }
+
+  const closingBracketIndex = trimmed.indexOf(']');
+  if (closingBracketIndex <= 4) {
+    return null;
+  }
+
+  if (!trimmed.slice(closingBracketIndex + 1).startsWith(' - ')) {
+    return null;
+  }
+
+  const version = trimmed.slice(4, closingBracketIndex);
+  const date = trimmed.slice(closingBracketIndex + 4);
+
+  if (date.length === 0) {
+    return null;
+  }
+
+  return {
+    version,
+    date,
+    isValidVersion: isValidVersion(version),
+    isValidDate: isValidIsoDate(date),
+  };
+}
+
 function collectReleaseHeadings(lines) {
   const headings = [];
 
   for (let index = 0; index < lines.length; index += 1) {
-    const match = lines[index].match(RELEASE_HEADING_PATTERN);
-    if (!match) {
+    const parsed = parseReleaseHeading(lines[index]);
+    if (!parsed) {
       continue;
     }
 
     headings.push({
       lineIndex: index,
       lineNumber: index + 1,
-      version: match[1],
-      date: match[2],
+      version: parsed.version,
+      date: parsed.date,
+      isValidVersion: parsed.isValidVersion,
+      isValidDate: parsed.isValidDate,
     });
   }
 
@@ -99,7 +207,13 @@ function validateChangelogContent(content) {
   }
 
   for (const release of releases) {
-    if (!isValidIsoDate(release.date)) {
+    if (!release.isValidVersion) {
+      errors.push(
+        `Release heading at line ${release.lineNumber} has an invalid version: \`${release.version}\`.`
+      );
+    }
+
+    if (!release.isValidDate) {
       errors.push(
         `Release heading at line ${release.lineNumber} has an invalid date: \`${release.date}\`.`
       );
@@ -184,6 +298,8 @@ module.exports = {
   collectReleaseHeadings,
   collectSectionHeadings,
   isValidIsoDate,
+  isValidVersion,
+  parseReleaseHeading,
   validateChangelogContent,
   validateChangelogFile,
 };

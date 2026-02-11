@@ -1,4 +1,9 @@
-const { validateChangelogContent, isValidIsoDate } = require('../../../scripts/validate-changelog');
+const {
+  validateChangelogContent,
+  isValidIsoDate,
+  isValidVersion,
+  parseReleaseHeading,
+} = require('../../../scripts/validate-changelog');
 
 describe('validate-changelog script', () => {
   test('accepts a valid changelog document', () => {
@@ -100,5 +105,34 @@ No structured releases yet.
     expect(isValidIsoDate('2026-02-11')).toBe(true);
     expect(isValidIsoDate('2026-02-31')).toBe(false);
     expect(isValidIsoDate('2026/02/11')).toBe(false);
+  });
+
+  test('validates versions correctly', () => {
+    expect(isValidVersion('v1.2.3')).toBe(true);
+    expect(isValidVersion('1.2.3-alpha.1')).toBe(true);
+    expect(isValidVersion('v1.2')).toBe(false);
+    expect(isValidVersion('v1.2.3-')).toBe(false);
+    expect(isValidVersion('v1.2.3-alpha..1')).toBe(false);
+  });
+
+  test('parses release headings using explicit format', () => {
+    expect(parseReleaseHeading('## [v1.2.3] - 2026-02-11')).toEqual({
+      version: 'v1.2.3',
+      date: '2026-02-11',
+      isValidVersion: true,
+      isValidDate: true,
+    });
+    expect(parseReleaseHeading('## [v1.2.3] - 2026-02-31')).toEqual({
+      version: 'v1.2.3',
+      date: '2026-02-31',
+      isValidVersion: true,
+      isValidDate: false,
+    });
+    expect(parseReleaseHeading('## [invalid] - 2026-02-11')).toEqual({
+      version: 'invalid',
+      date: '2026-02-11',
+      isValidVersion: false,
+      isValidDate: true,
+    });
   });
 });

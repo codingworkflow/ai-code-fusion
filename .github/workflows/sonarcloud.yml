@@ -53,7 +53,8 @@ jobs:
             -Dsonar.organization=${{ vars.SONAR_ORGANIZATION || 'codingworkflow' }}
             -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY || 'codingworkflow_ai-code-fusion' }}
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-            -Dsonar.cpd.exclusions=tests/**,src/**/__tests__/**
+            -Dsonar.exclusions=tests/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx
+            -Dsonar.cpd.exclusions=tests/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx,src/**/__tests__/**
 
       - name: SonarCloud quality gate
         continue-on-error: true
