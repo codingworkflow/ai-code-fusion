@@ -6,6 +6,7 @@ const https = require('https');
 const DEFAULT_METRIC_NAME = 'ai_code_fusion_stress_publish_timestamp_seconds';
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_POLL_INTERVAL_MS = 5_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 
 function toFiniteNumber(value) {
   const parsedValue = Number(value);
@@ -49,9 +50,26 @@ function buildMetricQueries(metricName, jobName, instanceName) {
   ];
 }
 
-function requestJson(endpointUrl) {
+function requestJson(endpointUrl, options = {}) {
+  const requestTimeoutMs = toFiniteNumber(options.requestTimeoutMs) || DEFAULT_REQUEST_TIMEOUT_MS;
+
   return new Promise((resolve, reject) => {
     const client = endpointUrl.protocol === 'https:' ? https : http;
+    let settled = false;
+    const rejectOnce = (error) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    };
+
+    const resolveOnce = (payload) => {
+      if (!settled) {
+        settled = true;
+        resolve(payload);
+      }
+    };
+
     const request = client.request(
       endpointUrl,
       { method: 'GET' },
@@ -61,27 +79,30 @@ function requestJson(endpointUrl) {
         response.on('end', () => {
           const responseBody = Buffer.concat(responseChunks).toString('utf8');
           if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
-            reject(
-              new Error(
-                `Prometheus returned ${response.statusCode || 'unknown status'}${
-                  responseBody ? `: ${responseBody}` : ''
-                }`
-              )
+            rejectOnce(
+              new Error(`Prometheus returned HTTP ${response.statusCode || 'unknown status'}`)
             );
             return;
           }
 
           try {
-            resolve(JSON.parse(responseBody));
+            resolveOnce(JSON.parse(responseBody));
           } catch (error) {
-            const safeMessage = error instanceof Error ? error.message : String(error);
-            reject(new Error(`Failed to parse Prometheus response: ${safeMessage}`));
+            rejectOnce(new Error('Failed to parse Prometheus response body as JSON'));
           }
         });
       }
     );
 
-    request.on('error', (error) => reject(error));
+    request.setTimeout(requestTimeoutMs, () => {
+      request.destroy(new Error(`Prometheus request timed out after ${requestTimeoutMs}ms`));
+    });
+
+    request.on('error', (error) => {
+      const safeMessage = error instanceof Error ? error.message : String(error);
+      rejectOnce(new Error(`Prometheus request failed: ${safeMessage}`));
+    });
+
     request.end();
   });
 }
@@ -104,11 +125,11 @@ function extractNumericValues(resultSet) {
   return values;
 }
 
-async function queryPrometheus(prometheusUrl, query) {
+async function queryPrometheus(prometheusUrl, query, options = {}) {
   const endpointUrl = new URL('/api/v1/query', normalizeBaseUrl(prometheusUrl));
   endpointUrl.searchParams.set('query', query);
 
-  const payload = await requestJson(endpointUrl);
+  const payload = await requestJson(endpointUrl, options);
   if (!payload || payload.status !== 'success') {
     throw new Error(`Prometheus query failed for "${query}"`);
   }
@@ -130,6 +151,7 @@ async function waitForStressMetrics(options) {
     minPublishTimestampSeconds = null,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
+    requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
     queryFn = queryPrometheus,
     nowFn = Date.now,
     sleepFn = sleep,
@@ -146,6 +168,8 @@ async function waitForStressMetrics(options) {
   const minimumTimestamp = toFiniteNumber(minPublishTimestampSeconds);
   const parsedTimeoutMs = toFiniteNumber(timeoutMs) || DEFAULT_TIMEOUT_MS;
   const parsedPollIntervalMs = toFiniteNumber(pollIntervalMs) || DEFAULT_POLL_INTERVAL_MS;
+  const parsedRequestTimeoutMs = toFiniteNumber(requestTimeoutMs) || DEFAULT_REQUEST_TIMEOUT_MS;
+  const boundedRequestTimeoutMs = Math.max(1, Math.min(parsedRequestTimeoutMs, parsedTimeoutMs));
   const queries = buildMetricQueries(metricName, String(jobName).trim(), String(instanceName).trim());
   const deadline = nowFn() + parsedTimeoutMs;
   let lastError = null;
@@ -153,7 +177,9 @@ async function waitForStressMetrics(options) {
   while (nowFn() <= deadline) {
     for (const query of queries) {
       try {
-        const values = await queryFn(prometheusUrl, query);
+        const values = await queryFn(prometheusUrl, query, {
+          requestTimeoutMs: boundedRequestTimeoutMs,
+        });
         const hasMatch = values.some((value) => {
           if (minimumTimestamp !== null) {
             return value >= minimumTimestamp;
@@ -178,9 +204,10 @@ async function waitForStressMetrics(options) {
 
   const errorSuffix =
     lastError instanceof Error ? ` Last error: ${lastError.message}` : ' No Prometheus samples matched.';
+  const attemptedQueries = queries.join(' | ');
 
   throw new Error(
-    `Timed out after ${parsedTimeoutMs}ms waiting for "${metricName}" in Prometheus.${errorSuffix}`
+    `Timed out after ${parsedTimeoutMs}ms waiting for "${metricName}" in Prometheus. Attempted queries: ${attemptedQueries}.${errorSuffix}`
   );
 }
 
@@ -191,6 +218,8 @@ async function main() {
   const timeoutMs = toFiniteNumber(process.env.PROMETHEUS_VERIFY_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
   const pollIntervalMs =
     toFiniteNumber(process.env.PROMETHEUS_VERIFY_POLL_INTERVAL_MS) || DEFAULT_POLL_INTERVAL_MS;
+  const requestTimeoutMs =
+    toFiniteNumber(process.env.PROMETHEUS_REQUEST_TIMEOUT_MS) || DEFAULT_REQUEST_TIMEOUT_MS;
   const minPublishTimestampSeconds = toFiniteNumber(process.env.PROMETHEUS_MIN_PUBLISH_TS_SECONDS);
 
   const result = await waitForStressMetrics({
@@ -200,6 +229,7 @@ async function main() {
     minPublishTimestampSeconds,
     timeoutMs,
     pollIntervalMs,
+    requestTimeoutMs,
   });
 
   console.log(
@@ -218,6 +248,7 @@ module.exports = {
     requestJson,
     toFiniteNumber,
     trimTrailingSlashes,
+    DEFAULT_REQUEST_TIMEOUT_MS,
   },
 };
 

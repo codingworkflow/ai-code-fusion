@@ -28,6 +28,41 @@ function trimBoundaryDots(value) {
   return value.slice(startIndex, endIndex);
 }
 
+function normalizeEndpointUrl(rawValue, label) {
+  const input = String(rawValue || '').trim();
+  if (!input) {
+    return '';
+  }
+
+  const withProtocol = /^https?:\/\//i.test(input) ? input : `https://${input}`;
+  let parsed;
+  try {
+    parsed = new URL(withProtocol);
+  } catch (error) {
+    throw new Error(`Invalid ${label} value: ${input}`);
+  }
+
+  if (!parsed.hostname) {
+    throw new Error(`Invalid ${label} value: ${input}`);
+  }
+
+  return parsed.toString();
+}
+
+function redactUrlForLogs(rawUrl) {
+  const input = String(rawUrl || '').trim();
+  if (!input) {
+    return '<empty>';
+  }
+
+  try {
+    const parsed = new URL(input);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch (error) {
+    return '<invalid-url>';
+  }
+}
+
 function normalizeToolsDomain(rawValue) {
   const input = String(rawValue || '').trim();
   if (!input) {
@@ -41,15 +76,19 @@ function normalizeToolsDomain(rawValue) {
   } catch (error) {
     throw new Error(`Invalid TOOLS_DOMAIN value: ${input}`);
   }
-  const normalizedHost = trimBoundaryDots(parsed.host).trim().toLowerCase();
+  const normalizedHost = trimBoundaryDots(parsed.hostname).trim().toLowerCase();
   return normalizedHost;
 }
 
 function resolveMonitoringEndpoints(environment) {
   const env = environment || process.env;
   const toolsDomain = normalizeToolsDomain(env.TOOLS_DOMAIN || '');
-  const pushgatewayUrl = (env.PUSHGATEWAY_URL || '').trim() || (toolsDomain ? `https://pushgateway.${toolsDomain}` : '');
-  const prometheusUrl = (env.PROMETHEUS_URL || '').trim() || (toolsDomain ? `https://prometheus.${toolsDomain}` : '');
+  const pushgatewaySource =
+    (env.PUSHGATEWAY_URL || '').trim() || (toolsDomain ? `https://pushgateway.${toolsDomain}` : '');
+  const prometheusSource =
+    (env.PROMETHEUS_URL || '').trim() || (toolsDomain ? `https://prometheus.${toolsDomain}` : '');
+  const pushgatewayUrl = normalizeEndpointUrl(pushgatewaySource, 'PUSHGATEWAY_URL');
+  const prometheusUrl = normalizeEndpointUrl(prometheusSource, 'PROMETHEUS_URL');
 
   return {
     toolsDomain,
@@ -110,8 +149,8 @@ async function runPerfMetricsJob(options = {}) {
   if (toolsDomain) {
     logger.log(`Resolved monitoring endpoints from TOOLS_DOMAIN=${toolsDomain}`);
   }
-  logger.log(`Pushgateway endpoint: ${pushgatewayUrl}`);
-  logger.log(`Prometheus endpoint: ${prometheusUrl}`);
+  logger.log(`Pushgateway endpoint: ${redactUrlForLogs(pushgatewayUrl)}`);
+  logger.log(`Prometheus endpoint: ${redactUrlForLogs(prometheusUrl)}`);
   logger.log(`Pushgateway job="${jobName}" instance="${instanceName}"`);
 
   runCommand('npm run test:stress', { env: commandEnvironment, execFn });
@@ -144,6 +183,8 @@ module.exports = {
     buildDefaultInstanceName,
     normalizeToolsDomain,
     resolveMonitoringEndpoints,
+    normalizeEndpointUrl,
+    redactUrlForLogs,
     runCommand,
     trimBoundaryDots,
     toFiniteNumber,

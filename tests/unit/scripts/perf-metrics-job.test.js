@@ -6,6 +6,7 @@ describe('run-perf-metrics-job helpers', () => {
     expect(__testUtils.normalizeToolsDomain('https://example.internal/path')).toBe(
       'example.internal'
     );
+    expect(__testUtils.normalizeToolsDomain('example.internal:8443')).toBe('example.internal');
   });
 
   test('trims only boundary dots from host values', () => {
@@ -28,9 +29,46 @@ describe('run-perf-metrics-job helpers', () => {
 
     expect(endpoints).toEqual({
       toolsDomain: '114.be.tn',
-      pushgatewayUrl: 'https://pushgateway.114.be.tn',
-      prometheusUrl: 'https://prometheus.114.be.tn',
+      pushgatewayUrl: 'https://pushgateway.114.be.tn/',
+      prometheusUrl: 'https://prometheus.114.be.tn/',
     });
+  });
+
+  test('normalizes explicit endpoint URLs without schemes', () => {
+    const endpoints = __testUtils.resolveMonitoringEndpoints({
+      PUSHGATEWAY_URL: 'pushgateway.internal',
+      PROMETHEUS_URL: 'prometheus.internal',
+    });
+
+    expect(endpoints.pushgatewayUrl).toBe('https://pushgateway.internal/');
+    expect(endpoints.prometheusUrl).toBe('https://prometheus.internal/');
+  });
+
+  test('redacts credentials and query parameters in endpoint logs', async () => {
+    const executedCommands = [];
+    const log = jest.fn();
+
+    await runPerfMetricsJob({
+      env: {
+        PUSHGATEWAY_URL: 'https://user:secret@pushgateway.example.com/base?token=abc',
+        PROMETHEUS_URL: 'https://prometheus.example.com/api?token=xyz',
+        PUSHGATEWAY_JOB: 'ai_code_fusion_stress',
+      },
+      nowFn: () => 1_700_000_000_000,
+      hostName: 'dev-host',
+      execFn: (command, options) => {
+        executedCommands.push({ command, env: options.env });
+      },
+      verifyFn: async () => {},
+      logger: { log },
+    });
+
+    expect(executedCommands).toHaveLength(2);
+    const logOutput = log.mock.calls.map((call) => call[0]).join('\n');
+    expect(logOutput).toContain('Pushgateway endpoint: https://pushgateway.example.com');
+    expect(logOutput).toContain('Prometheus endpoint: https://prometheus.example.com');
+    expect(logOutput).not.toContain('secret');
+    expect(logOutput).not.toContain('token=');
   });
 
   test('runs stress publish flow and validates Prometheus', async () => {
@@ -60,13 +98,13 @@ describe('run-perf-metrics-job helpers', () => {
     ]);
 
     const stressMetricsEnvironment = executedCommands[1].env;
-    expect(stressMetricsEnvironment.PUSHGATEWAY_URL).toBe('https://pushgateway.114.be.tn');
-    expect(stressMetricsEnvironment.PROMETHEUS_URL).toBe('https://prometheus.114.be.tn');
+    expect(stressMetricsEnvironment.PUSHGATEWAY_URL).toBe('https://pushgateway.114.be.tn/');
+    expect(stressMetricsEnvironment.PROMETHEUS_URL).toBe('https://prometheus.114.be.tn/');
     expect(stressMetricsEnvironment.STRESS_METRICS_PUBLISH_TS_SECONDS).toBe('1700000000');
 
     expect(verifyCalls).toHaveLength(1);
     expect(verifyCalls[0]).toMatchObject({
-      prometheusUrl: 'https://prometheus.114.be.tn',
+      prometheusUrl: 'https://prometheus.114.be.tn/',
       jobName: 'ai_code_fusion_stress',
       instanceName: 'local-dev-host-1700000000000',
       minPublishTimestampSeconds: 1_700_000_000,
@@ -76,6 +114,12 @@ describe('run-perf-metrics-job helpers', () => {
   test('fails fast when monitoring endpoints cannot be resolved', async () => {
     await expect(runPerfMetricsJob({ env: {} })).rejects.toThrow(
       'Unable to resolve monitoring endpoints'
+    );
+  });
+
+  test('fails fast when TOOLS_DOMAIN cannot be normalized', async () => {
+    await expect(runPerfMetricsJob({ env: { TOOLS_DOMAIN: 'http://' } })).rejects.toThrow(
+      'Invalid TOOLS_DOMAIN value'
     );
   });
 });

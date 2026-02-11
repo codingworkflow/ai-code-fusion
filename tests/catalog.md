@@ -57,6 +57,7 @@ Stress benchmark outputs:
 - Prometheus text format: `dist/benchmarks/stress-metrics.prom`
 - CI artifact: `stress-benchmarks-linux`
 - Optional publish target: set `PUSHGATEWAY_URL` (and optional `PUSHGATEWAY_JOB`, `PUSHGATEWAY_INSTANCE`, `PUSHGATEWAY_STRICT=true`)
+- Optional Prometheus verification tuning: `PROMETHEUS_VERIFY_TIMEOUT_MS`, `PROMETHEUS_VERIFY_POLL_INTERVAL_MS`, `PROMETHEUS_REQUEST_TIMEOUT_MS`
 - TOOLS domain mode: set `TOOLS_DOMAIN` (for example `.114.be.tn`) and run `make perf-test` to derive `https://pushgateway.$TOOLS_DOMAIN` and `https://prometheus.$TOOLS_DOMAIN`, publish, then verify scrape visibility
 
 ## Electron E2E Tests

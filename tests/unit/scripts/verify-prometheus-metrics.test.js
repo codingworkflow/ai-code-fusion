@@ -18,7 +18,8 @@ describe('verify-prometheus-metrics helpers', () => {
   });
 
   test('waits until Prometheus returns publish timestamp at or above the threshold', async () => {
-    const queryFn = jest.fn(async (prometheusUrl, query) => {
+    const queryFn = jest.fn(async (prometheusUrl, query, options) => {
+      expect(options).toMatchObject({ requestTimeoutMs: 250 });
       if (query.includes('exported_job=')) {
         return [1_700_000_005];
       }
@@ -39,6 +40,7 @@ describe('verify-prometheus-metrics helpers', () => {
     });
 
     expect(result.query).toContain('exported_job=');
+    expect(result.values).toContain(1_700_000_005);
     expect(queryFn).toHaveBeenCalled();
   });
 
@@ -60,6 +62,6 @@ describe('verify-prometheus-metrics helpers', () => {
           now += intervalMs;
         },
       })
-    ).rejects.toThrow('Timed out');
+    ).rejects.toThrow('Attempted queries:');
   });
 });
