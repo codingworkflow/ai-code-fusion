@@ -1,4 +1,4 @@
-const { buildScannerOptions, __testUtils } = require('../../../scripts/lib/sonar-options');
+const { buildScannerOptions, DEFAULT_CPD_EXCLUSIONS } = require('../../../scripts/lib/sonar-options');
 
 describe('buildScannerOptions', () => {
   test('uses sonar.cpd.exclusions from project properties when present', () => {
@@ -24,7 +24,7 @@ describe('buildScannerOptions', () => {
       sonarToken: '',
     });
 
-    expect(options['sonar.cpd.exclusions']).toBe(__testUtils.DEFAULT_CPD_EXCLUSIONS);
+    expect(options['sonar.cpd.exclusions']).toBe(DEFAULT_CPD_EXCLUSIONS);
     expect(options['sonar.cpd.exclusions']).toContain('tests/**');
     expect(options['sonar.cpd.exclusions']).toContain('**/*.stress.test.ts');
   });
@@ -46,5 +46,22 @@ describe('buildScannerOptions', () => {
     );
     expect(options['sonar.token']).toBe('secret-token');
     expect(options['sonar.host.url']).toBe('http://localhost:9000');
+  });
+
+  test('ignores non-sonar property keys from input properties', () => {
+    const options = buildScannerOptions({
+      projectKey: 'ai-code-fusion',
+      properties: {
+        'sonar.sources': 'src',
+        MALICIOUS_FLAG: 'true',
+        'x-custom-setting': 'should-not-pass',
+      },
+      sonarUrl: 'http://localhost:9000',
+      sonarToken: '',
+    });
+
+    expect(options['sonar.sources']).toBe('src');
+    expect(options.MALICIOUS_FLAG).toBeUndefined();
+    expect(options['x-custom-setting']).toBeUndefined();
   });
 });

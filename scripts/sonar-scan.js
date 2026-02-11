@@ -193,19 +193,26 @@ if (loadedEnvKeys.length > 0) {
   console.log('No .env values loaded; using existing environment variables');
 }
 
-function runWithNativeScanner(scannerOptions) {
+function runWithNativeScanner(scannerOptions, token) {
   const scannerBinary = resolveNativeScannerPath();
   if (!scannerBinary) {
     return false;
   }
 
   console.log(`Using native sonar-scanner: ${scannerBinary}`);
-  const args = Object.entries(scannerOptions).map(([key, value]) => `-D${key}=${value}`);
+  const scannerOptionsForArgs = { ...scannerOptions };
+  delete scannerOptionsForArgs['sonar.token'];
+  const args = Object.entries(scannerOptionsForArgs).map(([key, value]) => `-D${key}=${value}`);
   const useWindowsShell = process.platform === 'win32' && scannerBinary.toLowerCase().endsWith('.bat');
+  const scannerEnv = { ...process.env };
+  if (token) {
+    scannerEnv.SONAR_TOKEN = token;
+  }
   const result = spawnSync(scannerBinary, args, {
     cwd: projectRoot,
     stdio: 'inherit',
     shell: useWindowsShell,
+    env: scannerEnv,
   });
 
   if (result.error) {
@@ -366,7 +373,7 @@ try {
     sonarToken,
   });
 
-  if (runWithNativeScanner(scannerOptions)) {
+  if (runWithNativeScanner(scannerOptions, sonarToken)) {
     console.log('SonarQube scan completed successfully!');
     process.exit(0);
   }

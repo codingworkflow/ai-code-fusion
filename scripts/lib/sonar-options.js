@@ -10,6 +10,22 @@ const DEFAULT_CPD_EXCLUSIONS =
   'tests/**,src/**/__tests__/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx,**/*.stress.test.js,**/*.stress.test.jsx,**/*.stress.test.ts,**/*.stress.test.tsx';
 const DEFAULT_LCOV_PATH = 'coverage/lcov.info';
 const DEFAULT_SOURCE_ENCODING = 'UTF-8';
+const SONAR_PROPERTY_KEY_PATTERN = /^sonar\.[a-zA-Z0-9_.-]+$/;
+
+function sanitizeSonarProperties(properties) {
+  return Object.entries(properties || {}).reduce((accumulator, [key, value]) => {
+    if (!SONAR_PROPERTY_KEY_PATTERN.test(key)) {
+      return accumulator;
+    }
+
+    if (typeof value !== 'string') {
+      return accumulator;
+    }
+
+    accumulator[key] = value;
+    return accumulator;
+  }, {});
+}
 
 function buildScannerOptions({
   projectKey,
@@ -19,20 +35,21 @@ function buildScannerOptions({
   sonarUrl,
   sonarToken,
 }) {
+  const safeProperties = sanitizeSonarProperties(properties);
   const options = {
-    ...properties,
+    ...safeProperties,
     'sonar.projectKey': projectKey,
-    'sonar.projectName': projectName || properties['sonar.projectName'] || DEFAULT_PROJECT_NAME,
+    'sonar.projectName': projectName || safeProperties['sonar.projectName'] || DEFAULT_PROJECT_NAME,
     'sonar.projectVersion':
-      projectVersion || properties['sonar.projectVersion'] || DEFAULT_PROJECT_VERSION,
-    'sonar.sources': properties['sonar.sources'] || DEFAULT_SOURCES,
-    'sonar.exclusions': properties['sonar.exclusions'] || DEFAULT_EXCLUSIONS,
-    'sonar.tests': properties['sonar.tests'] || DEFAULT_TESTS,
-    'sonar.test.inclusions': properties['sonar.test.inclusions'] || DEFAULT_TEST_INCLUSIONS,
-    'sonar.cpd.exclusions': properties['sonar.cpd.exclusions'] || DEFAULT_CPD_EXCLUSIONS,
+      projectVersion || safeProperties['sonar.projectVersion'] || DEFAULT_PROJECT_VERSION,
+    'sonar.sources': safeProperties['sonar.sources'] || DEFAULT_SOURCES,
+    'sonar.exclusions': safeProperties['sonar.exclusions'] || DEFAULT_EXCLUSIONS,
+    'sonar.tests': safeProperties['sonar.tests'] || DEFAULT_TESTS,
+    'sonar.test.inclusions': safeProperties['sonar.test.inclusions'] || DEFAULT_TEST_INCLUSIONS,
+    'sonar.cpd.exclusions': safeProperties['sonar.cpd.exclusions'] || DEFAULT_CPD_EXCLUSIONS,
     'sonar.javascript.lcov.reportPaths':
-      properties['sonar.javascript.lcov.reportPaths'] || DEFAULT_LCOV_PATH,
-    'sonar.sourceEncoding': properties['sonar.sourceEncoding'] || DEFAULT_SOURCE_ENCODING,
+      safeProperties['sonar.javascript.lcov.reportPaths'] || DEFAULT_LCOV_PATH,
+    'sonar.sourceEncoding': safeProperties['sonar.sourceEncoding'] || DEFAULT_SOURCE_ENCODING,
     'sonar.host.url': sonarUrl,
   };
 
@@ -45,7 +62,5 @@ function buildScannerOptions({
 
 module.exports = {
   buildScannerOptions,
-  __testUtils: {
-    DEFAULT_CPD_EXCLUSIONS,
-  },
+  DEFAULT_CPD_EXCLUSIONS,
 };
