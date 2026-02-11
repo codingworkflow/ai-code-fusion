@@ -3,7 +3,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const {
+  compileIgnorePatterns,
   extractCatalogPathReferences,
+  resolvePathWithinRoot,
   validateTestCatalog,
 } = require('../../../scripts/validate-test-catalog');
 
@@ -82,6 +84,7 @@ describe('validate-test-catalog script', () => {
       expect(report.discoveredTestFiles).toEqual([]);
       expect(report.unlistedDiscoveredTestFiles).toEqual([]);
       expect(report.listedButNotDiscoveredTestFiles).toEqual([]);
+      expect(report.warnings).toEqual([]);
     });
   });
 
@@ -111,6 +114,7 @@ describe('validate-test-catalog script', () => {
         'tests/integration/b.test.ts',
         'tests/unit/a.test.ts',
       ]);
+      expect(report.warnings).toEqual([]);
     });
   });
 
@@ -130,6 +134,7 @@ describe('validate-test-catalog script', () => {
       expect(report.isValid).toBe(false);
       expect(report.missingCatalogPaths).toEqual(['tests/unit/missing.test.ts']);
       expect(report.errors[0]).toContain('Catalog references missing paths');
+      expect(report.warnings).toEqual([]);
     });
   });
 
@@ -155,6 +160,7 @@ describe('validate-test-catalog script', () => {
       expect(report.isValid).toBe(false);
       expect(report.unlistedDiscoveredTestFiles).toEqual(['tests/unit/forgotten.test.ts']);
       expect(report.errors[0]).toContain('Discovered tests missing from catalog');
+      expect(report.warnings).toEqual([]);
     });
   });
 
@@ -183,6 +189,89 @@ describe('validate-test-catalog script', () => {
       expect(report.isValid).toBe(false);
       expect(report.listedButNotDiscoveredTestFiles).toEqual(['tests/stress/out-of-scope.test.ts']);
       expect(report.errors[0]).toContain('Catalog lists tests not discovered by Jest');
+      expect(report.warnings).toEqual([]);
+    });
+  });
+
+  test('uses Jest default discovery patterns when testMatch is omitted', () => {
+    return withWorkspace((rootDir) => {
+      writeFile(rootDir, 'tests/catalog.md', '`tests/unit/uses-default.spec.ts`');
+      writeFile(
+        rootDir,
+        'tests/unit/uses-default.spec.ts',
+        'test("default-pattern", () => expect(true).toBe(true));'
+      );
+
+      const report = validateTestCatalog({
+        rootDir,
+        catalogPath: path.join(rootDir, 'tests/catalog.md'),
+        jestConfig: {
+          testPathIgnorePatterns: [],
+        },
+      });
+
+      expect(report.isValid).toBe(true);
+      expect(report.discoveredTestFiles).toEqual(['tests/unit/uses-default.spec.ts']);
+    });
+  });
+
+  test('collects warnings for invalid ignore patterns', () => {
+    return withWorkspace((rootDir) => {
+      writeFile(rootDir, 'tests/catalog.md', '`tests/unit/a.test.ts`');
+      writeFile(rootDir, 'tests/unit/a.test.ts', 'test("a", () => expect(true).toBe(true));');
+
+      const report = validateTestCatalog({
+        rootDir,
+        catalogPath: path.join(rootDir, 'tests/catalog.md'),
+        jestConfig: {
+          testMatch: ['<rootDir>/tests/**/*.{js,jsx,ts,tsx}'],
+          testPathIgnorePatterns: ['['],
+        },
+      });
+
+      expect(report.isValid).toBe(true);
+      expect(report.warnings).toHaveLength(1);
+      expect(report.warnings[0]).toContain('Invalid Jest ignore pattern');
+    });
+  });
+
+  test('compiles valid ignore patterns and reports invalid ones', () => {
+    const invalidPatternWarnings = [];
+    const patterns = compileIgnorePatterns(['[', '/tests/e2e/'], (pattern) => {
+      invalidPatternWarnings.push(pattern);
+    });
+
+    expect(patterns).toHaveLength(1);
+    expect(patterns[0].test('/tmp/tests/e2e/example.spec.ts')).toBe(true);
+    expect(invalidPatternWarnings).toEqual(['[']);
+  });
+
+  test('rejects CLI paths that resolve outside the repository root', () => {
+    expect(() =>
+      resolvePathWithinRoot(path.resolve('/tmp/outside-catalog.md'), '/unused', 'Catalog path')
+    ).toThrow('must resolve inside the repository');
+
+    const resolved = resolvePathWithinRoot('tests/catalog.md', '/unused', 'Catalog path');
+    expect(resolved.endsWith(path.join('tests', 'catalog.md'))).toBe(true);
+    expect(path.isAbsolute(resolved)).toBe(true);
+  });
+
+  test('does not flag cataloged tests that are intentionally ignored by Jest', () => {
+    return withWorkspace((rootDir) => {
+      writeFile(rootDir, 'tests/catalog.md', '`tests/e2e/ignored.spec.ts`');
+      writeFile(rootDir, 'tests/e2e/ignored.spec.ts', 'test("ignored", () => expect(true).toBe(true));');
+
+      const report = validateTestCatalog({
+        rootDir,
+        catalogPath: path.join(rootDir, 'tests/catalog.md'),
+        jestConfig: {
+          testMatch: ['<rootDir>/tests/**/*.{js,jsx,ts,tsx}'],
+          testPathIgnorePatterns: ['/tests/e2e/'],
+        },
+      });
+
+      expect(report.isValid).toBe(true);
+      expect(report.listedButNotDiscoveredTestFiles).toEqual([]);
     });
   });
 });

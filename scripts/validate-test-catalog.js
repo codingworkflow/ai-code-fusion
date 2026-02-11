@@ -9,6 +9,10 @@ const DEFAULT_CATALOG_PATH = path.join(ROOT_DIR, 'tests', 'catalog.md');
 const DEFAULT_JEST_CONFIG_PATH = path.join(ROOT_DIR, 'jest.config.js');
 const CATALOG_PATH_REFERENCE_PATTERN = /`(tests\/[^`\s]+)`/g;
 const EXECUTABLE_TEST_FILE_PATTERN = /\.(test|spec)\.(js|jsx|ts|tsx)$/;
+const JEST_DEFAULT_TEST_MATCH_PATTERNS = [
+  '**/__tests__/**/*.[jt]s?(x)',
+  '**/?(*.)+(spec|test).[jt]s?(x)',
+];
 
 function toPosixPath(value) {
   return value.replace(/\\/g, '/');
@@ -52,18 +56,19 @@ function loadJestConfig(jestConfigPath = DEFAULT_JEST_CONFIG_PATH) {
   return loaded && typeof loaded === 'object' ? loaded : {};
 }
 
-function normalizeTestMatchPatterns(testMatchPatterns = [], rootDir = ROOT_DIR) {
+function normalizeTestMatchPatterns(testMatchPatterns = []) {
   return testMatchPatterns.map((pattern) =>
     toPosixPath(pattern).replace('<rootDir>/', '').replace('<rootDir>', '')
   );
 }
 
-function compileIgnorePatterns(patterns = []) {
+function compileIgnorePatterns(patterns = [], onInvalidPattern = () => {}) {
   return patterns
     .map((pattern) => {
       try {
         return new RegExp(pattern);
-      } catch (_error) {
+      } catch (error) {
+        onInvalidPattern(pattern, error);
         return null;
       }
     })
@@ -76,11 +81,10 @@ function isIgnoredByJest(absoluteFilePath, ignorePatterns) {
 }
 
 function isMatchedByJest(relativeFilePath, testMatchPatterns) {
-  if (testMatchPatterns.length === 0) {
-    return true;
-  }
+  const effectivePatterns =
+    testMatchPatterns.length > 0 ? testMatchPatterns : JEST_DEFAULT_TEST_MATCH_PATTERNS;
 
-  return testMatchPatterns.some((pattern) => minimatch(relativeFilePath, pattern, { dot: true }));
+  return effectivePatterns.some((pattern) => minimatch(relativeFilePath, pattern, { dot: true }));
 }
 
 function listExecutableTestFiles(rootDir = ROOT_DIR) {
@@ -101,6 +105,7 @@ function validateTestCatalog({
 } = {}) {
   let catalogContent = '';
   const errors = [];
+  const warnings = [];
 
   try {
     catalogContent = fs.readFileSync(catalogPath, 'utf8');
@@ -108,6 +113,7 @@ function validateTestCatalog({
     return {
       isValid: false,
       errors: [`Unable to read test catalog at ${catalogPath}: ${error.message}`],
+      warnings,
       catalogPathReferences: [],
       missingCatalogPaths: [],
       discoveredTestFiles: [],
@@ -117,8 +123,13 @@ function validateTestCatalog({
   }
 
   const effectiveJestConfig = jestConfig || loadJestConfig(jestConfigPath);
-  const testMatchPatterns = normalizeTestMatchPatterns(effectiveJestConfig.testMatch, rootDir);
-  const ignorePatterns = compileIgnorePatterns(effectiveJestConfig.testPathIgnorePatterns);
+  const testMatchPatterns = normalizeTestMatchPatterns(effectiveJestConfig.testMatch);
+  const ignorePatterns = compileIgnorePatterns(
+    effectiveJestConfig.testPathIgnorePatterns,
+    (pattern, error) => {
+      warnings.push(`Invalid Jest ignore pattern \`${pattern}\`: ${error.message}`);
+    }
+  );
   const catalogPathReferences = extractCatalogPathReferences(catalogContent);
 
   const missingCatalogPaths = catalogPathReferences
@@ -178,6 +189,7 @@ function validateTestCatalog({
   return {
     isValid: errors.length === 0,
     errors,
+    warnings,
     catalogPathReferences,
     missingCatalogPaths,
     discoveredTestFiles,
@@ -186,15 +198,41 @@ function validateTestCatalog({
   };
 }
 
+function resolvePathWithinRoot(inputPath, defaultPath, label) {
+  const resolvedPath = inputPath ? path.resolve(process.cwd(), inputPath) : defaultPath;
+  const relativeToRoot = path.relative(ROOT_DIR, resolvedPath);
+  const isOutsideRoot = relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot);
+
+  if (isOutsideRoot) {
+    throw new Error(`${label} must resolve inside the repository: ${resolvedPath}`);
+  }
+
+  return resolvedPath;
+}
+
 function run() {
-  const catalogArg = process.argv[2];
-  const jestConfigArg = process.argv[3];
+  const [catalogArg, jestConfigArg] = process.argv.slice(2);
+
+  let catalogPath = DEFAULT_CATALOG_PATH;
+  let jestConfigPath = DEFAULT_JEST_CONFIG_PATH;
+
+  try {
+    catalogPath = resolvePathWithinRoot(catalogArg, DEFAULT_CATALOG_PATH, 'Catalog path');
+    jestConfigPath = resolvePathWithinRoot(jestConfigArg, DEFAULT_JEST_CONFIG_PATH, 'Jest config path');
+  } catch (error) {
+    console.error('Test catalog validation failed:');
+    console.error(`- ${error.message}`);
+    process.exit(1);
+  }
+
   const result = validateTestCatalog({
-    catalogPath: catalogArg ? path.resolve(process.cwd(), catalogArg) : DEFAULT_CATALOG_PATH,
-    jestConfigPath: jestConfigArg
-      ? path.resolve(process.cwd(), jestConfigArg)
-      : DEFAULT_JEST_CONFIG_PATH,
+    catalogPath,
+    jestConfigPath,
   });
+
+  for (const warning of result.warnings) {
+    console.warn(`Warning: ${warning}`);
+  }
 
   if (!result.isValid) {
     console.error('Test catalog validation failed:');
@@ -220,5 +258,7 @@ module.exports = {
   isMatchedByJest,
   listExecutableTestFiles,
   normalizeTestMatchPatterns,
+  resolvePathWithinRoot,
+  compileIgnorePatterns,
   validateTestCatalog,
 };
