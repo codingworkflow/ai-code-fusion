@@ -80,7 +80,7 @@ jobs:
 
       - name: Upload UI screenshot
         if: always() && steps.capture_ui_screenshot.outcome == 'success'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: ui-screenshot-${{ runner.os }}
           path: dist/qa/screenshots/*.png
@@ -89,7 +89,7 @@ jobs:
 
       - name: Upload Playwright E2E artifacts
         if: runner.os == 'Linux' && always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: playwright-e2e-linux
           path: |
@@ -100,7 +100,7 @@ jobs:
 
       - name: Upload stress benchmark artifacts
         if: runner.os == 'Linux' && always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: stress-benchmarks-linux
           path: |
