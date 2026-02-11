@@ -1,4 +1,4 @@
-const USES_LINE_PATTERN = /^\s*(?:-\s*)?uses:\s*([^\s#]+)(?:\s+#.*)?\s*$/;
+const USES_LINE_PATTERN = /^\s*-?\s*uses:\s*/;
 const ACTION_REFERENCE_PATTERN =
   /^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(\/[A-Za-z0-9_.\-\/]+)?@([^\s]+)$/;
 const FULL_LENGTH_SHA_PATTERN = /^[a-f0-9]{40}$/i;
@@ -21,19 +21,29 @@ function isFullLengthSha(value) {
   return FULL_LENGTH_SHA_PATTERN.test(value);
 }
 
+function extractUsesValue(line) {
+  if (!USES_LINE_PATTERN.test(line)) {
+    return '';
+  }
+
+  const withoutPrefix = line.replace(USES_LINE_PATTERN, '');
+  const commentStart = withoutPrefix.search(/\s#/);
+  const rawValue =
+    commentStart >= 0 ? withoutPrefix.slice(0, commentStart) : withoutPrefix;
+
+  return normalizeReferenceValue(rawValue.trim());
+}
+
 function parseWorkflowContent(content, workflowPath) {
   const references = [];
   const lines = content.split(/\r?\n/);
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    const usesMatch = line.match(USES_LINE_PATTERN);
-
-    if (!usesMatch) {
+    const usesValue = extractUsesValue(line);
+    if (!usesValue) {
       continue;
     }
-
-    const usesValue = normalizeReferenceValue(usesMatch[1]);
 
     if (usesValue.startsWith('./') || usesValue.startsWith('docker://')) {
       continue;
@@ -109,6 +119,14 @@ function sortByLocation(left, right) {
   return left.workflowPath.localeCompare(right.workflowPath);
 }
 
+function escapeMarkdownTableCell(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value).replace(/\r?\n/g, '<br>').replace(/\|/g, '\\|');
+}
+
 function buildMarkdownReport(report) {
   const lines = [
     '# GitHub Actions Freshness Report',
@@ -132,7 +150,7 @@ function buildMarkdownReport(report) {
     const staleSorted = [...report.staleReferences].sort(sortByLocation);
     for (const stale of staleSorted) {
       lines.push(
-        `| ${stale.action} | \`${shortSha(stale.ref)}\` | \`${stale.latestTag}\` | \`${shortSha(stale.latestSha)}\` | \`${stale.workflowPath}:${stale.lineNumber}\` |`
+        `| ${escapeMarkdownTableCell(stale.action)} | \`${escapeMarkdownTableCell(shortSha(stale.ref))}\` | \`${escapeMarkdownTableCell(stale.latestTag)}\` | \`${escapeMarkdownTableCell(shortSha(stale.latestSha))}\` | \`${escapeMarkdownTableCell(`${stale.workflowPath}:${stale.lineNumber}`)}\` |`
       );
     }
 
@@ -148,7 +166,7 @@ function buildMarkdownReport(report) {
     const unpinnedSorted = [...report.unpinnedReferences].sort(sortByLocation);
     for (const unpinned of unpinnedSorted) {
       lines.push(
-        `| ${unpinned.action} | \`${unpinned.ref}\` | \`${unpinned.workflowPath}:${unpinned.lineNumber}\` |`
+        `| ${escapeMarkdownTableCell(unpinned.action)} | \`${escapeMarkdownTableCell(unpinned.ref)}\` | \`${escapeMarkdownTableCell(`${unpinned.workflowPath}:${unpinned.lineNumber}`)}\` |`
       );
     }
 
@@ -165,7 +183,9 @@ function buildMarkdownReport(report) {
       left.repository.localeCompare(right.repository)
     );
     for (const error of errorsSorted) {
-      lines.push(`| ${error.repository} | ${error.message} |`);
+      lines.push(
+        `| ${escapeMarkdownTableCell(error.repository)} | ${escapeMarkdownTableCell(error.message)} |`
+      );
     }
 
     lines.push('');
