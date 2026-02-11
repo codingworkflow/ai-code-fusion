@@ -403,6 +403,7 @@ async function upsertTrackingIssue({
   repository,
   issueTitle,
   staleCount,
+  resolutionErrorCount,
   reportMarkdown,
 }) {
   const trackingIssue = await findTrackingIssue({
@@ -412,8 +413,9 @@ async function upsertTrackingIssue({
     issueTitle,
   });
   const body = `${TRACKING_ISSUE_MARKER}\n\n${reportMarkdown}`;
+  const hasFindings = staleCount > 0 || resolutionErrorCount > 0;
 
-  if (staleCount === 0) {
+  if (!hasFindings) {
     if (!trackingIssue) {
       return;
     }
@@ -530,6 +532,7 @@ async function run() {
       repository: repositoryMetadata.repository,
       issueTitle: options.issueTitle,
       staleCount: jsonReport.staleCount,
+      resolutionErrorCount: jsonReport.resolutionErrors.length,
       reportMarkdown: markdownReport,
     });
   }
