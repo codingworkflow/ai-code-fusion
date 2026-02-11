@@ -34,6 +34,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | `tests/unit/utils/config-manager.test.ts`       | `src/utils/config-manager.ts`           | Default config load, parse failures, graceful fallback behavior                               |
 | `tests/unit/utils/token-counter.test.ts`        | `src/utils/token-counter.ts`            | Token counting basics, empty/null input handling                                              |
 | `tests/unit/scripts/security.test.js`           | `scripts/lib/security.js`               | Command safety validation, Windows path acceptance for approved executables                   |
+| `tests/unit/scripts/actions-freshness.test.js`  | `scripts/lib/actions-freshness.js`      | Workflow `uses:` reference parsing, pinning classification, freshness markdown report output  |
 | `tests/unit/scripts/validate-changelog.test.js` | `scripts/validate-changelog.js`         | Release heading/date format checks, allowed section headings, latest release section coverage |
 | `tests/unit/main/updater.test.ts`               | `src/main/updater.ts`                   | Alpha/stable channel selection, platform gating, update-check result handling                 |
 | `tests/unit/main/feature-flags.test.ts`         | `src/main/feature-flags.ts`             | OpenFeature normalization, env/remote merge rules, secure remote fetch behavior               |
@@ -102,5 +103,7 @@ Stress benchmark outputs:
   - `tests/unit/utils/export-format.test.ts`
   - `tests/unit/utils/content-processor.test.ts`
   - `tests/unit/utils/token-counter.test.ts`
+- Actions/workflow freshness automation changes:
+  - `tests/unit/scripts/actions-freshness.test.js`
 - XML export end-to-end:
   - `tests/integration/main-process/xml-export-e2e.test.ts`

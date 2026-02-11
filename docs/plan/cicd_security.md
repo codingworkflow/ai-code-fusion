@@ -8,6 +8,7 @@ This document defines the CI/CD security and quality baseline for `ai-code-fusio
 - Fail fast on code-quality and documentation-quality regressions.
 - Use maintained GitHub Actions versions/pins with least-privilege permissions.
 - Keep the workflow npm-first and lockfile-driven.
+- Keep workflow permissions explicit at job scope to avoid implicit token escalation.
 
 ## Security and Quality Layers
 
@@ -56,6 +57,11 @@ This document defines the CI/CD security and quality baseline for `ai-code-fusio
 - Existing CycloneDX SBOM generation/artifact is preserved.
 - Dependency snapshot submission to the GitHub dependency graph runs in a separate trusted-only job with `contents: write`.
 - Snapshot submission scans `package-lock.json` (lockfile scope) to avoid a second full-repository SBOM scan.
+
+### Permission-Normalized Workflows
+
+- CI workflows now declare job-level `permissions` explicitly, even when matching workflow defaults.
+- Dependency Review keeps PR summary behavior while disabling OpenSSF scorecard output to reduce third-party token-permission noise unrelated to repository workflow scopes.
 
 ## Example Workflow Pattern
 

@@ -1,0 +1,52 @@
+name: Actions Freshness Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20 4 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: actions-freshness-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Audit pinned GitHub Actions references
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+
+      - name: Audit pinned action references and manage tracking issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/audit-actions-freshness.js \
+            --report actions-freshness-report.md \
+            --json actions-freshness-report.json \
+            --manage-issue
+
+      - name: Upload freshness report artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: actions-freshness-report
+          path: |
+            actions-freshness-report.md
+            actions-freshness-report.json
+          if-no-files-found: error
+          retention-days: 14

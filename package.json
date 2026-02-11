@@ -45,6 +45,7 @@
     "predocs:screenshots": "npm run build:ts && npm run build:webpack",
     "docs:screenshots": "node scripts/generate-doc-screenshots.js",
     "security": "node scripts/index.js security",
+    "security:actions-freshness": "node scripts/audit-actions-freshness.js --report actions-freshness-report.md --json actions-freshness-report.json",
     "gitleaks": "node scripts/index.js gitleaks",
     "gitleaks:staged": "node scripts/index.js gitleaks-staged",
     "sbom": "node scripts/index.js sbom",
