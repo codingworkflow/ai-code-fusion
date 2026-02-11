@@ -65,6 +65,8 @@ This document defines the CI/CD security and quality baseline for `ai-code-fusio
 
 - CI workflows now declare job-level `permissions` explicitly, even when matching workflow defaults.
 - Dependency Review keeps PR summary behavior while disabling OpenSSF scorecard output to reduce third-party token-permission noise unrelated to repository workflow scopes.
+- `actions/setup-node` usage is normalized to supported cache inputs (`cache`, `cache-dependency-path`) to avoid unsupported-input warnings.
+- Core GitHub Action pins are refreshed to current maintained release SHAs on a recurring basis.
 
 ## Example Workflow Pattern
 
