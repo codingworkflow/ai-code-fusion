@@ -19,7 +19,7 @@ This document defines the CI/CD security and quality baseline for `ai-code-fusio
 
 2. Dependency and supply-chain gates
 - Dependency Review on pull requests.
-- Dependency Review retries on snapshot warnings so SBOM submissions can be observed before final verdict.
+- Dependency Review retries on snapshot warnings to allow for SBOM submission completion.
 - SBOM generation in CI (`CycloneDX` artifact).
 - SBOM-derived dependency snapshot submission to GitHub dependency graph.
 

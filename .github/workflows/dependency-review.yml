@@ -17,6 +17,9 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    env:
+      # Wait for dependency snapshots produced by parallel SBOM workflow runs.
+      SNAPSHOT_RETRY_TIMEOUT_SECONDS: 180
     steps:
       - name: 'Checkout repository'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -28,4 +31,4 @@ jobs:
         with:
           comment-summary-in-pr: always
           retry-on-snapshot-warnings: true
-          retry-on-snapshot-warnings-timeout: 180
+          retry-on-snapshot-warnings-timeout: ${{ env.SNAPSHOT_RETRY_TIMEOUT_SECONDS }}
