@@ -19,6 +19,7 @@ This document defines the CI/CD security and quality baseline for `ai-code-fusio
 
 2. Dependency and supply-chain gates
 - Dependency Review on pull requests.
+- Dependency Review retries on snapshot warnings to allow for SBOM submission completion.
 - SBOM generation in CI (`CycloneDX` artifact).
 - SBOM-derived dependency snapshot submission to GitHub dependency graph.
 
@@ -53,7 +54,7 @@ This document defines the CI/CD security and quality baseline for `ai-code-fusio
 
 - Workflow: `.github/workflows/sbom.yml`
 - Existing CycloneDX SBOM generation/artifact is preserved.
-- Dependency snapshot submission runs in a separate trusted-only job with `contents: write`.
+- Dependency snapshot submission to the GitHub dependency graph runs in a separate trusted-only job with `contents: write`.
 - Snapshot submission scans `package-lock.json` (lockfile scope) to avoid a second full-repository SBOM scan.
 
 ## Example Workflow Pattern
