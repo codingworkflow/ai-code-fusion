@@ -1,4 +1,4 @@
-const USES_LINE_PATTERN = /^\s*(?:-\s*)?uses:\s*([^\s#]+)(?:\s+#.*)?\s*$/;
+const USES_LINE_PATTERN = /^\s*(?:-\s*)?uses:\s*/;
 const ACTION_REFERENCE_PATTERN =
   /^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(\/[A-Za-z0-9_.\-\/]+)?@([^\s]+)$/;
 const FULL_LENGTH_SHA_PATTERN = /^[a-f0-9]{40}$/i;
@@ -21,19 +21,40 @@ function isFullLengthSha(value) {
   return FULL_LENGTH_SHA_PATTERN.test(value);
 }
 
+function extractUsesReferenceValue(line) {
+  const usesPrefixMatch = line.match(USES_LINE_PATTERN);
+
+  if (!usesPrefixMatch) {
+    return null;
+  }
+
+  const remainder = line.slice(usesPrefixMatch[0].length).trim();
+
+  if (remainder.length === 0) {
+    return null;
+  }
+
+  const firstWhitespaceIndex = remainder.search(/\s/);
+  if (firstWhitespaceIndex === -1) {
+    return remainder;
+  }
+
+  return remainder.slice(0, firstWhitespaceIndex);
+}
+
 function parseWorkflowContent(content, workflowPath) {
   const references = [];
   const lines = content.split(/\r?\n/);
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    const usesMatch = line.match(USES_LINE_PATTERN);
+    const rawUsesValue = extractUsesReferenceValue(line);
 
-    if (!usesMatch) {
+    if (!rawUsesValue) {
       continue;
     }
 
-    const usesValue = normalizeReferenceValue(usesMatch[1]);
+    const usesValue = normalizeReferenceValue(rawUsesValue);
 
     if (usesValue.startsWith('./') || usesValue.startsWith('docker://')) {
       continue;
