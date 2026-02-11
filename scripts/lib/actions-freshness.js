@@ -1,4 +1,4 @@
-const USES_LINE_PATTERN = /^\s*-?\s*uses:\s*/;
+const USES_LINE_PATTERN = 'uses:';
 const ACTION_REFERENCE_PATTERN =
   /^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(\/[A-Za-z0-9_.\-\/]+)?@([^\s]+)$/;
 const FULL_LENGTH_SHA_PATTERN = /^[a-f0-9]{40}$/i;
@@ -22,11 +22,18 @@ function isFullLengthSha(value) {
 }
 
 function extractUsesValue(line) {
-  if (!USES_LINE_PATTERN.test(line)) {
+  const trimmedStart = line.trimStart();
+  const normalized = trimmedStart.startsWith('-')
+    ? trimmedStart.slice(1).trimStart()
+    : trimmedStart;
+
+  if (!normalized.startsWith(USES_LINE_PATTERN)) {
     return '';
   }
 
-  const withoutPrefix = line.replace(USES_LINE_PATTERN, '');
+  const withoutPrefix = normalized
+    .slice(USES_LINE_PATTERN.length)
+    .trimStart();
   const commentStart = withoutPrefix.search(/\s#/);
   const rawValue =
     commentStart >= 0 ? withoutPrefix.slice(0, commentStart) : withoutPrefix;
