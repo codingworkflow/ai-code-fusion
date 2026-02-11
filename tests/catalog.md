@@ -10,6 +10,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 - End-to-end perf metrics job (`TOOLS_DOMAIN` aware): `npm run perf:test` or `make perf-test`
 - Lint: `npm run lint`
 - Markdown docs lint (links/images/icons): `npm run lint:md`
+- Changelog format validation: `npm run changelog:validate`
 - Electron E2E (Playwright): `npm run e2e:playwright`
 - UI screenshot gate: `npm run qa:screenshot`
 - Docs screenshots: `npm run docs:screenshots`
@@ -17,24 +18,25 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 
 ## Unit Tests
 
-| File                                         | Primary Target                          | Key Use Cases                                                                    |
-| -------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------- |
-| `tests/unit/components/app.test.tsx`         | `src/renderer/components/App.tsx`       | Tab switching, config load, directory selection, processing flow, error handling |
-| `tests/unit/components/config-tab.test.tsx`  | `src/renderer/components/ConfigTab.tsx` | Config toggles/inputs, callback wiring, directory picker trigger                 |
-| `tests/unit/components/file-tree.test.tsx`   | `src/renderer/components/FileTree.tsx`  | Tree render, folder expand/collapse, select all, empty-state behavior            |
-| `tests/unit/file-analyzer.test.ts`           | `src/utils/file-analyzer.ts`            | Include/exclude rules, gitignore behavior, binary handling, error cases          |
-| `tests/unit/gitignore-parser.test.ts`        | `src/utils/gitignore-parser.ts`         | Pattern parsing, negation behavior, caching, nested path handling                |
-| `tests/unit/binary-detection.test.ts`        | `src/utils/file-analyzer.ts`            | Binary signature detection, control-char thresholds, fallback-on-error behavior  |
-| `tests/unit/utils/filter-utils.test.ts`      | `src/utils/filter-utils.ts`             | Path normalization, extension filtering, custom excludes, gitignore precedence   |
-| `tests/unit/utils/secret-scanner.test.ts`    | `src/utils/secret-scanner.ts`           | Sensitive path detection, secret-pattern scanning, default-on safety toggles     |
-| `tests/unit/utils/fnmatch.test.ts`           | `src/utils/fnmatch.ts`                  | Glob semantics: wildcards, classes, double-star, braces, path anchors            |
-| `tests/unit/utils/export-format.test.ts`     | `src/utils/export-format.ts`            | Export format normalization, XML attribute escaping, CDATA-safe sanitization     |
-| `tests/unit/utils/content-processor.test.ts` | `src/utils/content-processor.ts`        | Content assembly, binary skip logic, malformed input handling                    |
-| `tests/unit/utils/config-manager.test.ts`    | `src/utils/config-manager.ts`           | Default config load, parse failures, graceful fallback behavior                  |
-| `tests/unit/utils/token-counter.test.ts`     | `src/utils/token-counter.ts`            | Token counting basics, empty/null input handling                                 |
-| `tests/unit/scripts/security.test.js`        | `scripts/lib/security.js`               | Command safety validation, Windows path acceptance for approved executables      |
-| `tests/unit/main/updater.test.ts`            | `src/main/updater.ts`                   | Alpha/stable channel selection, platform gating, update-check result handling    |
-| `tests/unit/main/feature-flags.test.ts`      | `src/main/feature-flags.ts`             | OpenFeature normalization, env/remote merge rules, secure remote fetch behavior  |
+| File                                            | Primary Target                          | Key Use Cases                                                                                 |
+| ----------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `tests/unit/components/app.test.tsx`            | `src/renderer/components/App.tsx`       | Tab switching, config load, directory selection, processing flow, error handling              |
+| `tests/unit/components/config-tab.test.tsx`     | `src/renderer/components/ConfigTab.tsx` | Config toggles/inputs, callback wiring, directory picker trigger                              |
+| `tests/unit/components/file-tree.test.tsx`      | `src/renderer/components/FileTree.tsx`  | Tree render, folder expand/collapse, select all, empty-state behavior                         |
+| `tests/unit/file-analyzer.test.ts`              | `src/utils/file-analyzer.ts`            | Include/exclude rules, gitignore behavior, binary handling, error cases                       |
+| `tests/unit/gitignore-parser.test.ts`           | `src/utils/gitignore-parser.ts`         | Pattern parsing, negation behavior, caching, nested path handling                             |
+| `tests/unit/binary-detection.test.ts`           | `src/utils/file-analyzer.ts`            | Binary signature detection, control-char thresholds, fallback-on-error behavior               |
+| `tests/unit/utils/filter-utils.test.ts`         | `src/utils/filter-utils.ts`             | Path normalization, extension filtering, custom excludes, gitignore precedence                |
+| `tests/unit/utils/secret-scanner.test.ts`       | `src/utils/secret-scanner.ts`           | Sensitive path detection, secret-pattern scanning, default-on safety toggles                  |
+| `tests/unit/utils/fnmatch.test.ts`              | `src/utils/fnmatch.ts`                  | Glob semantics: wildcards, classes, double-star, braces, path anchors                         |
+| `tests/unit/utils/export-format.test.ts`        | `src/utils/export-format.ts`            | Export format normalization, XML attribute escaping, CDATA-safe sanitization                  |
+| `tests/unit/utils/content-processor.test.ts`    | `src/utils/content-processor.ts`        | Content assembly, binary skip logic, malformed input handling                                 |
+| `tests/unit/utils/config-manager.test.ts`       | `src/utils/config-manager.ts`           | Default config load, parse failures, graceful fallback behavior                               |
+| `tests/unit/utils/token-counter.test.ts`        | `src/utils/token-counter.ts`            | Token counting basics, empty/null input handling                                              |
+| `tests/unit/scripts/security.test.js`           | `scripts/lib/security.js`               | Command safety validation, Windows path acceptance for approved executables                   |
+| `tests/unit/scripts/validate-changelog.test.js` | `scripts/validate-changelog.js`         | Release heading/date format checks, allowed section headings, latest release section coverage |
+| `tests/unit/main/updater.test.ts`               | `src/main/updater.ts`                   | Alpha/stable channel selection, platform gating, update-check result handling                 |
+| `tests/unit/main/feature-flags.test.ts`         | `src/main/feature-flags.ts`             | OpenFeature normalization, env/remote merge rules, secure remote fetch behavior               |
 
 ## Integration Tests
 
