@@ -40,6 +40,15 @@ jobs:
       - name: Unit and integration tests
         run: npm test -- --runInBand
 
+      - name: Summarize stress benchmark metrics (Linux)
+        if: runner.os == 'Linux'
+        run: npm run stress:metrics
+        env:
+          PUSHGATEWAY_URL: ${{ secrets.PUSHGATEWAY_URL }}
+          PUSHGATEWAY_JOB: ai_code_fusion_stress
+          PUSHGATEWAY_INSTANCE: ${{ github.run_id }}-${{ github.run_attempt }}-${{ runner.os }}
+          PUSHGATEWAY_STRICT: ${{ vars.PUSHGATEWAY_STRICT || 'false' }}
+
       - name: Build TypeScript
         run: npm run build:ts
 
@@ -85,4 +94,15 @@ jobs:
             dist/qa/playwright-report
             dist/qa/playwright-results
           if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload stress benchmark artifacts
+        if: runner.os == 'Linux' && always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: stress-benchmarks-linux
+          path: |
+            dist/benchmarks/*.json
+            dist/benchmarks/*.prom
+          if-no-files-found: error
           retention-days: 14

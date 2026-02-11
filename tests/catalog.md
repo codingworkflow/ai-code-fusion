@@ -5,6 +5,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 ## Core Commands
 
 - Full tests: `npm test -- --runInBand`
+- Stress metrics summary (+ optional Pushgateway publish): `npm run stress:metrics`
 - Lint: `npm run lint`
 - Markdown docs lint (links/images/icons): `npm run lint:md`
 - Electron E2E (Playwright): `npm run e2e:playwright`
@@ -46,6 +47,14 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | File                                                   | Primary Target                 | Key Use Cases                                                                                              |
 | ------------------------------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
 | `tests/stress/main-process/ipc-latency.stress.test.ts` | Main process IPC tree handlers | Capture latency distribution and event-loop lag samples for `fs:getDirectoryTree` under large mocked trees |
+
+Stress benchmark outputs:
+
+- Raw benchmark JSON: `dist/benchmarks/*.json`
+- Consolidated summary: `dist/benchmarks/summary.json`
+- Prometheus text format: `dist/benchmarks/stress-metrics.prom`
+- CI artifact: `stress-benchmarks-linux`
+- Optional publish target: set `PUSHGATEWAY_URL` (and optional `PUSHGATEWAY_JOB`, `PUSHGATEWAY_INSTANCE`, `PUSHGATEWAY_STRICT=true`)
 
 ## Electron E2E Tests
 
