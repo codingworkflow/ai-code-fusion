@@ -13,6 +13,7 @@ This document defines the CI/CD security and quality baseline for `ai-code-fusio
 ## Security and Quality Layers
 
 1. Source and policy gates
+- Prettier formatter drift gate (`npm run format:check`, non-mutating).
 - ESLint gate for `src/` and `tests/`.
 - Markdown integrity lint (`scripts/lint-markdown-links.js`) for broken docs links/assets.
 - Markdown style lint (`markdownlint-cli`) with `.markdownlint.json`.
@@ -44,12 +45,14 @@ This document defines the CI/CD security and quality baseline for `ai-code-fusio
 ### Lint and Changelog Gates
 
 - `npm run lint` now runs:
+  - Prettier check (`format:check`)
   - ESLint (`src/`, `tests/`)
   - Markdown lint (`lint:md`)
   - Changelog lint (`changelog:validate`)
 - `lint:md` runs both:
   - Markdown link/asset checks
   - Markdown style policy checks
+- QA matrix enforces a clean repository state after lint with `git diff --name-status --exit-code`.
 
 ### SBOM Push to GitHub Security
 
