@@ -172,9 +172,18 @@ function buildPrometheusPayload(records) {
   return `${lines.join('\n')}\n`;
 }
 
+function trimTrailingSlashes(value) {
+  let lastIndex = value.length;
+  while (lastIndex > 0 && value[lastIndex - 1] === '/') {
+    lastIndex -= 1;
+  }
+
+  return value.slice(0, lastIndex);
+}
+
 function buildPushgatewayUrl(baseUrl, jobName, instanceName) {
   const parsedBaseUrl = new URL(baseUrl);
-  const basePath = parsedBaseUrl.pathname.replace(/\/+$/, '');
+  const basePath = trimTrailingSlashes(parsedBaseUrl.pathname);
   parsedBaseUrl.pathname = `${basePath}/metrics/job/${encodeURIComponent(jobName)}/instance/${encodeURIComponent(instanceName)}`;
   return parsedBaseUrl;
 }
