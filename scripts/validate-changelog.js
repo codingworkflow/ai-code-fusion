@@ -5,7 +5,6 @@ const path = require('path');
 
 const ROOT_DIR = path.join(__dirname, '..');
 const DEFAULT_CHANGELOG_PATH = path.join(ROOT_DIR, 'CHANGELOG.md');
-const SECTION_HEADING_PATTERN = /^###\s+(.+?)\s*$/;
 const ALLOWED_SECTION_HEADINGS = new Set([
   'Added',
   'Changed',
@@ -169,15 +168,20 @@ function collectSectionHeadings(lines, startLineIndex, endLineIndex) {
   const headings = [];
 
   for (let index = startLineIndex; index < endLineIndex; index += 1) {
-    const match = lines[index].match(SECTION_HEADING_PATTERN);
-    if (!match) {
+    const trimmed = lines[index].trimEnd();
+    if (!trimmed.startsWith('### ')) {
+      continue;
+    }
+
+    const name = trimmed.slice(4).trim();
+    if (name.length === 0) {
       continue;
     }
 
     headings.push({
       lineIndex: index,
       lineNumber: index + 1,
-      name: match[1],
+      name,
     });
   }
 
