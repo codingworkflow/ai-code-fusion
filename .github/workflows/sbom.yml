@@ -13,15 +13,17 @@ permissions:
 jobs:
   sbom:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 20
           package-manager-cache: false
@@ -33,8 +35,21 @@ jobs:
         run: npm run sbom
 
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: sbom-cyclonedx
           path: dist/security/sbom/sbom.cyclonedx.json
           retention-days: 30
+
+      - name: Ensure SBOM output directory
+        run: mkdir -p dist/security/sbom
+
+      - name: Generate SPDX SBOM and submit dependency snapshot
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad
+        with:
+          path: .
+          format: spdx-json
+          output-file: dist/security/sbom/sbom.spdx.json
+          dependency-snapshot: true
+          upload-artifact: false

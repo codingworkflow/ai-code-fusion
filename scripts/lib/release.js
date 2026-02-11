@@ -82,10 +82,13 @@ function updateChangelog(version) {
 
           const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
+          const formattedEntries =
+            entries.length > 0
+              ? entries.map((entry) => `- ${entry}`).join('\n')
+              : '- No changelog details were provided.';
+
           // Format the new entry with [v] prefix for GitHub release automation
-          const newEntry = `\n## [v${version}] - ${date}\n\n${entries
-            .map((e) => `- ${e}`)
-            .join('\n')}\n`;
+          const newEntry = `\n## [v${version}] - ${date}\n\n### Added\n\n${formattedEntries}\n`;
 
           // Insert after "All notable changes" line if present, or after the first line
           const updatedChangelog = changelogContent.includes('All notable changes')
