@@ -5,7 +5,7 @@
 # Make these targets phony (they don't create files with these names)
 .PHONY: all setup dev clean clean-all build build-win build-linux \
         build-mac build-mac-arm build-mac-universal \
-        test css css-watch lint lint-md format validate qa docs-screenshots setup-hooks sonar \
+        test perf-test stress-metrics prometheus-verify css css-watch lint lint-md format validate qa docs-screenshots setup-hooks sonar \
         security gitleaks sbom renovate renovate-local mend-scan \
         icons sample-logo release
 
@@ -49,6 +49,15 @@ build-mac-universal: setup-scripts
 
 test: setup-scripts
 	@node scripts/index.js test
+
+perf-test: setup-scripts
+	@node scripts/index.js perf-test
+
+stress-metrics: setup-scripts
+	@node scripts/index.js stress-metrics
+
+prometheus-verify: setup-scripts
+	@node scripts/index.js prometheus-verify
 
 css: setup-scripts
 	@node scripts/index.js css

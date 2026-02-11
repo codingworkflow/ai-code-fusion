@@ -97,6 +97,7 @@ function normalizeBenchmarkRecord(filePath) {
     scenario,
     sourceFile: path.basename(filePath),
     capturedAt: sourceStats.mtime.toISOString(),
+    capturedAtMs: sourceStats.mtimeMs,
     p50Ms,
     p95Ms,
     p99Ms,
@@ -106,7 +107,61 @@ function normalizeBenchmarkRecord(filePath) {
   };
 }
 
-function buildPrometheusPayload(records) {
+function resolvePublishTimestampSeconds(providedValue) {
+  const fromArgument = toFiniteNumber(providedValue);
+  if (fromArgument !== null) {
+    return Math.floor(fromArgument);
+  }
+
+  const fromEnvironment = toFiniteNumber(process.env.STRESS_METRICS_PUBLISH_TS_SECONDS);
+  if (fromEnvironment !== null) {
+    return Math.floor(fromEnvironment);
+  }
+
+  return Math.floor(Date.now() / 1000);
+}
+
+function parseCapturedAtMs(record) {
+  if (toFiniteNumber(record.capturedAtMs) !== null) {
+    return Number(record.capturedAtMs);
+  }
+
+  const parsedDate = Date.parse(record.capturedAt);
+  return Number.isFinite(parsedDate) ? parsedDate : 0;
+}
+
+function selectLatestRecordPerScenario(records) {
+  const latestRecordsByScenario = new Map();
+
+  for (const record of records) {
+    const existingRecord = latestRecordsByScenario.get(record.scenario);
+    if (!existingRecord) {
+      latestRecordsByScenario.set(record.scenario, record);
+      continue;
+    }
+
+    const existingCapturedAt = parseCapturedAtMs(existingRecord);
+    const candidateCapturedAt = parseCapturedAtMs(record);
+    if (candidateCapturedAt > existingCapturedAt) {
+      latestRecordsByScenario.set(record.scenario, record);
+      continue;
+    }
+
+    if (
+      candidateCapturedAt === existingCapturedAt &&
+      String(record.sourceFile).localeCompare(String(existingRecord.sourceFile)) > 0
+    ) {
+      latestRecordsByScenario.set(record.scenario, record);
+    }
+  }
+
+  return Array.from(latestRecordsByScenario.values()).sort((leftRecord, rightRecord) =>
+    leftRecord.scenario.localeCompare(rightRecord.scenario)
+  );
+}
+
+function buildPrometheusPayload(records, options = {}) {
+  const publishTimestampSeconds = resolvePublishTimestampSeconds(options.publishTimestampSeconds);
   const lines = [
     `# HELP ${METRIC_PREFIX}_latency_ms Stress benchmark latency in milliseconds.`,
     `# TYPE ${METRIC_PREFIX}_latency_ms gauge`,
@@ -167,6 +222,18 @@ function buildPrometheusPayload(records) {
     if (line) {
       lines.push(line);
     }
+  }
+
+  lines.push(
+    `# HELP ${METRIC_PREFIX}_publish_timestamp_seconds Unix timestamp when stress metrics were published.`
+  );
+  lines.push(`# TYPE ${METRIC_PREFIX}_publish_timestamp_seconds gauge`);
+  const publishLine = toMetricLine(
+    `${METRIC_PREFIX}_publish_timestamp_seconds`,
+    publishTimestampSeconds
+  );
+  if (publishLine) {
+    lines.push(publishLine);
   }
 
   return `${lines.join('\n')}\n`;
@@ -236,22 +303,27 @@ async function main() {
   const sortedRecords = records.sort((leftRecord, rightRecord) =>
     leftRecord.scenario.localeCompare(rightRecord.scenario)
   );
+  const latestRecords = selectLatestRecordPerScenario(sortedRecords);
 
   const summaryPayload = {
     generatedAt: new Date().toISOString(),
     benchmarkDirectory: path.relative(ROOT_DIR, BENCHMARK_DIR),
     benchmarkFiles: benchmarkFiles.map((filePath) => path.basename(filePath)).sort(),
     scenarios: sortedRecords,
+    latestScenarios: latestRecords,
   };
 
   fs.mkdirSync(BENCHMARK_DIR, { recursive: true });
   fs.writeFileSync(SUMMARY_FILE, JSON.stringify(summaryPayload, null, 2), 'utf8');
 
-  const prometheusPayload = buildPrometheusPayload(sortedRecords);
+  const prometheusPayload = buildPrometheusPayload(latestRecords);
   fs.writeFileSync(PROMETHEUS_FILE, prometheusPayload, 'utf8');
 
   console.log(`Stress summary written: ${path.relative(ROOT_DIR, SUMMARY_FILE)}`);
   console.log(`Prometheus metrics written: ${path.relative(ROOT_DIR, PROMETHEUS_FILE)}`);
+  console.log(
+    `Publishing ${latestRecords.length} unique scenario metric sets from ${sortedRecords.length} benchmark file records.`
+  );
 
   const pushgatewayUrl = (process.env.PUSHGATEWAY_URL || '').trim();
   if (!pushgatewayUrl) {
@@ -282,8 +354,27 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  const safeMessage = error instanceof Error ? error.message : String(error);
-  console.error(`Failed to publish stress metrics: ${safeMessage}`);
-  process.exit(1);
-});
+module.exports = {
+  main,
+  __testUtils: {
+    buildPrometheusPayload,
+    buildPushgatewayUrl,
+    normalizeBenchmarkRecord,
+    parseCapturedAtMs,
+    pickFirstNumber,
+    resolvePublishTimestampSeconds,
+    sanitizeLabelValue,
+    selectLatestRecordPerScenario,
+    toFiniteNumber,
+    toMetricLine,
+    trimTrailingSlashes,
+  },
+};
+
+if (require.main === module) {
+  main().catch((error) => {
+    const safeMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to publish stress metrics: ${safeMessage}`);
+    process.exit(1);
+  });
+}

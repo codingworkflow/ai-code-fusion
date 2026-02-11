@@ -6,6 +6,8 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 
 - Full tests: `npm test -- --runInBand`
 - Stress metrics summary (+ optional Pushgateway publish): `npm run stress:metrics`
+- Stress publish verification in Prometheus: `npm run prometheus:verify`
+- End-to-end perf metrics job (`TOOLS_DOMAIN` aware): `npm run perf:test` or `make perf-test`
 - Lint: `npm run lint`
 - Markdown docs lint (links/images/icons): `npm run lint:md`
 - Electron E2E (Playwright): `npm run e2e:playwright`
@@ -55,6 +57,7 @@ Stress benchmark outputs:
 - Prometheus text format: `dist/benchmarks/stress-metrics.prom`
 - CI artifact: `stress-benchmarks-linux`
 - Optional publish target: set `PUSHGATEWAY_URL` (and optional `PUSHGATEWAY_JOB`, `PUSHGATEWAY_INSTANCE`, `PUSHGATEWAY_STRICT=true`)
+- TOOLS domain mode: set `TOOLS_DOMAIN` (for example `.114.be.tn`) and run `make perf-test` to derive `https://pushgateway.$TOOLS_DOMAIN` and `https://prometheus.$TOOLS_DOMAIN`, publish, then verify scrape visibility
 
 ## Electron E2E Tests
 
