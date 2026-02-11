@@ -191,7 +191,7 @@
     "style-loader": "^4.0.0",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.7.3",
-    "webpack": "^5.90.1",
+    "webpack": "^5.105.1",
     "webpack-cli": "^5.1.4"
   }
 }
