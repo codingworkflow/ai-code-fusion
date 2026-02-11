@@ -131,7 +131,7 @@
     "@heroicons/react": "^2.1.1",
     "@openfeature/server-sdk": "^1.20.1",
     "clsx": "^2.1.0",
-    "electron-store": "^8.1.0",
+    "electron-store": "^11.0.2",
     "electron-updater": "^6.7.3",
     "minimatch": "^10.1.2",
     "path-browserify": "^1.0.1",
