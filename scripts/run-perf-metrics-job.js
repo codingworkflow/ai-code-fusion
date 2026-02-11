@@ -13,6 +13,21 @@ function toFiniteNumber(value) {
   return Number.isFinite(parsedValue) ? parsedValue : null;
 }
 
+function trimBoundaryDots(value) {
+  let startIndex = 0;
+  let endIndex = value.length;
+
+  while (startIndex < endIndex && value[startIndex] === '.') {
+    startIndex += 1;
+  }
+
+  while (endIndex > startIndex && value[endIndex - 1] === '.') {
+    endIndex -= 1;
+  }
+
+  return value.slice(startIndex, endIndex);
+}
+
 function normalizeToolsDomain(rawValue) {
   const input = String(rawValue || '').trim();
   if (!input) {
@@ -26,7 +41,7 @@ function normalizeToolsDomain(rawValue) {
   } catch (error) {
     throw new Error(`Invalid TOOLS_DOMAIN value: ${input}`);
   }
-  const normalizedHost = parsed.host.replace(/^\.+/, '').replace(/\.+$/, '').trim().toLowerCase();
+  const normalizedHost = trimBoundaryDots(parsed.host).trim().toLowerCase();
   return normalizedHost;
 }
 
@@ -130,6 +145,7 @@ module.exports = {
     normalizeToolsDomain,
     resolveMonitoringEndpoints,
     runCommand,
+    trimBoundaryDots,
     toFiniteNumber,
   },
 };

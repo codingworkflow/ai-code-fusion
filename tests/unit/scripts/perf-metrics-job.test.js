@@ -8,6 +8,11 @@ describe('run-perf-metrics-job helpers', () => {
     );
   });
 
+  test('trims only boundary dots from host values', () => {
+    expect(__testUtils.trimBoundaryDots('.example.internal.')).toBe('example.internal');
+    expect(__testUtils.trimBoundaryDots('...a.b.c...')).toBe('a.b.c');
+  });
+
   test('rejects invalid TOOLS_DOMAIN values', () => {
     expect(() => __testUtils.normalizeToolsDomain('http://')).toThrow(
       'Invalid TOOLS_DOMAIN value'
