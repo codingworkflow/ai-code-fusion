@@ -9,6 +9,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 - Stress publish verification in Prometheus: `npm run prometheus:verify`
 - End-to-end perf metrics job (`TOOLS_DOMAIN` aware): `npm run perf:test` or `make perf-test`
 - Lint: `npm run lint`
+- Formatter drift check (non-mutating): `npm run format:check`
 - Markdown docs lint (links/images/icons): `npm run lint:md`
 - Changelog format validation: `npm run changelog:validate`
 - Electron E2E (Playwright): `npm run e2e:playwright`
@@ -105,5 +106,8 @@ Stress benchmark outputs:
   - `tests/unit/utils/token-counter.test.ts`
 - Actions/workflow freshness automation changes:
   - `tests/unit/scripts/actions-freshness.test.js`
+- CI quality gate/workflow changes:
+  - `npm run lint`
+  - `npm test -- --runInBand`
 - XML export end-to-end:
   - `tests/integration/main-process/xml-export-e2e.test.ts`

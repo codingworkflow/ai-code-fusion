@@ -39,6 +39,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Verify clean working tree after lint
+        run: git diff --name-status --exit-code
+
       - name: Unit and integration tests
         run: npm test -- --runInBand
 
