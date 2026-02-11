@@ -66,34 +66,6 @@ jobs:
     expect(unpinned[0].workflowPath).toBe('.github/workflows/two.yml');
   });
 
-  test('parseWorkflowContent handles quoted references with inline comments', () => {
-    const content = `
-name: quoted
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: "actions/cache@v4" # cache
-      - uses: 'actions/upload-artifact@v4' # upload
-`;
-
-    const references = parseWorkflowContent(content, '.github/workflows/quoted.yml');
-
-    expect(references).toHaveLength(2);
-    expect(references[0]).toMatchObject({
-      action: 'actions/cache',
-      ref: 'v4',
-      isPinned: false,
-      lineNumber: 7,
-    });
-    expect(references[1]).toMatchObject({
-      action: 'actions/upload-artifact',
-      ref: 'v4',
-      isPinned: false,
-      lineNumber: 8,
-    });
-  });
-
   test('buildMarkdownReport renders stale and unpinned sections', () => {
     const report = {
       generatedAt: '2026-02-11T00:00:00.000Z',

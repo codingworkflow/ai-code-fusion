@@ -14,6 +14,8 @@ jobs:
   qa:
     name: QA (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -21,21 +23,25 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
         with:
           node-version: 20
-          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
       - name: Lint
         run: npm run lint
+
+      - name: Verify clean working tree after lint
+        run: git diff --name-status --exit-code
 
       - name: Unit and integration tests
         run: npm test -- --runInBand
@@ -78,7 +84,7 @@ jobs:
 
       - name: Upload UI screenshot
         if: always() && steps.capture_ui_screenshot.outcome == 'success'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: ui-screenshot-${{ runner.os }}
           path: dist/qa/screenshots/*.png
@@ -87,7 +93,7 @@ jobs:
 
       - name: Upload Playwright E2E artifacts
         if: runner.os == 'Linux' && always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: playwright-e2e-linux
           path: |
@@ -98,7 +104,7 @@ jobs:
 
       - name: Upload stress benchmark artifacts
         if: runner.os == 'Linux' && always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: stress-benchmarks-linux
           path: |

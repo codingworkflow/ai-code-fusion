@@ -32,3 +32,4 @@ jobs:
           comment-summary-in-pr: always
           retry-on-snapshot-warnings: true
           retry-on-snapshot-warnings-timeout: ${{ env.SNAPSHOT_RETRY_TIMEOUT_SECONDS }}
+          show-openssf-scorecard: false
