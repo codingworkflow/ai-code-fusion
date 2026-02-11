@@ -59,7 +59,8 @@
     "build:mac-arm": "cross-env NODE_ENV=production electron-builder --mac --arm64",
     "prebuild:mac-universal": "npm run build:ts && node scripts/prepare-build.js mac",
     "build:mac-universal": "cross-env NODE_ENV=production electron-builder --mac --universal",
-    "build:linux": "cross-env NODE_ENV=production electron-builder --linux"
+    "build:linux": "cross-env NODE_ENV=production electron-builder --linux",
+    "stress:metrics": "node scripts/publish-stress-metrics.js"
   },
   "author": "AI Code Fusion <m@codingworkflow.com>",
   "license": "GPL-3.0",
