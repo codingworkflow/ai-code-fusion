@@ -53,7 +53,8 @@ This document defines the CI/CD security and quality baseline for `ai-code-fusio
 
 - Workflow: `.github/workflows/sbom.yml`
 - Existing CycloneDX SBOM generation/artifact is preserved.
-- Added SPDX generation + dependency snapshot submission so SBOM data is pushed into GitHub dependency graph/security.
+- Dependency snapshot submission runs in a separate trusted-only job with `contents: write`.
+- Snapshot submission scans `package-lock.json` (lockfile scope) to avoid a second full-repository SBOM scan.
 
 ## Example Workflow Pattern
 
