@@ -242,16 +242,22 @@ describe('validate-test-catalog script', () => {
     });
 
     expect(patterns).toHaveLength(1);
-    expect(patterns[0].test('/tmp/tests/e2e/example.spec.ts')).toBe(true);
+    expect(patterns[0].test('/workspace/tests/e2e/example.spec.ts')).toBe(true);
     expect(invalidPatternWarnings).toEqual(['[']);
   });
 
   test('rejects CLI paths that resolve outside the repository root', () => {
+    const fallbackCatalogPath = path.join(process.cwd(), 'tests', 'catalog.md');
+
     expect(() =>
-      resolvePathWithinRoot(path.resolve('/tmp/outside-catalog.md'), '/unused', 'Catalog path')
+      resolvePathWithinRoot(
+        path.resolve(process.cwd(), '..', 'outside-catalog.md'),
+        fallbackCatalogPath,
+        'Catalog path'
+      )
     ).toThrow('must resolve inside the repository');
 
-    const resolved = resolvePathWithinRoot('tests/catalog.md', '/unused', 'Catalog path');
+    const resolved = resolvePathWithinRoot('tests/catalog.md', fallbackCatalogPath, 'Catalog path');
     expect(resolved.endsWith(path.join('tests', 'catalog.md'))).toBe(true);
     expect(path.isAbsolute(resolved)).toBe(true);
   });
