@@ -12,7 +12,10 @@ permissions:
 
 jobs:
   sbom:
+    name: Generate CycloneDX SBOM
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout code
@@ -38,3 +41,29 @@ jobs:
           name: sbom-cyclonedx
           path: dist/security/sbom/sbom.cyclonedx.json
           retention-days: 30
+
+  dependency-snapshot:
+    name: Submit Dependency Snapshot
+    needs: sbom
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Ensure SBOM output directory
+        run: mkdir -p dist/security/sbom
+
+      - name: Generate SPDX SBOM and submit dependency snapshot
+        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad
+        with:
+          file: package-lock.json
+          format: spdx-json
+          output-file: dist/security/sbom/sbom.spdx.json
+          dependency-snapshot: true
+          upload-artifact: false

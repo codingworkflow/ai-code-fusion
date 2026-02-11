@@ -22,12 +22,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
 
       - name: Run poutine scan
-        uses: boostsecurityio/poutine-action@2182d43cbb4088c750e12f48713d084ae273ed3f
+        uses: boostsecurityio/poutine-action@84c0a0d32e8d57ae12651222be1eb15351429228
         with:
           format: sarif
           output: results.sarif
@@ -38,14 +38,14 @@ jobs:
           mv results.cleaned.sarif results.sarif
 
       - name: Upload poutine SARIF
-        uses: github/codeql-action/upload-sarif@45cbd0c69e560cd9e7cd7f8c32362050c9b7ded2
+        uses: github/codeql-action/upload-sarif@b5ebac6f4c00c8ccddb7cdcd45fdb248329f808a
         with:
           sarif_file: results.sarif
           category: /tool:poutine
 
       - name: Upload poutine artifact
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: poutine-sarif
           path: results.sarif

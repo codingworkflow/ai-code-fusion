@@ -225,6 +225,10 @@ function printHelp() {
   console.log('Testing & Quality:');
   console.log('  test                 - Run tests');
   console.log('  test:watch           - Run tests in watch mode');
+  console.log('  test:stress          - Run stress benchmark tests');
+  console.log('  stress:metrics       - Build stress benchmark summary + Prometheus payload');
+  console.log('  prometheus:verify    - Verify pushed stress metrics in Prometheus');
+  console.log('  perf-test            - Run stress tests, push metrics, and verify Prometheus');
   console.log('  lint                 - Run linter');
   console.log('  lint:md             - Validate markdown links, image paths, and no decorative icons');
   console.log('  format               - Format code');
