@@ -108,6 +108,31 @@ async function executeCommand() {
         await utils.runNpmScript('test:watch');
         break;
 
+      case 'test:stress':
+      case 'stress-test':
+        await utils.runNpmScript('test:stress');
+        console.log('Stress tests completed successfully');
+        break;
+
+      case 'stress:metrics':
+      case 'stress-metrics':
+        await utils.runNpmScript('stress:metrics');
+        console.log('Stress metrics summary generated successfully');
+        break;
+
+      case 'prometheus:verify':
+      case 'prometheus-verify':
+        await utils.runNpmScript('prometheus:verify');
+        console.log('Prometheus stress metrics verification completed successfully');
+        break;
+
+      case 'perf':
+      case 'perf:test':
+      case 'perf-test':
+        await utils.runNpmScript('perf:test');
+        console.log('Performance metrics job completed successfully');
+        break;
+
       // Code quality commands
       case 'lint':
         await utils.runNpmScript('lint');

@@ -42,6 +42,10 @@ node scripts/index.js <command> [args...]
 
 - `test` - Run all tests
 - `test:watch` - Watch and run tests on changes
+- `test:stress` - Run stress benchmark tests
+- `stress:metrics` - Build stress summary and Prometheus payload
+- `prometheus:verify` - Verify stress metrics are visible in Prometheus
+- `perf-test` - Run stress tests, push metrics to Pushgateway, and verify Prometheus
 - `lint` - Run linter
 - `format` - Run code formatter
 - `validate` - Run all validation (lint + test)
