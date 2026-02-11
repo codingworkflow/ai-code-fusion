@@ -3,6 +3,7 @@ const { execFileSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const sonarqubeScanner = require('sonarqube-scanner');
+const { buildScannerOptions } = require('./lib/sonar-options');
 
 function redactUrlForLogs(rawUrl) {
   try {
@@ -192,19 +193,26 @@ if (loadedEnvKeys.length > 0) {
   console.log('No .env values loaded; using existing environment variables');
 }
 
-function runWithNativeScanner(scannerOptions) {
+function runWithNativeScanner(scannerOptions, token) {
   const scannerBinary = resolveNativeScannerPath();
   if (!scannerBinary) {
     return false;
   }
 
   console.log(`Using native sonar-scanner: ${scannerBinary}`);
-  const args = Object.entries(scannerOptions).map(([key, value]) => `-D${key}=${value}`);
+  const scannerOptionsForArgs = { ...scannerOptions };
+  delete scannerOptionsForArgs['sonar.token'];
+  const args = Object.entries(scannerOptionsForArgs).map(([key, value]) => `-D${key}=${value}`);
   const useWindowsShell = process.platform === 'win32' && scannerBinary.toLowerCase().endsWith('.bat');
+  const scannerEnv = { ...process.env };
+  if (token) {
+    scannerEnv.SONAR_TOKEN = token;
+  }
   const result = spawnSync(scannerBinary, args, {
     cwd: projectRoot,
     stdio: 'inherit',
     shell: useWindowsShell,
+    env: scannerEnv,
   });
 
   if (result.error) {
@@ -356,29 +364,16 @@ console.log('Running SonarQube scan...');
 console.log(`Project Key: ${projectKey}`);
 
 try {
-  const scannerOptions = {
-    'sonar.projectKey': projectKey,
-    'sonar.projectName': projectName || 'Repository AI Code Fusion',
-    'sonar.projectVersion': projectVersion || '0.1.0',
-    'sonar.sources': properties['sonar.sources'] || 'src',
-    'sonar.exclusions':
-      properties['sonar.exclusions'] ||
-      'node_modules/**,dist/**,**/*.test.js,**/*.test.jsx,**/*.spec.js,**/*.spec.jsx,coverage/**',
-    'sonar.tests': properties['sonar.tests'] || 'src/__tests__',
-    'sonar.test.inclusions':
-      properties['sonar.test.inclusions'] ||
-      '**/*.test.js,**/*.test.jsx,**/*.spec.js,**/*.spec.jsx',
-    'sonar.javascript.lcov.reportPaths':
-      properties['sonar.javascript.lcov.reportPaths'] || 'coverage/lcov.info',
-    'sonar.sourceEncoding': properties['sonar.sourceEncoding'] || 'UTF-8',
-    'sonar.host.url': sonarUrl,
-  };
+  const scannerOptions = buildScannerOptions({
+    projectKey,
+    projectName,
+    projectVersion,
+    properties,
+    sonarUrl,
+    sonarToken,
+  });
 
-  if (sonarToken) {
-    scannerOptions['sonar.token'] = sonarToken;
-  }
-
-  if (runWithNativeScanner(scannerOptions)) {
+  if (runWithNativeScanner(scannerOptions, sonarToken)) {
     console.log('SonarQube scan completed successfully!');
     process.exit(0);
   }
