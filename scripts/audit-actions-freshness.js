@@ -141,15 +141,24 @@ function parseRepositoryFromEnvironment() {
 }
 
 async function githubRequest({ endpoint, token, method = 'GET', body = null }) {
+  if (typeof fetch !== 'function') {
+    throw new Error('Global fetch is not available. Use Node.js 18+ to run this script.');
+  }
+
   const url = `https://api.github.com${endpoint}`;
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'actions-freshness-audit',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(url, {
     method,
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: token ? `Bearer ${token}` : '',
-      'User-Agent': 'actions-freshness-audit',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
 
