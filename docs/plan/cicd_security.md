@@ -29,6 +29,7 @@ This document defines the CI/CD security and quality baseline for `ai-code-fusio
 - CodeQL analysis with a centralized config file (`.github/codeql/codeql-config.yml`).
 - Secret detection gate (`secrets-gate.yml`).
 - Poutine SARIF upload for dependency/update security signals.
+- Semgrep SAST scan with SARIF upload for application-level static analysis.
 
 4. Build/test execution
 - QA matrix across Linux, Windows, and macOS.

@@ -1,0 +1,16 @@
+# Generated bundles and build outputs
+dist/
+build/
+coverage/
+node_modules/
+src/renderer/bundle.js
+src/renderer/bundle.js.map
+src/renderer/bundle.js.LICENSE.txt
+src/renderer/output.css
+
+# Test and docs paths not in production runtime
+tests/
+docs/
+
+# Workflow placeholders that trigger false positives in generic secret rules
+.github/workflows/sonarcloud.yml
