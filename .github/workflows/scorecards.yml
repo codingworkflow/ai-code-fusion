@@ -1,0 +1,45 @@
+name: OSSF Scorecards
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20 5 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  scorecards:
+    name: OSSF Scorecards
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Run OSSF Scorecards analysis
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a
+        with:
+          results_file: scorecards.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload Scorecards SARIF artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: scorecards-sarif
+          path: scorecards.sarif
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Scorecards SARIF
+        uses: github/codeql-action/upload-sarif@77591e2c4a43bf190ac768983419eb058187e62f
+        with:
+          sarif_file: scorecards.sarif
+          category: /tool:ossf-scorecards
