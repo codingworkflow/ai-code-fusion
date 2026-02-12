@@ -1,0 +1,3 @@
+manual-review-smoke-pr
+created-at: 2026-02-12T06:34:30Z
+purpose: trigger PR workflows for manual-review action validation
