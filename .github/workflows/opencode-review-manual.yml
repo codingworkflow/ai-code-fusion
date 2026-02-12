@@ -247,11 +247,14 @@ jobs:
 
       - name: Warn when OpenCode review fails (non-blocking)
         if: ${{ always() && (inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20) && steps.opencode_review.outcome == 'failure' }}
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          MODEL: ${{ inputs.model || 'zai-coding-plan/glm-4.7' }}
         run: |
           echo "::warning::OpenCode manual review failed but is configured as non-blocking. Check the previous step logs."
           {
             echo "### OpenCode Manual Review Warning"
-            echo "- PR: #${{ inputs.pr_number }}"
-            echo "- Model: ${{ inputs.model || 'zai-coding-plan/glm-4.7' }}"
+            echo "- PR: #${PR_NUMBER}"
+            echo "- Model: ${MODEL}"
             echo "- Status: failed (non-blocking via continue-on-error)"
           } >> "${GITHUB_STEP_SUMMARY}"
