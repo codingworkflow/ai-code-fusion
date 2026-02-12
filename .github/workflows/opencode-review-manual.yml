@@ -126,14 +126,14 @@ jobs:
           echo "changed_files=${changed_files}" >> "${GITHUB_OUTPUT}"
           echo "total_changes=${total_changes}" >> "${GITHUB_OUTPUT}"
 
-          title_delim="TITLE_$(date +%s%N)"
+          title_delim="TITLE_$(cat /proc/sys/kernel/random/uuid)"
           {
             echo "title<<${title_delim}"
             echo "${title}"
             echo "${title_delim}"
           } >> "${GITHUB_OUTPUT}"
 
-          body_delim="BODY_$(date +%s%N)"
+          body_delim="BODY_$(cat /proc/sys/kernel/random/uuid)"
           {
             echo "body<<${body_delim}"
             echo "${body}"
@@ -199,7 +199,7 @@ jobs:
             }'
           )"
 
-          delim="MOCK_$(date +%s%N)"
+          delim="MOCK_$(cat /proc/sys/kernel/random/uuid)"
           {
             echo "event<<${delim}"
             echo "${mock_event}"
