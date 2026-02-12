@@ -207,7 +207,9 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
 
       - name: Run OpenCode manual pull request review
+        id: opencode_review
         if: ${{ inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20 }}
+        continue-on-error: true
         uses: anomalyco/opencode/github@42bea5d297125c4f8ea5c1d6055fa06829de0a51
         env:
           # TOKEN is consumed by the action's mock mode as GitHub auth.
@@ -242,3 +244,14 @@ jobs:
             Review only; do not modify files, push commits, or open additional PRs.
             Keep comments factual and specific to the changed code.
           use_github_token: true
+
+      - name: Warn when OpenCode review fails (non-blocking)
+        if: ${{ always() && (inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20) && steps.opencode_review.outcome == 'failure' }}
+        run: |
+          echo "::warning::OpenCode manual review failed but is configured as non-blocking. Check the previous step logs."
+          {
+            echo "### OpenCode Manual Review Warning"
+            echo "- PR: #${{ inputs.pr_number }}"
+            echo "- Model: ${{ inputs.model || 'zai-coding-plan/glm-4.7' }}"
+            echo "- Status: failed (non-blocking via continue-on-error)"
+          } >> "${GITHUB_STEP_SUMMARY}"
