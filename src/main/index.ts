@@ -434,10 +434,13 @@ ipcMain.handle(
         status: response.status,
         statusText: response.statusText,
       });
+      const statusLabel = response.statusText
+        ? `${response.status} ${response.statusText}`
+        : `${response.status}`;
       return {
         ok: false,
         status: response.status,
-        message: `Connection failed (${response.status} ${response.statusText}).`,
+        message: `Connection failed (${statusLabel}).`,
       };
     } catch (error) {
       clearTimeout(timeoutId);

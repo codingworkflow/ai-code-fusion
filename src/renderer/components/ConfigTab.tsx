@@ -306,17 +306,21 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
         providerBaseUrl,
       };
       const validationErrors = getProviderValidationErrors(providerFields);
-      if (validationErrors.length > 0) {
+      const hasProviderValidationErrors = validationErrors.length > 0;
+
+      if (hasProviderValidationErrors) {
         setProviderValidationErrors(validationErrors);
         setProviderTestResult({
           ok: false,
           message: 'Fix provider settings before saving.',
         });
-        setIsSaved(false);
-        return;
       }
 
-      if (hasProviderInput(providerFields) && providerId) {
+      if (hasProviderValidationErrors) {
+        if (config.provider) {
+          delete config.provider;
+        }
+      } else if (hasProviderInput(providerFields) && providerId) {
         config.provider = {
           id: providerId,
           model: providerModel.trim(),
@@ -331,12 +335,16 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
       const updatedConfig = yaml.stringify(config);
       onConfigChange(updatedConfig);
 
-      // Show saved indicator
-      setProviderValidationErrors([]);
-      setIsSaved(true);
-      setTimeout(() => {
+      if (hasProviderValidationErrors) {
         setIsSaved(false);
-      }, 1500);
+      } else {
+        // Show saved indicator
+        setProviderValidationErrors([]);
+        setIsSaved(true);
+        setTimeout(() => {
+          setIsSaved(false);
+        }, 1500);
+      }
     } catch (error) {
       console.error('Error updating config:', error);
       alert('Error updating configuration. Please check the YAML syntax.');

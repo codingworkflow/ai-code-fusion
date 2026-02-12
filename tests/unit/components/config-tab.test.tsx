@@ -189,7 +189,7 @@ describe('ConfigTab', () => {
     });
   });
 
-  test('shows provider validation errors before save when required fields are missing', async () => {
+  test('shows provider validation errors but still saves non-provider config', async () => {
     render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
 
     mockOnConfigChange.mockClear();
@@ -206,7 +206,7 @@ describe('ConfigTab', () => {
     await waitFor(() => {
       expect(screen.getByText('Model is required.')).toBeInTheDocument();
       expect(screen.getByText('API key is required for this provider.')).toBeInTheDocument();
-      expect(mockOnConfigChange).not.toHaveBeenCalled();
+      expect(mockOnConfigChange).toHaveBeenCalled();
     });
   });
 
