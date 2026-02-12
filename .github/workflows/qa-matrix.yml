@@ -16,7 +16,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
-      checks: write
     strategy:
       fail-fast: false
       matrix:
@@ -50,14 +49,14 @@ jobs:
           JEST_JUNIT_OUTPUT_DIR: dist/test-results/${{ matrix.os }}
           JEST_JUNIT_OUTPUT_NAME: junit.xml
 
-      - name: Publish unit test results
+      - name: Upload unit test report artifact
         if: always() && github.event_name == 'pull_request'
-        uses: dorny/test-reporter@b082adf0eced0765477756c2a610396589b8c637
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
-          name: Unit Tests (${{ runner.os }})
+          name: unit-test-results-${{ matrix.os }}
           path: dist/test-results/${{ matrix.os }}/junit.xml
-          reporter: jest-junit
-          fail-on-error: true
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Summarize stress benchmark metrics (Linux)
         if: runner.os == 'Linux'
@@ -125,3 +124,37 @@ jobs:
             dist/benchmarks/*.prom
           if-no-files-found: error
           retention-days: 14
+
+  publish-unit-test-results:
+    name: Publish Unit Test Results (${{ matrix.os }})
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.qa.result == 'success'
+    needs: qa
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout repository metadata
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Download unit test report artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: unit-test-results-${{ matrix.os }}
+          path: dist/test-results/${{ matrix.os }}
+
+      - name: Publish unit test results
+        uses: dorny/test-reporter@b082adf0eced0765477756c2a610396589b8c637
+        with:
+          name: Unit Tests (${{ matrix.os }})
+          path: dist/test-results/${{ matrix.os }}/junit.xml
+          reporter: jest-junit
+          fail-on-error: true
