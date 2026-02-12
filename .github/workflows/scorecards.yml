@@ -5,6 +5,10 @@ on:
   schedule:
     - cron: '20 5 * * 1'
 
+# Keep default token scope minimal for every step in this workflow.
+permissions:
+  contents: read
+
 jobs:
   scorecards:
     name: OSSF Scorecards
