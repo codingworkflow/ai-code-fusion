@@ -28,6 +28,10 @@ env_template "DTRACK_API_KEY" {
 }
 
 exec {
-  command                   = ["sh", "-lc", "echo \"SONAR_TOKEN=$SONAR_TOKEN\"; echo \"DTRACK_API_KEY=$DTRACK_API_KEY\""]
+  command = [
+    "bash",
+    "-lc",
+    "umask 077; env_file=\"${VAULT_AGENT_ENV_FILE:-/tmp/ai-code-fusion-vault.env}\"; printf 'export SONAR_TOKEN=%q\\n' \"$SONAR_TOKEN\" > \"$env_file\"; printf 'export DTRACK_API_KEY=%q\\n' \"$DTRACK_API_KEY\" >> \"$env_file\"",
+  ]
   restart_on_secret_changes = "never"
 }
