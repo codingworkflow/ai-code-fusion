@@ -5,9 +5,6 @@ on:
   schedule:
     - cron: '20 5 * * 1'
 
-permissions:
-  contents: read
-
 jobs:
   scorecards:
     name: OSSF Scorecards
@@ -15,6 +12,7 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      # Required by ossf/scorecard-action when publish_results is enabled.
       id-token: write
 
     steps:
