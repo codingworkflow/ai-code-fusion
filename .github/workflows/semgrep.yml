@@ -3,8 +3,24 @@ name: Semgrep SAST
 on:
   pull_request:
     branches: ['main']
+    paths:
+      - '.github/workflows/**'
+      - '.semgrepignore'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/**'
+      - 'src/**'
+      - 'tests/**'
   push:
     branches: ['main']
+    paths:
+      - '.github/workflows/**'
+      - '.semgrepignore'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/**'
+      - 'src/**'
+      - 'tests/**'
   workflow_dispatch:
 
 permissions:
@@ -40,6 +56,8 @@ jobs:
       - name: Run Semgrep scan
         run: |
           set -euo pipefail
+          # Intentionally informational-only: findings are surfaced in GitHub
+          # code scanning; this workflow does not fail the build on findings.
           semgrep scan \
             --config p/nodejs \
             --config p/typescript \

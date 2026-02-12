@@ -8,9 +8,9 @@ src/renderer/bundle.js.map
 src/renderer/bundle.js.LICENSE.txt
 src/renderer/output.css
 
-# Test and docs paths not in production runtime
-tests/
+# Docs paths not in production runtime
 docs/
 
-# Workflow placeholders that trigger false positives in generic secret rules
+# This workflow uses required SONAR_TOKEN placeholders that trigger an
+# unsuppressible false positive in the p/secrets SonarQube-docs-key rule.
 .github/workflows/sonarcloud.yml
