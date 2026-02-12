@@ -12,8 +12,9 @@ jest.mock('../../../src/utils/formatters/list-formatter', () => ({
 jest.mock('yaml', () => ({
   parse: jest.fn().mockImplementation((str = '') => {
     const exportFormat = str.includes('export_format: xml') ? 'xml' : 'markdown';
+    const includesProvider = str.includes('provider:');
     if (str && str.includes('include_extensions')) {
-      return {
+      const baseConfig = {
         include_extensions: ['.js', '.jsx'],
         use_custom_excludes: true,
         use_gitignore: true,
@@ -22,6 +23,18 @@ jest.mock('yaml', () => ({
         exclude_suspicious_files: true,
         export_format: exportFormat,
       };
+      if (includesProvider) {
+        return {
+          ...baseConfig,
+          provider: {
+            id: 'openai',
+            model: 'gpt-4o-mini',
+            api_key: 'test-api-key',
+            base_url: 'https://api.openai.com/v1',
+          },
+        };
+      }
+      return baseConfig;
     }
     if (str && str.includes('export_format')) {
       return {
@@ -44,6 +57,11 @@ Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 // Mock electronAPI
 window.electronAPI = {
   selectDirectory: jest.fn().mockResolvedValue('/mock/directory'),
+  testProviderConnection: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    message: 'Connection successful (200).',
+  }),
 };
 
 // Mock alert and custom events
@@ -168,6 +186,56 @@ describe('ConfigTab', () => {
     await waitFor(() => {
       expect(window.electronAPI.selectDirectory).toHaveBeenCalled();
       expect(localStorageMock.setItem).toHaveBeenCalledWith('rootPath', '/mock/directory');
+    });
+  });
+
+  test('shows provider validation errors but still saves non-provider config', async () => {
+    render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
+
+    mockOnConfigChange.mockClear();
+
+    const providerSelect = screen.getByLabelText('Provider');
+    const saveButton = screen.getByRole('button', { name: /save config/i });
+
+    act(() => {
+      fireEvent.change(providerSelect, { target: { value: 'openai' } });
+      fireEvent.click(saveButton);
+      jest.advanceTimersByTime(100);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Model is required.')).toBeInTheDocument();
+      expect(screen.getByText('API key is required for this provider.')).toBeInTheDocument();
+      expect(mockOnConfigChange).toHaveBeenCalled();
+    });
+  });
+
+  test('tests provider connection with actionable request payload', async () => {
+    render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
+
+    const providerSelect = screen.getByLabelText('Provider');
+    const modelInput = screen.getByLabelText('Model');
+    const apiKeyInput = screen.getByLabelText('API key (optional for Ollama)');
+    const testConnectionButton = screen.getByRole('button', { name: 'Test Connection' });
+
+    act(() => {
+      fireEvent.change(providerSelect, { target: { value: 'openai' } });
+      fireEvent.change(modelInput, { target: { value: 'gpt-4o-mini' } });
+      fireEvent.change(apiKeyInput, { target: { value: 'test-api-key' } });
+    });
+
+    await act(async () => {
+      fireEvent.click(testConnectionButton);
+    });
+
+    await waitFor(() => {
+      expect(window.electronAPI.testProviderConnection).toHaveBeenCalledWith({
+        providerId: 'openai',
+        model: 'gpt-4o-mini',
+        apiKey: 'test-api-key',
+        baseUrl: undefined,
+      });
+      expect(screen.getByText('Connection successful (200).')).toBeInTheDocument();
     });
   });
 });

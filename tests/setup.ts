@@ -63,6 +63,11 @@ window.electronAPI = {
     updateAvailable: false,
     reason: 'Updater is disabled in tests',
   }),
+  testProviderConnection: jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    message: 'Connection successful (200).',
+  }),
 };
 
 if (!window.matchMedia) {

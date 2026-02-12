@@ -47,6 +47,35 @@ type ProcessingOptions = {
   exportFormat: ExportFormat;
 };
 
+const sanitizeConfigForStorage = (configContent: string): string => {
+  try {
+    const parsedConfig = yaml.parse(configContent);
+    if (!parsedConfig || typeof parsedConfig !== 'object') {
+      return configContent;
+    }
+
+    const config = parsedConfig as ConfigObject;
+    if (!config.provider || typeof config.provider !== 'object' || !config.provider.api_key) {
+      return configContent;
+    }
+
+    const sanitizedProvider = { ...config.provider };
+    delete sanitizedProvider.api_key;
+
+    const sanitizedConfig: ConfigObject = { ...config };
+    const providerValues = Object.values(sanitizedProvider).filter((value) => value !== undefined);
+    if (providerValues.length === 0) {
+      delete sanitizedConfig.provider;
+    } else {
+      sanitizedConfig.provider = sanitizedProvider;
+    }
+
+    return yaml.stringify(sanitizedConfig);
+  } catch {
+    return configContent;
+  }
+};
+
 const App = () => {
   const [activeTab, setActiveTab] = useState<TabId>('config');
   const [rootPath, setRootPath] = useState('');
@@ -77,7 +106,7 @@ const App = () => {
         .then((defaultConfig) => {
           if (defaultConfig) {
             setConfigContent(defaultConfig);
-            localStorage.setItem('configContent', defaultConfig);
+            localStorage.setItem('configContent', sanitizeConfigForStorage(defaultConfig));
           }
         })
         .catch((err) => {
@@ -133,14 +162,14 @@ const App = () => {
 
   // Whenever configContent changes, save to localStorage
   useEffect(() => {
-    localStorage.setItem('configContent', configContent);
+    localStorage.setItem('configContent', sanitizeConfigForStorage(configContent));
   }, [configContent]);
 
   const handleTabChange = (tab: TabId) => {
     if (activeTab === tab) return; // Don't do anything if clicking the same tab
 
     // Save current tab configuration to localStorage for all components to access
-    localStorage.setItem('configContent', configContent);
+    localStorage.setItem('configContent', sanitizeConfigForStorage(configContent));
 
     // When switching tabs, try to do so with consistent state
     try {
@@ -158,7 +187,7 @@ const App = () => {
       });
 
       // Ensure we've saved any config changes before switching tabs
-      localStorage.setItem('configContent', configContent);
+      localStorage.setItem('configContent', sanitizeConfigForStorage(configContent));
     } catch (error) {
       console.error('Error parsing config when changing tabs:', error);
     }
