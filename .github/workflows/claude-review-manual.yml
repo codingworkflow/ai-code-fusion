@@ -72,20 +72,22 @@ jobs:
             exit 1
           fi
 
-      - name: Validate required configuration keys
+      - name: Validate required Vault OIDC configuration
         env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          AZURE_KEY_VAULT_NAME: ${{ vars.AI_REVIEW_AZURE_KEY_VAULT_NAME }}
-          CLAUDE_SECRET_NAME: ${{ vars.AI_REVIEW_CLAUDE_TOKEN_SECRET_NAME }}
+          VAULT_ADDR: ${{ vars.AI_REVIEW_VAULT_ADDR }}
+          VAULT_JWT_AUTH_PATH: ${{ vars.AI_REVIEW_VAULT_JWT_AUTH_PATH || 'jwt' }}
+          VAULT_JWT_ROLE: ${{ vars.AI_REVIEW_VAULT_JWT_ROLE }}
+          VAULT_JWT_AUDIENCE: ${{ vars.AI_REVIEW_VAULT_JWT_AUDIENCE || 'vault' }}
+          VAULT_NAMESPACE: ${{ vars.AI_REVIEW_VAULT_NAMESPACE }}
+          CLAUDE_VAULT_PATH: ${{ vars.AI_REVIEW_VAULT_CLAUDE_PATH || 'kv/claude' }}
+          CLAUDE_VAULT_FIELD: ${{ vars.AI_REVIEW_VAULT_CLAUDE_FIELD || 'token-cicd' }}
         run: |
           set -euo pipefail
 
           missing=0
-          for key in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_KEY_VAULT_NAME CLAUDE_SECRET_NAME; do
+          for key in VAULT_ADDR VAULT_JWT_AUTH_PATH VAULT_JWT_ROLE VAULT_JWT_AUDIENCE CLAUDE_VAULT_PATH CLAUDE_VAULT_FIELD; do
             if [ -z "${!key}" ]; then
-              echo "Missing required repository secret/variable backing: ${key}"
+              echo "Missing required repository variable backing: ${key}"
               missing=1
             fi
           done
@@ -94,27 +96,51 @@ jobs:
             exit 1
           fi
 
-      - name: Login to Azure with OIDC
-        uses: Azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Fetch Claude OAuth token from Azure Key Vault
-        id: keyvault
+      - name: Fetch Claude OAuth token from Vault via GitHub OIDC
+        id: vault
         env:
-          AZURE_KEY_VAULT_NAME: ${{ vars.AI_REVIEW_AZURE_KEY_VAULT_NAME }}
-          CLAUDE_SECRET_NAME: ${{ vars.AI_REVIEW_CLAUDE_TOKEN_SECRET_NAME }}
+          VAULT_ADDR: ${{ vars.AI_REVIEW_VAULT_ADDR }}
+          VAULT_JWT_AUTH_PATH: ${{ vars.AI_REVIEW_VAULT_JWT_AUTH_PATH || 'jwt' }}
+          VAULT_JWT_ROLE: ${{ vars.AI_REVIEW_VAULT_JWT_ROLE }}
+          VAULT_JWT_AUDIENCE: ${{ vars.AI_REVIEW_VAULT_JWT_AUDIENCE || 'vault' }}
+          VAULT_NAMESPACE: ${{ vars.AI_REVIEW_VAULT_NAMESPACE }}
+          SECRET_PATH: ${{ vars.AI_REVIEW_VAULT_CLAUDE_PATH || 'kv/claude' }}
+          SECRET_FIELD: ${{ vars.AI_REVIEW_VAULT_CLAUDE_FIELD || 'token-cicd' }}
         run: |
           set -euo pipefail
 
-          claude_token="$(az keyvault secret show --vault-name "${AZURE_KEY_VAULT_NAME}" --name "${CLAUDE_SECRET_NAME}" --query value -o tsv)"
-          if [ -z "${claude_token}" ]; then
-            echo "Failed to read Claude token from Azure Key Vault secret '${CLAUDE_SECRET_NAME}'."
+          oidc_token="$(curl -fsSL -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${VAULT_JWT_AUDIENCE}" | jq -r '.value')"
+          if [ -z "${oidc_token}" ] || [ "${oidc_token}" = "null" ]; then
+            echo "Failed to retrieve GitHub OIDC token for Vault auth."
             exit 1
           fi
 
+          ns_args=()
+          if [ -n "${VAULT_NAMESPACE:-}" ]; then
+            ns_args=(-H "X-Vault-Namespace: ${VAULT_NAMESPACE}")
+          fi
+
+          vault_token="$(jq -cn --arg role "${VAULT_JWT_ROLE}" --arg jwt "${oidc_token}" '{role:$role,jwt:$jwt}' | curl -fsSL -X POST "${ns_args[@]}" -H "Content-Type: application/json" --data-binary @- "${VAULT_ADDR}/v1/auth/${VAULT_JWT_AUTH_PATH}/login" | jq -r '.auth.client_token')"
+          if [ -z "${vault_token}" ] || [ "${vault_token}" = "null" ]; then
+            echo "Vault JWT login failed for role '${VAULT_JWT_ROLE}'."
+            exit 1
+          fi
+
+          secret_path="${SECRET_PATH#/}"
+          mount="${secret_path%%/*}"
+          path="${secret_path#*/}"
+          if [ "${mount}" = "${path}" ]; then
+            echo "SECRET_PATH must be in '<mount>/<path>' format, got '${SECRET_PATH}'."
+            exit 1
+          fi
+
+          claude_token="$(curl -fsSL "${ns_args[@]}" -H "X-Vault-Token: ${vault_token}" "${VAULT_ADDR}/v1/${mount}/data/${path}" | jq -r --arg field "${SECRET_FIELD}" '.data.data[$field] // empty')"
+          if [ -z "${claude_token}" ]; then
+            echo "Failed to read Claude token from Vault path '${SECRET_PATH}' field '${SECRET_FIELD}'."
+            exit 1
+          fi
+
+          echo "::add-mask::${vault_token}"
           echo "::add-mask::${claude_token}"
           echo "claude_code_oauth_token=${claude_token}" >> "${GITHUB_OUTPUT}"
 
@@ -176,7 +202,7 @@ jobs:
         if: ${{ inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20 }}
         uses: anthropics/claude-code-action@f669191d7d1e67f08a54b0c11cf5683a9a391951
         with:
-          claude_code_oauth_token: ${{ steps.keyvault.outputs.claude_code_oauth_token }}
+          claude_code_oauth_token: ${{ steps.vault.outputs.claude_code_oauth_token }}
           github_token: ${{ github.token }}
           prompt: |
             REPO: ${{ github.repository }}
