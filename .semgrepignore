@@ -1,0 +1,16 @@
+# Generated bundles and build outputs
+dist/
+build/
+coverage/
+node_modules/
+src/renderer/bundle.js
+src/renderer/bundle.js.map
+src/renderer/bundle.js.LICENSE.txt
+src/renderer/output.css
+
+# Docs paths not in production runtime
+docs/
+
+# This workflow uses required SONAR_TOKEN placeholders that trigger an
+# unsuppressible false positive in the p/secrets SonarQube-docs-key rule.
+.github/workflows/sonarcloud.yml

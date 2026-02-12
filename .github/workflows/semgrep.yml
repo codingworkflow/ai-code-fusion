@@ -1,0 +1,84 @@
+name: Semgrep SAST
+
+on:
+  pull_request:
+    branches: ['main']
+    paths:
+      - '.github/workflows/**'
+      - '.semgrepignore'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/**'
+      - 'src/**'
+      - 'tests/**'
+  push:
+    branches: ['main']
+    paths:
+      - '.github/workflows/**'
+      - '.semgrepignore'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/**'
+      - 'src/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: '3.12'
+
+      - name: Install Semgrep CLI
+        env:
+          SEMGREP_VERSION: 1.151.0
+        run: |
+          set -euo pipefail
+          python3 -m pip install --upgrade --disable-pip-version-check "semgrep==${SEMGREP_VERSION}"
+
+      - name: Run Semgrep scan
+        run: |
+          set -euo pipefail
+          # Intentionally informational-only: findings are surfaced in GitHub
+          # code scanning; this workflow does not fail the build on findings.
+          semgrep scan \
+            --config p/nodejs \
+            --config p/typescript \
+            --config p/secrets \
+            --metrics=off \
+            --sarif \
+            --output semgrep.sarif \
+            .
+
+      - name: Upload Semgrep SARIF
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@77591e2c4a43bf190ac768983419eb058187e62f
+        with:
+          sarif_file: semgrep.sarif
+          category: /tool:semgrep
+
+      - name: Upload Semgrep artifact
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: semgrep-sarif
+          path: semgrep.sarif
+          if-no-files-found: error
+          retention-days: 14
