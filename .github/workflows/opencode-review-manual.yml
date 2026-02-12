@@ -218,4 +218,20 @@ jobs:
         with:
           model: ${{ inputs.model }}
           agent: plan
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ inputs.pr_number }}
+            PR TITLE: ${{ steps.pr.outputs.title }}
+            PR BODY:
+            ${{ steps.pr.outputs.body }}
+
+            Review this pull request and leave exactly one consolidated `gh pr comment` with:
+            - code quality and best practices issues
+            - potential bugs or regressions
+            - performance concerns
+            - security concerns
+            - missing or weak test coverage
+
+            Review only; do not modify files, push commits, or open additional PRs.
+            Keep comments factual and specific to the changed code.
           use_github_token: true
