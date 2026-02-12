@@ -74,9 +74,9 @@ jobs:
 
       - name: Validate required configuration keys
         env:
-          AZURE_CLIENT_ID: ${{ vars.AI_REVIEW_AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ vars.AI_REVIEW_AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ vars.AI_REVIEW_AZURE_SUBSCRIPTION_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           AZURE_KEY_VAULT_NAME: ${{ vars.AI_REVIEW_AZURE_KEY_VAULT_NAME }}
           CLAUDE_SECRET_NAME: ${{ vars.AI_REVIEW_CLAUDE_TOKEN_SECRET_NAME }}
         run: |
@@ -85,7 +85,7 @@ jobs:
           missing=0
           for key in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_KEY_VAULT_NAME CLAUDE_SECRET_NAME; do
             if [ -z "${!key}" ]; then
-              echo "Missing required repository variable backing: ${key}"
+              echo "Missing required repository secret/variable backing: ${key}"
               missing=1
             fi
           done
@@ -97,9 +97,9 @@ jobs:
       - name: Login to Azure with OIDC
         uses: Azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
         with:
-          client-id: ${{ vars.AI_REVIEW_AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AI_REVIEW_AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AI_REVIEW_AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Fetch Claude OAuth token from Azure Key Vault
         id: keyvault
