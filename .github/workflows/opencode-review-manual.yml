@@ -53,12 +53,12 @@ jobs:
       - name: Authorize dispatcher (allowlist)
         env:
           ACTOR: ${{ github.actor }}
-          ALLOWED_ACTORS: ${{ vars.AI_REVIEW_ALLOWED_ACTORS }}
+          ALLOWED_ACTORS: ${{ vars.ALLOWED_ACTORS }}
         run: |
           set -euo pipefail
 
           if [ -z "${ALLOWED_ACTORS}" ]; then
-            echo "Missing required variable: AI_REVIEW_ALLOWED_ACTORS"
+            echo "Missing required variable: ALLOWED_ACTORS"
             echo "Set a comma-separated list of owner usernames allowed to dispatch this workflow."
             exit 1
           fi
@@ -78,75 +78,27 @@ jobs:
             exit 1
           fi
 
-      - name: Validate required Vault OIDC configuration
+      - name: Login to Azure with OIDC
+        uses: Azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Fetch OpenCode model key from Azure Key Vault
+        id: keyvault
         env:
-          VAULT_ADDR: ${{ vars.AI_REVIEW_VAULT_ADDR }}
-          VAULT_JWT_AUTH_PATH: ${{ vars.AI_REVIEW_VAULT_JWT_AUTH_PATH || 'jwt' }}
-          VAULT_JWT_ROLE: ${{ vars.AI_REVIEW_VAULT_JWT_ROLE }}
-          VAULT_JWT_AUDIENCE: ${{ vars.AI_REVIEW_VAULT_JWT_AUDIENCE || 'vault' }}
-          VAULT_NAMESPACE: ${{ vars.AI_REVIEW_VAULT_NAMESPACE }}
-          ZHIPU_VAULT_PATH: ${{ vars.AI_REVIEW_VAULT_ZHIPU_PATH || 'kv/glm' }}
-          ZHIPU_VAULT_FIELD: ${{ vars.AI_REVIEW_VAULT_ZHIPU_FIELD || 'token' }}
+          AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
+          ZHIPU_SECRET_NAME: ${{ vars.OPENCODE_ZHIPU_API_KEY_SECRET_NAME }}
         run: |
           set -euo pipefail
 
-          missing=0
-          for key in VAULT_ADDR VAULT_JWT_AUTH_PATH VAULT_JWT_ROLE VAULT_JWT_AUDIENCE ZHIPU_VAULT_PATH ZHIPU_VAULT_FIELD; do
-            if [ -z "${!key}" ]; then
-              echo "Missing required repository variable backing: ${key}"
-              missing=1
-            fi
-          done
-
-          if [ "${missing}" -ne 0 ]; then
-            exit 1
-          fi
-
-      - name: Fetch OpenCode model key from Vault via GitHub OIDC
-        id: vault
-        env:
-          VAULT_ADDR: ${{ vars.AI_REVIEW_VAULT_ADDR }}
-          VAULT_JWT_AUTH_PATH: ${{ vars.AI_REVIEW_VAULT_JWT_AUTH_PATH || 'jwt' }}
-          VAULT_JWT_ROLE: ${{ vars.AI_REVIEW_VAULT_JWT_ROLE }}
-          VAULT_JWT_AUDIENCE: ${{ vars.AI_REVIEW_VAULT_JWT_AUDIENCE || 'vault' }}
-          VAULT_NAMESPACE: ${{ vars.AI_REVIEW_VAULT_NAMESPACE }}
-          SECRET_PATH: ${{ vars.AI_REVIEW_VAULT_ZHIPU_PATH || 'kv/glm' }}
-          SECRET_FIELD: ${{ vars.AI_REVIEW_VAULT_ZHIPU_FIELD || 'token' }}
-        run: |
-          set -euo pipefail
-
-          oidc_token="$(curl -fsSL -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${VAULT_JWT_AUDIENCE}" | jq -r '.value')"
-          if [ -z "${oidc_token}" ] || [ "${oidc_token}" = "null" ]; then
-            echo "Failed to retrieve GitHub OIDC token for Vault auth."
-            exit 1
-          fi
-
-          ns_args=()
-          if [ -n "${VAULT_NAMESPACE:-}" ]; then
-            ns_args=(-H "X-Vault-Namespace: ${VAULT_NAMESPACE}")
-          fi
-
-          vault_token="$(jq -cn --arg role "${VAULT_JWT_ROLE}" --arg jwt "${oidc_token}" '{role:$role,jwt:$jwt}' | curl -fsSL -X POST "${ns_args[@]}" -H "Content-Type: application/json" --data-binary @- "${VAULT_ADDR}/v1/auth/${VAULT_JWT_AUTH_PATH}/login" | jq -r '.auth.client_token')"
-          if [ -z "${vault_token}" ] || [ "${vault_token}" = "null" ]; then
-            echo "Vault JWT login failed for role '${VAULT_JWT_ROLE}'."
-            exit 1
-          fi
-
-          secret_path="${SECRET_PATH#/}"
-          mount="${secret_path%%/*}"
-          path="${secret_path#*/}"
-          if [ "${mount}" = "${path}" ]; then
-            echo "SECRET_PATH must be in '<mount>/<path>' format, got '${SECRET_PATH}'."
-            exit 1
-          fi
-
-          zhipu_api_key="$(curl -fsSL "${ns_args[@]}" -H "X-Vault-Token: ${vault_token}" "${VAULT_ADDR}/v1/${mount}/data/${path}" | jq -r --arg field "${SECRET_FIELD}" '.data.data[$field] // empty')"
+          zhipu_api_key="$(az keyvault secret show --vault-name "${AZURE_KEY_VAULT_NAME}" --name "${ZHIPU_SECRET_NAME}" --query value -o tsv)"
           if [ -z "${zhipu_api_key}" ]; then
-            echo "Failed to read OpenCode API key from Vault path '${SECRET_PATH}' field '${SECRET_FIELD}'."
+            echo "Failed to read OpenCode API key from Azure Key Vault secret '${ZHIPU_SECRET_NAME}'."
             exit 1
           fi
 
-          echo "::add-mask::${vault_token}"
           echo "::add-mask::${zhipu_api_key}"
           echo "zhipu_api_key=${zhipu_api_key}" >> "${GITHUB_OUTPUT}"
 
@@ -212,7 +164,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          comment_body="$(cat <<'EOB'
+          comment_body="$(cat <<'EOF'
           /oc Review pull request #PR_NUMBER_PLACEHOLDER.
 
           Focus on:
@@ -226,7 +178,7 @@ jobs:
           - Leave exactly one consolidated PR comment.
           - Review only; do not edit files, create commits, or open additional PRs.
           - Keep the review factual and specific.
-          EOB
+          EOF
           )"
           comment_body="${comment_body/PR_NUMBER_PLACEHOLDER/${PR_NUMBER}}"
 
@@ -262,7 +214,7 @@ jobs:
           TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
           MOCK_EVENT: ${{ steps.mock.outputs.event }}
-          ZHIPU_API_KEY: ${{ steps.vault.outputs.zhipu_api_key }}
+          ZHIPU_API_KEY: ${{ steps.keyvault.outputs.zhipu_api_key }}
         with:
           model: ${{ inputs.model }}
           agent: plan

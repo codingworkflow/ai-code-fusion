@@ -43,64 +43,27 @@ jobs:
             touch coverage/lcov.info
           fi
 
-      - name: Fetch Sonar token from Vault via GitHub OIDC
-        id: vault
+      - name: Login to Azure with OIDC
+        uses: Azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Fetch Sonar token from Azure Key Vault
+        id: keyvault
         env:
-          VAULT_ADDR: ${{ vars.AI_REVIEW_VAULT_ADDR }}
-          VAULT_JWT_AUTH_PATH: ${{ vars.AI_REVIEW_VAULT_JWT_AUTH_PATH || 'jwt' }}
-          VAULT_JWT_ROLE: ${{ vars.AI_REVIEW_VAULT_JWT_ROLE }}
-          VAULT_JWT_AUDIENCE: ${{ vars.AI_REVIEW_VAULT_JWT_AUDIENCE || 'vault' }}
-          VAULT_NAMESPACE: ${{ vars.AI_REVIEW_VAULT_NAMESPACE }}
-          SECRET_PATH: ${{ vars.AI_REVIEW_VAULT_SONAR_PATH || 'kv/Sonarqube/sonarqube' }}
-          SECRET_FIELD: ${{ vars.AI_REVIEW_VAULT_SONAR_FIELD || 'SONAR_TOKEN' }}
+          AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
+          SONAR_SECRET_NAME: ${{ vars.SONAR_TOKEN_SECRET_NAME || 'sonar-cloud-token' }}
         run: |
           set -euo pipefail
 
-          missing=0
-          for key in VAULT_ADDR VAULT_JWT_AUTH_PATH VAULT_JWT_ROLE VAULT_JWT_AUDIENCE SECRET_PATH SECRET_FIELD; do
-            if [ -z "${!key}" ]; then
-              echo "Missing required repository variable backing: ${key}"
-              missing=1
-            fi
-          done
-
-          if [ "${missing}" -ne 0 ]; then
-            exit 1
-          fi
-
-          oidc_token="$(curl -fsSL -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${VAULT_JWT_AUDIENCE}" | jq -r '.value')"
-          if [ -z "${oidc_token}" ] || [ "${oidc_token}" = "null" ]; then
-            echo "Failed to retrieve GitHub OIDC token for Vault auth."
-            exit 1
-          fi
-
-          ns_args=()
-          if [ -n "${VAULT_NAMESPACE:-}" ]; then
-            ns_args=(-H "X-Vault-Namespace: ${VAULT_NAMESPACE}")
-          fi
-
-          vault_token="$(jq -cn --arg role "${VAULT_JWT_ROLE}" --arg jwt "${oidc_token}" '{role:$role,jwt:$jwt}' | curl -fsSL -X POST "${ns_args[@]}" -H "Content-Type: application/json" --data-binary @- "${VAULT_ADDR}/v1/auth/${VAULT_JWT_AUTH_PATH}/login" | jq -r '.auth.client_token')"
-          if [ -z "${vault_token}" ] || [ "${vault_token}" = "null" ]; then
-            echo "Vault JWT login failed for role '${VAULT_JWT_ROLE}'."
-            exit 1
-          fi
-
-          secret_path="${SECRET_PATH#/}"
-          mount="${secret_path%%/*}"
-          path="${secret_path#*/}"
-          if [ "${mount}" = "${path}" ]; then
-            echo "SECRET_PATH must be in '<mount>/<path>' format, got '${SECRET_PATH}'."
-            exit 1
-          fi
-
-          sonar_token="$(curl -fsSL "${ns_args[@]}" -H "X-Vault-Token: ${vault_token}" "${VAULT_ADDR}/v1/${mount}/data/${path}" | jq -r --arg field "${SECRET_FIELD}" '.data.data[$field] // empty')"
+          sonar_token="$(az keyvault secret show --vault-name "${AZURE_KEY_VAULT_NAME}" --name "${SONAR_SECRET_NAME}" --query value -o tsv)"
           if [ -z "${sonar_token}" ]; then
-            echo "Failed to read SONAR token from Vault path '${SECRET_PATH}' field '${SECRET_FIELD}'."
+            echo "Failed to read Sonar token from Azure Key Vault secret '${SONAR_SECRET_NAME}'."
             exit 1
           fi
 
-          echo "::add-mask::${vault_token}"
-          echo "::add-mask::${sonar_token}"
           echo "sonar_token=${sonar_token}" >> "${GITHUB_OUTPUT}"
 
       - name: SonarCloud scan
@@ -108,7 +71,7 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ steps.vault.outputs.sonar_token }}
+          SONAR_TOKEN: ${{ steps.keyvault.outputs.sonar_token }}
         with:
           args: >
             -Dsonar.host.url=https://sonarcloud.io
@@ -124,6 +87,6 @@ jobs:
         with:
           scanMetadataReportFile: .scannerwork/report-task.txt
         env:
-          SONAR_TOKEN: ${{ steps.vault.outputs.sonar_token }}
+          SONAR_TOKEN: ${{ steps.keyvault.outputs.sonar_token }}
           SONAR_HOST_URL: https://sonarcloud.io
         timeout-minutes: 5
