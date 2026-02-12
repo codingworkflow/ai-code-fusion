@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       model:
-        description: OpenCode model in provider/model format
+        description: OpenCode model in provider/model format (defaults to GLM, supports any provider/model)
         required: true
         default: zai-coding-plan/glm-4.7
         type: string
@@ -216,7 +216,7 @@ jobs:
           MOCK_EVENT: ${{ steps.mock.outputs.event }}
           ZHIPU_API_KEY: ${{ steps.keyvault.outputs.zhipu_api_key }}
         with:
-          model: ${{ inputs.model }}
+          model: ${{ inputs.model || 'zai-coding-plan/glm-4.7' }}
           agent: plan
           prompt: |
             REPO: ${{ github.repository }}
