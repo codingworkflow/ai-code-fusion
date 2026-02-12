@@ -23,7 +23,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | File                                                   | Primary Target                          | Key Use Cases                                                                                 |
 | ------------------------------------------------------ | --------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `tests/unit/components/app.test.tsx`                   | `src/renderer/components/App.tsx`       | Tab switching, config load, directory selection, processing flow, error handling              |
-| `tests/unit/components/config-tab.test.tsx`            | `src/renderer/components/ConfigTab.tsx` | Config toggles/inputs, callback wiring, directory picker trigger                              |
+| `tests/unit/components/config-tab.test.tsx`            | `src/renderer/components/ConfigTab.tsx` | Config toggles/inputs, provider validation + connection test wiring, directory picker trigger |
 | `tests/unit/components/file-tree.test.tsx`             | `src/renderer/components/FileTree.tsx`  | Tree render, folder expand/collapse, select all, empty-state behavior                         |
 | `tests/unit/components/source-tab.test.tsx`            | `src/renderer/components/SourceTab.tsx` | Source tab input state, filter toggles, and event forwarding behavior                         |
 | `tests/unit/file-analyzer.test.ts`                     | `src/utils/file-analyzer.ts`            | Include/exclude rules, gitignore behavior, binary handling, error cases                       |
@@ -49,11 +49,11 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 
 ## Integration Tests
 
-| File                                                    | Primary Target                       | Key Use Cases                                                                                       |
-| ------------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `tests/integration/main-process/handlers.test.ts`       | Main IPC handlers                    | `fs:getDirectoryTree`, `repo:analyze`, `repo:process`, `tokens:countFiles` correctness and failures |
-| `tests/integration/main-process/xml-export-e2e.test.ts` | XML export pipeline                  | End-to-end XML shape, CDATA wrapping, invalid-character sanitization, summary metrics               |
-| `tests/integration/pattern-merging.test.ts`             | Filtering + gitignore merge behavior | Combined behavior of include/exclude patterns with gitignore toggles                                |
+| File                                                    | Primary Target                       | Key Use Cases                                                                                                                  |
+| ------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `tests/integration/main-process/handlers.test.ts`       | Main IPC handlers                    | `fs:getDirectoryTree`, `repo:analyze`, `repo:process`, `tokens:countFiles`, `provider:testConnection` correctness and failures |
+| `tests/integration/main-process/xml-export-e2e.test.ts` | XML export pipeline                  | End-to-end XML shape, CDATA wrapping, invalid-character sanitization, summary metrics                                          |
+| `tests/integration/pattern-merging.test.ts`             | Filtering + gitignore merge behavior | Combined behavior of include/exclude patterns with gitignore toggles                                                           |
 
 ## Stress / Benchmark Tests
 

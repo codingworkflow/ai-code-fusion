@@ -331,9 +331,6 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
       const updatedConfig = yaml.stringify(config);
       onConfigChange(updatedConfig);
 
-      // Save to localStorage to ensure persistence
-      localStorage.setItem('configContent', updatedConfig);
-
       // Show saved indicator
       setProviderValidationErrors([]);
       setIsSaved(true);

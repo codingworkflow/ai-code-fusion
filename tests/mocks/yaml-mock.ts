@@ -30,6 +30,29 @@ const yamlMock = {
       parsedConfig.show_token_count = true;
     }
 
+    if (/provider\s*:/.test(yamlString)) {
+      const providerConfig: Record<string, string> = {};
+      const providerIdMatch = yamlString.match(/id\s*:\s*([^\n]+)/);
+      const providerModelMatch = yamlString.match(/model\s*:\s*([^\n]+)/);
+      const providerApiKeyMatch = yamlString.match(/api_key\s*:\s*([^\n]+)/);
+      const providerBaseUrlMatch = yamlString.match(/base_url\s*:\s*([^\n]+)/);
+
+      if (providerIdMatch?.[1]) {
+        providerConfig.id = providerIdMatch[1].trim();
+      }
+      if (providerModelMatch?.[1]) {
+        providerConfig.model = providerModelMatch[1].trim();
+      }
+      if (providerApiKeyMatch?.[1]) {
+        providerConfig.api_key = providerApiKeyMatch[1].trim();
+      }
+      if (providerBaseUrlMatch?.[1]) {
+        providerConfig.base_url = providerBaseUrlMatch[1].trim();
+      }
+
+      parsedConfig.provider = providerConfig;
+    }
+
     if (Object.keys(parsedConfig).length > 0) {
       return parsedConfig;
     }

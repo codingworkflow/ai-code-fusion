@@ -292,6 +292,38 @@ describe('App Component', () => {
     });
   });
 
+  test('sanitizes provider api_key before storing config in localStorage', async () => {
+    const safeConfig = '# Base config\nuse_custom_excludes: true';
+    localStorage.setItem('configContent', safeConfig);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('config-content') as HTMLTextAreaElement).value).toBe(safeConfig);
+    });
+
+    const configWithProviderSecret = [
+      'use_custom_excludes: true',
+      'provider:',
+      '  id: openai',
+      '  model: gpt-4o-mini',
+      '  api_key: test-api-key',
+      '  base_url: https://api.openai.com/v1',
+    ].join('\n');
+
+    fireEvent.change(screen.getByTestId('config-content'), {
+      target: { value: configWithProviderSecret },
+    });
+
+    await waitFor(() => {
+      const storedConfig = localStorageStore.configContent;
+      expect(storedConfig).toContain('provider:');
+      expect(storedConfig).toContain('id: openai');
+      expect(storedConfig).not.toContain('api_key');
+      expect(storedConfig).not.toContain('test-api-key');
+    });
+  });
+
   test('updates rootPath when directory is selected', async () => {
     render(<App />);
 

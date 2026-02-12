@@ -429,12 +429,15 @@ ipcMain.handle(
         };
       }
 
-      const details = (await response.text()).slice(0, 200);
-      const detailSuffix = details ? ` ${details}` : '';
+      console.warn('Provider connection test failed', {
+        providerId: options.providerId,
+        status: response.status,
+        statusText: response.statusText,
+      });
       return {
         ok: false,
         status: response.status,
-        message: `Connection failed (${response.status} ${response.statusText}).${detailSuffix}`,
+        message: `Connection failed (${response.status} ${response.statusText}).`,
       };
     } catch (error) {
       clearTimeout(timeoutId);
@@ -444,11 +447,19 @@ ipcMain.handle(
         error !== null &&
         'name' in error &&
         (error as { name?: string }).name === 'AbortError';
+
+      if (!isAbortError) {
+        console.warn('Provider connection test threw an error', {
+          providerId: options.providerId,
+          error: errorMessage,
+        });
+      }
+
       return {
         ok: false,
         message: isAbortError
           ? `Connection timed out after ${timeoutMs}ms.`
-          : `Connection test failed: ${errorMessage}`,
+          : 'Connection test failed. Check provider settings and network connectivity.',
       };
     }
   }

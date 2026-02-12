@@ -29,7 +29,7 @@ jest.mock('yaml', () => ({
           provider: {
             id: 'openai',
             model: 'gpt-4o-mini',
-            api_key: 'sk-test',
+            api_key: 'test-api-key',
             base_url: 'https://api.openai.com/v1',
           },
         };
@@ -221,7 +221,7 @@ describe('ConfigTab', () => {
     act(() => {
       fireEvent.change(providerSelect, { target: { value: 'openai' } });
       fireEvent.change(modelInput, { target: { value: 'gpt-4o-mini' } });
-      fireEvent.change(apiKeyInput, { target: { value: 'sk-live' } });
+      fireEvent.change(apiKeyInput, { target: { value: 'test-api-key' } });
     });
 
     await act(async () => {
@@ -232,7 +232,7 @@ describe('ConfigTab', () => {
       expect(window.electronAPI.testProviderConnection).toHaveBeenCalledWith({
         providerId: 'openai',
         model: 'gpt-4o-mini',
-        apiKey: 'sk-live',
+        apiKey: 'test-api-key',
         baseUrl: undefined,
       });
       expect(screen.getByText('Connection successful (200).')).toBeInTheDocument();
