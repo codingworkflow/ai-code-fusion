@@ -16,6 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
+      checks: write
     strategy:
       fail-fast: false
       matrix:
@@ -44,7 +45,19 @@ jobs:
         run: git diff --name-status --exit-code
 
       - name: Unit and integration tests
-        run: npm test -- --runInBand
+        run: npm test -- --runInBand --ci --reporters=default --reporters=jest-junit
+        env:
+          JEST_JUNIT_OUTPUT_DIR: dist/test-results/${{ matrix.os }}
+          JEST_JUNIT_OUTPUT_NAME: junit.xml
+
+      - name: Publish unit test results
+        if: always() && github.event_name == 'pull_request'
+        uses: dorny/test-reporter@b082adf0eced0765477756c2a610396589b8c637
+        with:
+          name: Unit Tests (${{ runner.os }})
+          path: dist/test-results/${{ matrix.os }}/junit.xml
+          reporter: jest-junit
+          fail-on-error: true
 
       - name: Summarize stress benchmark metrics (Linux)
         if: runner.os == 'Linux'
