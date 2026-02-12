@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       model:
-        description: OpenCode model in provider/model format
+        description: OpenCode model in provider/model format (defaults to GLM, supports any provider/model)
         required: true
         default: zai-coding-plan/glm-4.7
         type: string
@@ -126,14 +126,14 @@ jobs:
           echo "changed_files=${changed_files}" >> "${GITHUB_OUTPUT}"
           echo "total_changes=${total_changes}" >> "${GITHUB_OUTPUT}"
 
-          title_delim="TITLE_$(date +%s%N)"
+          title_delim="TITLE_$(cat /proc/sys/kernel/random/uuid)"
           {
             echo "title<<${title_delim}"
             echo "${title}"
             echo "${title_delim}"
           } >> "${GITHUB_OUTPUT}"
 
-          body_delim="BODY_$(date +%s%N)"
+          body_delim="BODY_$(cat /proc/sys/kernel/random/uuid)"
           {
             echo "body<<${body_delim}"
             echo "${body}"
@@ -199,7 +199,7 @@ jobs:
             }'
           )"
 
-          delim="MOCK_$(date +%s%N)"
+          delim="MOCK_$(cat /proc/sys/kernel/random/uuid)"
           {
             echo "event<<${delim}"
             echo "${mock_event}"
@@ -216,7 +216,7 @@ jobs:
           MOCK_EVENT: ${{ steps.mock.outputs.event }}
           ZHIPU_API_KEY: ${{ steps.keyvault.outputs.zhipu_api_key }}
         with:
-          model: ${{ inputs.model }}
+          model: ${{ inputs.model || 'zai-coding-plan/glm-4.7' }}
           agent: plan
           prompt: |
             REPO: ${{ github.repository }}
