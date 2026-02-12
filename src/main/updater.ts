@@ -1,11 +1,12 @@
-import type { AppUpdater } from 'electron-updater';
+import { getErrorMessage } from './errors';
+
 import type {
   UpdateCheckResult,
   UpdaterChannel,
   UpdaterFlagOverrides,
   UpdaterStatus,
 } from '../types/ipc';
-import { getErrorMessage } from './errors';
+import type { AppUpdater } from 'electron-updater';
 
 export interface UpdaterRuntimeOptions extends UpdaterStatus {
   checkOnStart: boolean;

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+
 import type { DirectoryTreeItem, SelectionHandler } from '../../types/ipc';
 
 type FileTreeItemProps = {

@@ -1,6 +1,8 @@
 import { InMemoryProvider, OpenFeature } from '@openfeature/server-sdk';
-import type { UpdaterFlagOverrides } from '../types/ipc';
+
 import { getErrorMessage } from './errors';
+
+import type { UpdaterFlagOverrides } from '../types/ipc';
 
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
 

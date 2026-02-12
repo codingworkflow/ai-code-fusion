@@ -1,14 +1,16 @@
 import fs from 'fs';
 import path from 'path';
-import { isBinaryFile } from './file-analyzer';
-import type { TokenCounter } from './token-counter';
-import type { ExportFormat } from '../types/ipc';
+
 import {
   escapeXmlAttribute,
   normalizeExportFormat,
   normalizeTokenCount,
   wrapXmlCdata,
 } from './export-format';
+import { isBinaryFile } from './file-analyzer';
+
+import type { TokenCounter } from './token-counter';
+import type { ExportFormat } from '../types/ipc';
 
 interface AnalysisEntry {
   path: string;

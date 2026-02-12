@@ -17,12 +17,12 @@
     "predev": "npm run build:ts && node scripts/clean-dev-assets.js",
     "dev": "node scripts/index.js dev",
     "clear-assets": "rimraf src/renderer/bundle.js src/renderer/bundle.js.map src/renderer/bundle.js.LICENSE.txt src/renderer/output.css",
-    "lint": "npm run format:check && cross-env ESLINT_USE_FLAT_CONFIG=false eslint src tests --ext .js,.jsx,.ts,.tsx --cache && npm run lint:md && npm run test:catalog && npm run changelog:validate",
+    "lint": "npm run format:check && eslint src tests --cache --max-warnings 0 && npm run lint:md && npm run test:catalog && npm run changelog:validate",
     "lint:md": "npm run lint:md:links && npm run lint:md:style",
     "lint:md:links": "node scripts/lint-markdown-links.js",
     "lint:md:style": "markdownlint \"**/*.{md,mdx}\" --config .markdownlint.json --ignore node_modules --ignore dist",
     "changelog:validate": "node scripts/validate-changelog.js",
-    "lint:tests": "cross-env ESLINT_USE_FLAT_CONFIG=false eslint tests --ext .js,.jsx,.ts,.tsx --cache",
+    "lint:tests": "eslint tests --cache --max-warnings 0",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,html,css}\"",
     "format:check": "prettier --check --end-of-line auto \"**/*.{json,md,html,css}\"",
     "test": "jest --config jest.config.js --passWithNoTests",
@@ -73,11 +73,11 @@
   "author": "AI Code Fusion <m@codingworkflow.com>",
   "license": "GPL-3.0",
   "lint-staged": {
-    "{src,tests}/**/*.{js,jsx,ts,tsx}": [
-      "eslint --fix"
-    ],
     "*.{json,md,html,css}": [
       "prettier --write"
+    ],
+    "{src,tests}/**/*.{js,jsx,ts,tsx}": [
+      "eslint --fix"
     ]
   },
   "build": {
@@ -149,6 +149,7 @@
     "@babel/preset-react": "^7.26.3",
     "@babel/preset-typescript": "^7.26.0",
     "@electron/rebuild": "^4.0.3",
+    "@eslint/js": "^9.39.2",
     "@jest/globals": "^30.2.0",
     "@tailwindcss/cli": "^4.1.18",
     "@testing-library/jest-dom": "^6.6.3",
@@ -172,10 +173,14 @@
     "electron-icon-maker": "0.0.5",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jest": "^28.14.0",
     "eslint-plugin-prettier": "^5.1.3",
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-tailwindcss": "^4.0.0-beta.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "globals": "^17.3.0",
     "husky": "^9.1.7",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^30.2.0",

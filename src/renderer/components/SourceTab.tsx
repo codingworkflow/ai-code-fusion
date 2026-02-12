@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import yaml from 'yaml';
+
 import FileTree from './FileTree';
+
 import type { CountFilesTokensResult, DirectoryTreeItem, SelectionHandler } from '../../types/ipc';
 
 type SourceTabProps = {
