@@ -2,6 +2,7 @@ export type TabId = 'config' | 'source' | 'processed';
 export type ExportFormat = 'markdown' | 'xml';
 export type UpdaterChannel = 'alpha' | 'stable';
 export type UpdaterState = 'disabled' | 'up-to-date' | 'update-available' | 'error';
+export type ProviderId = 'openai' | 'anthropic' | 'ollama' | 'openai-compatible';
 
 export type SelectionHandler = (path: string, isSelected: boolean) => void;
 
@@ -16,6 +17,12 @@ export interface ConfigObject {
   include_tree_view?: boolean;
   show_token_count?: boolean;
   export_format?: ExportFormat;
+  provider?: {
+    id?: ProviderId;
+    model?: string;
+    api_key?: string;
+    base_url?: string;
+  };
 }
 
 export interface DirectoryTreeItem {
@@ -108,6 +115,19 @@ export interface UpdaterFlagOverrides {
   repo?: string;
 }
 
+export interface ProviderConnectionOptions {
+  providerId: ProviderId;
+  model?: string;
+  apiKey?: string;
+  baseUrl?: string;
+}
+
+export interface ProviderConnectionResult {
+  ok: boolean;
+  message: string;
+  status?: number;
+}
+
 export interface ElectronApi {
   selectDirectory: () => Promise<string | null>;
   getDirectoryTree: (
@@ -123,4 +143,7 @@ export interface ElectronApi {
   countFilesTokens: (options: CountFilesTokensOptions) => Promise<CountFilesTokensResult>;
   getUpdaterStatus: () => Promise<UpdaterStatus>;
   checkForUpdates: () => Promise<UpdateCheckResult>;
+  testProviderConnection: (
+    options: ProviderConnectionOptions
+  ) => Promise<ProviderConnectionResult>;
 }

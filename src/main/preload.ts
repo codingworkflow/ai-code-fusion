@@ -6,6 +6,8 @@ import type {
   CountFilesTokensResult,
   DirectoryTreeItem,
   ElectronApi,
+  ProviderConnectionOptions,
+  ProviderConnectionResult,
   ProcessRepositoryOptions,
   ProcessRepositoryResult,
   SaveFileOptions,
@@ -57,6 +59,8 @@ const electronAPI: ElectronApi = {
     ipcRenderer.invoke('tokens:countFiles', options) as Promise<CountFilesTokensResult>,
   getUpdaterStatus: () => ipcRenderer.invoke('updater:getStatus') as Promise<UpdaterStatus>,
   checkForUpdates: () => ipcRenderer.invoke('updater:check') as Promise<UpdateCheckResult>,
+  testProviderConnection: (options: ProviderConnectionOptions) =>
+    ipcRenderer.invoke('provider:testConnection', options) as Promise<ProviderConnectionResult>,
 };
 
 contextBridge.exposeInMainWorld('devUtils', devUtils);

@@ -516,6 +516,61 @@ describe('Main Process IPC Handlers', () => {
     });
   });
 
+  describe('provider:testConnection', () => {
+    test('should validate required provider fields before running network checks', async () => {
+      const handler = mockIpcHandlers['provider:testConnection'];
+      expect(handler).toBeDefined();
+
+      const result = await handler(null, {
+        providerId: 'openai',
+        model: '',
+        apiKey: '',
+      });
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          ok: false,
+        })
+      );
+      expect(result.message).toContain('Model is required.');
+      expect(result.message).toContain('API key is required for this provider.');
+      expect(mockNetFetch).not.toHaveBeenCalled();
+    });
+
+    test('should test provider connectivity with provider-specific defaults', async () => {
+      const handler = mockIpcHandlers['provider:testConnection'];
+      expect(handler).toBeDefined();
+
+      mockNetFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+      });
+
+      const result = await handler(null, {
+        providerId: 'openai',
+        model: 'gpt-4o-mini',
+        apiKey: FAKE_GITHUB_TOKEN,
+      });
+
+      expect(mockNetFetch).toHaveBeenCalledWith(
+        'https://api.openai.com/v1/models',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Accept: 'application/json',
+            Authorization: `Bearer ${FAKE_GITHUB_TOKEN}`,
+          }),
+        })
+      );
+      expect(result).toEqual(
+        expect.objectContaining({
+          ok: true,
+          status: 200,
+        })
+      );
+    });
+  });
+
   describe('repo:analyze', () => {
     test('should analyze selected files correctly', async () => {
       // Setup
