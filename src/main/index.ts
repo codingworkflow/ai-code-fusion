@@ -298,10 +298,18 @@ const isSupportedProviderId = (candidate: unknown): candidate is ProviderId => {
   return typeof candidate === 'string' && SUPPORTED_PROVIDER_IDS.includes(candidate as ProviderId);
 };
 
+const stripTrailingSlashes = (value: string): string => {
+  let endIndex = value.length;
+  while (endIndex > 0 && value.charCodeAt(endIndex - 1) === 47) {
+    endIndex -= 1;
+  }
+  return value.slice(0, endIndex);
+};
+
 const normalizeProviderBaseUrl = (providerId: ProviderId, baseUrlInput?: string): string => {
   const fallback = PROVIDER_DEFAULT_BASE_URLS[providerId];
   const effectiveBaseUrl = trimToUndefined(baseUrlInput) ?? fallback;
-  return effectiveBaseUrl.replace(/\/+$/, '');
+  return stripTrailingSlashes(effectiveBaseUrl);
 };
 
 const getProviderValidationErrors = (options: ProviderConnectionOptions): string[] => {
