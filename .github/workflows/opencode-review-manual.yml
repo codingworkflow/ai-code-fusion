@@ -221,16 +221,23 @@ jobs:
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ inputs.pr_number }}
+            MODEL: ${{ inputs.model || 'zai-coding-plan/glm-4.7' }}
             PR TITLE: ${{ steps.pr.outputs.title }}
             PR BODY:
             ${{ steps.pr.outputs.body }}
 
             Review this pull request and leave exactly one consolidated `gh pr comment` with:
-            - code quality and best practices issues
-            - potential bugs or regressions
-            - performance concerns
-            - security concerns
-            - missing or weak test coverage
+            - findings prioritized by severity: Critical, High, Medium, Low
+            - concrete bugs/regressions with file path evidence
+            - security concerns and exploitability/risk
+            - performance concerns with likely impact
+            - missing or weak test coverage and suggested tests
+
+            In the comment:
+            - start with `Model used: <provider/model>`
+            - include a brief summary and then findings
+            - for each finding include why it matters and a concrete fix
+            - if no material issues, state `No material issues found` and list residual risks
 
             Review only; do not modify files, push commits, or open additional PRs.
             Keep comments factual and specific to the changed code.
