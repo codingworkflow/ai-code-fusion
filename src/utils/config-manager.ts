@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+
 import yaml from 'yaml';
+
 import type { ConfigObject } from '../types/ipc';
 
 const APP_ROOT = path.resolve(__dirname, '../../..');

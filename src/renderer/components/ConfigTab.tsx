@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import yaml from 'yaml';
-import { yamlArrayToPlainText } from '../../utils/formatters/list-formatter';
+
 import { normalizeExportFormat } from '../../utils/export-format';
+import { yamlArrayToPlainText } from '../../utils/formatters/list-formatter';
+
 import type {
   ConfigObject,
   ExportFormat,

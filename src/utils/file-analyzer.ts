@@ -1,10 +1,12 @@
 import fs from 'fs';
 import path from 'path';
+
 import { shouldExclude } from './filter-utils';
 import { scanContentForSecretsWithPolicy } from './secret-scanner';
-import type { ConfigObject } from '../types/ipc';
-import type { TokenCounter } from './token-counter';
+
 import type { GitignorePatterns } from './gitignore-parser';
+import type { TokenCounter } from './token-counter';
+import type { ConfigObject } from '../types/ipc';
 
 // Helper function to check if a file is a binary file by examining content
 export const isBinaryFile = (filePath: string): boolean => {

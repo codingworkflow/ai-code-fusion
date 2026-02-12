@@ -1,7 +1,9 @@
 import path from 'path';
+
 import fnmatch from './fnmatch';
-import type { ConfigObject } from '../types/ipc';
 import { shouldExcludeSensitiveFilePath } from './secret-scanner';
+
+import type { ConfigObject } from '../types/ipc';
 
 type ExcludePatterns = string[] & { includePatterns?: string[]; includeExtensions?: string[] };
 

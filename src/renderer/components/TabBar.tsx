@@ -1,4 +1,5 @@
 import React from 'react';
+
 import type { TabId } from '../../types/ipc';
 
 type TabBarProps = {

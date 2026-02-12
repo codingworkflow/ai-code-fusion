@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import TabBar from './TabBar';
-import SourceTab from './SourceTab';
-import ConfigTab from './ConfigTab';
-import ProcessedTab from './ProcessedTab';
-import DarkModeToggle from './DarkModeToggle';
-import { DarkModeProvider } from '../context/DarkModeContext';
 import yaml from 'yaml';
+
 import { normalizeExportFormat } from '../../utils/export-format';
+import { DarkModeProvider } from '../context/DarkModeContext';
+
+import ConfigTab from './ConfigTab';
+import DarkModeToggle from './DarkModeToggle';
+import ProcessedTab from './ProcessedTab';
+import SourceTab from './SourceTab';
+import TabBar from './TabBar';
+
 import type {
   AnalyzeRepositoryResult,
   ConfigObject,
@@ -92,6 +95,7 @@ const App = () => {
   // Load config from localStorage or via API, no fallbacks
   const [configContent, setConfigContent] = useState('# Loading configuration...');
   const appWindow = globalThis as Window & typeof globalThis;
+  const electronAPI = appWindow.electronAPI;
 
   // Load config from localStorage or default config
   useEffect(() => {
@@ -99,9 +103,9 @@ const App = () => {
     const savedConfig = localStorage.getItem('configContent');
     if (savedConfig) {
       setConfigContent(savedConfig);
-    } else if (appWindow.electronAPI?.getDefaultConfig) {
+    } else if (electronAPI?.getDefaultConfig) {
       // Otherwise load from the main process
-      appWindow.electronAPI
+      electronAPI
         .getDefaultConfig?.()
         .then((defaultConfig) => {
           if (defaultConfig) {
@@ -119,8 +123,8 @@ const App = () => {
     if (savedRootPath) {
       setRootPath(savedRootPath);
       // Load directory tree for the saved path
-      if (appWindow.electronAPI?.getDirectoryTree) {
-        appWindow.electronAPI
+      if (electronAPI?.getDirectoryTree) {
+        electronAPI
           .getDirectoryTree?.(savedRootPath, localStorage.getItem('configContent'))
           .then((tree) => {
             setDirectoryTree(tree ?? []);
@@ -130,6 +134,7 @@ const App = () => {
           });
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- electronAPI is a stable preload bridge on globalThis
   }, []);
 
   // Setup path change listener to keep all components in sync

@@ -1,25 +1,29 @@
-import { app, BrowserWindow, dialog, ipcMain, net, protocol } from 'electron';
-import { autoUpdater } from 'electron-updater';
 import fs from 'fs';
 import os from 'node:os';
-import path from 'path';
 import { pathToFileURL } from 'node:url';
+import path from 'path';
+
+import { app, BrowserWindow, dialog, ipcMain, net, protocol } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import yaml from 'yaml';
-import { getErrorMessage } from './errors';
-import { initializeUpdaterFeatureFlags } from './feature-flags';
-import { createUpdaterService, resolveUpdaterRuntimeOptions } from './updater';
+
 import { loadDefaultConfig } from '../utils/config-manager';
 import { ContentProcessor } from '../utils/content-processor';
-import { FileAnalyzer, isBinaryFile } from '../utils/file-analyzer';
-import { getRelativePath, shouldExclude } from '../utils/filter-utils';
-import { GitignoreParser } from '../utils/gitignore-parser';
-import { TokenCounter } from '../utils/token-counter';
 import {
   normalizeExportFormat,
   normalizeTokenCount,
   toXmlNumericAttribute,
   wrapXmlCdata,
 } from '../utils/export-format';
+import { FileAnalyzer, isBinaryFile } from '../utils/file-analyzer';
+import { getRelativePath, shouldExclude } from '../utils/filter-utils';
+import { GitignoreParser } from '../utils/gitignore-parser';
+import { TokenCounter } from '../utils/token-counter';
+
+import { getErrorMessage } from './errors';
+import { initializeUpdaterFeatureFlags } from './feature-flags';
+import { createUpdaterService, resolveUpdaterRuntimeOptions } from './updater';
+
 import type {
   AnalyzeRepositoryOptions,
   AnalyzeRepositoryResult,
