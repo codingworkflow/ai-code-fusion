@@ -134,7 +134,8 @@ const App = () => {
           });
       }
     }
-  }, [electronAPI]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- electronAPI is a stable preload bridge on globalThis
+  }, []);
 
   // Setup path change listener to keep all components in sync
   useEffect(() => {
