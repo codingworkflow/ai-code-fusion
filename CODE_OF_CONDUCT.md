@@ -20,7 +20,11 @@ This project is committed to a respectful, harassment-free environment for maint
 
 ## Reporting
 
-Report conduct incidents privately through repository maintainers using a private security report in GitHub Security Advisories.
+Report conduct incidents privately through repository maintainers using a private
+security report in GitHub Security Advisories.
+
+While named for security, this is the project's designated private channel for all
+sensitive reports, including conduct violations.
 
 Do not post sensitive conduct reports publicly.
 
