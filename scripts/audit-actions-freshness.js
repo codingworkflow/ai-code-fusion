@@ -625,6 +625,27 @@ function writeStepSummary(markdownReport) {
   fs.appendFileSync(summaryPath, `${markdownReport}\n`);
 }
 
+function appendStepSummaryWarning(warningMessage) {
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+
+  if (!summaryPath) {
+    return;
+  }
+
+  fs.appendFileSync(summaryPath, `\n> [!WARNING]\n> ${warningMessage}\n`);
+}
+
+function isPullRequestTrackerPermissionError(error) {
+  if (!error || typeof error.message !== 'string') {
+    return false;
+  }
+
+  return (
+    error.status === 403 &&
+    error.message.includes('GitHub Actions is not permitted to create or approve pull requests')
+  );
+}
+
 async function run() {
   const options = parseArguments(process.argv.slice(2));
   const workflows = readWorkflowFiles(options.workflowDirectory);
@@ -677,17 +698,28 @@ async function run() {
       );
     }
 
-    await upsertTrackingPullRequest({
-      token,
-      owner: repositoryMetadata.owner,
-      repository: repositoryMetadata.repository,
-      pullRequestTitle: options.pullRequestTitle,
-      pullRequestBranch: options.pullRequestBranch,
-      pullRequestFilePath: options.pullRequestFilePath,
-      staleCount: jsonReport.staleCount,
-      resolutionErrorCount: jsonReport.resolutionErrors.length,
-      reportMarkdown: markdownReport,
-    });
+    try {
+      await upsertTrackingPullRequest({
+        token,
+        owner: repositoryMetadata.owner,
+        repository: repositoryMetadata.repository,
+        pullRequestTitle: options.pullRequestTitle,
+        pullRequestBranch: options.pullRequestBranch,
+        pullRequestFilePath: options.pullRequestFilePath,
+        staleCount: jsonReport.staleCount,
+        resolutionErrorCount: jsonReport.resolutionErrors.length,
+        reportMarkdown: markdownReport,
+      });
+    } catch (error) {
+      if (!isPullRequestTrackerPermissionError(error)) {
+        throw error;
+      }
+
+      const warningMessage =
+        'Could not manage actions freshness tracker PR because GitHub Actions is not allowed to create pull requests. Enable this in repository Settings > Actions > General > Workflow permissions.';
+      console.warn(`[actions-freshness] ${warningMessage}`);
+      appendStepSummaryWarning(warningMessage);
+    }
   }
 
   if (options.failOnStale && jsonReport.staleCount > 0) {
