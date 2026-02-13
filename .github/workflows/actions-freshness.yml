@@ -18,8 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: read
-      issues: write
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -31,14 +31,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Audit pinned action references and manage tracking issue
+      - name: Audit pinned action references and manage tracking pull request
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node scripts/audit-actions-freshness.js \
             --report actions-freshness-report.md \
             --json actions-freshness-report.json \
-            --manage-issue
+            --manage-pr
 
       - name: Upload freshness report artifact
         if: always()
