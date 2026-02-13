@@ -87,14 +87,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          claude_token="az keyvault secret show --vault-name "${AZURE_KEY_VAULT_NAME}" --name "${CLAUDE_SECRET_NAME}" --query value -o tsv)"
-          if [ -z "${claude_token}}" ]; then
+          claude_token="$(az keyvault secret show --vault-name "${AZURE_KEY_VAULT_NAME}" --name "${CLAUDE_SECRET_NAME}" --query value -o tsv)"
+          if [ -z "${claude_token}" ]; then
             echo "Failed to read Claude token from Azure Key Vault secret '${CLAUDE_SECRET_NAME}'."
             exit 1
           fi
 
-          echo "::add-mask::${claude_token}}"
-          echo "claude_code_oauth_token=${claude_token}}" >> "${GITHUB_OUTPUT}"
+          echo "::add-mask::${claude_token}"
+          echo "claude_code_oauth_token=${claude_token}" >> "${GITHUB_OUTPUT}"
 
       - name: Resolve pull request metadata
         id: pr
