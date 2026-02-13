@@ -18,7 +18,7 @@ if exist "%APP_DATA%" (
 
 echo.
 echo === Installing dependencies ===
-call npm install
+call npm ci
 
 echo.
 echo === Starting in dev mode ===
