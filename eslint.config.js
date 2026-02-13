@@ -44,13 +44,20 @@ module.exports = [
       sourceType: 'commonjs',
       globals: {
         ...globals.node,
-        ...globals.browser,
       },
     },
     rules: {
       'no-unused-vars': 'off',
       'no-case-declarations': 'off',
       'no-useless-escape': 'off',
+    },
+  },
+  {
+    files: ['scripts/capture-ui-screenshot.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
     },
   },
   {
