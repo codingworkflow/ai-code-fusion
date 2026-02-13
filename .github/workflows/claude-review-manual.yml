@@ -151,6 +151,7 @@ jobs:
           persist-credentials: false
 
       - name: Run Claude manual pull request review
+        id: claude_review
         if: ${{ inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20 }}
         continue-on-error: true
         uses: anthropics/claude-code-action@f669191d7d1e67f08a54b0c11cf5683a9a391951
@@ -174,3 +175,16 @@ jobs:
 
             Review only; do not modify files, push commits, or open additional PRs.
             Keep comments factual and specific to the changed code.
+
+      - name: Warn when Claude review fails (non-blocking)
+        if: ${{ always() && (inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20) && steps.claude_review.outcome == 'failure' }}
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          echo "::warning::Claude manual review failed but is configured as non-blocking. Check the previous step logs."
+          {
+            echo "### Claude Manual Review Warning"
+            echo "- PR: #${PR_NUMBER}"
+            echo "- Model action: anthropics/claude-code-action"
+            echo "- Status: failed (non-blocking via continue-on-error)"
+          } >> "${GITHUB_STEP_SUMMARY}"
