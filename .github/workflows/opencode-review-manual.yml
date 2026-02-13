@@ -36,6 +36,8 @@ on:
           - "false"
           - "true"
 
+permissions: {}
+
 concurrency:
   group: opencode-manual-review-${{ inputs.pr_number }}
   cancel-in-progress: true
@@ -230,7 +232,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          comment_body="$(cat <<'EOF'
+          comment_body="$(cat <<'EOM'
           /oc Review pull request #PR_NUMBER_PLACEHOLDER.
 
           Focus on:
@@ -244,7 +246,7 @@ jobs:
           - Leave exactly one consolidated PR comment.
           - Review only; do not edit files, create commits, or open additional PRs.
           - Keep the review factual and specific.
-          EOF
+          EOM
           )"
           comment_body="${comment_body/PR_NUMBER_PLACEHOLDER/${PR_NUMBER}}"
 
@@ -278,7 +280,6 @@ jobs:
         continue-on-error: true
         uses: anomalyco/opencode/github@42bea5d297125c4f8ea5c1d6055fa06829de0a51
         env:
-          # TOKEN is consumed by the action's mock mode as GitHub auth.
           TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
           MOCK_EVENT: ${{ steps.mock.outputs.event }}
