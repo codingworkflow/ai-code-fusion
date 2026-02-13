@@ -9,7 +9,7 @@
     "rebuild": "electron-rebuild",
     "build": "node scripts/index.js build",
     "build:ts": "tsc -p tsconfig.build.json",
-    "type-check": "tsc -p tsconfig.build.json --noEmit",
+    "type-check": "tsc -p tsconfig.typecheck.json",
     "watch:ts": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "prebuild:webpack": "node scripts/ensure-build-dirs.js",
     "build:webpack": "cross-env NODE_ENV=production webpack --mode production",
