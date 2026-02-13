@@ -154,7 +154,7 @@ jobs:
         id: claude_review
         if: ${{ inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20 }}
         continue-on-error: true
-        uses: anthropics/claude-code-action@f669191d7d1e67f08a54b0c11cf5683a9a391951
+        uses: anthropics/claude-code-action@c22f7c3f9dbdf2faa98a4c3139f7ec9eb5a691dc
         with:
           claude_code_oauth_token: ${{ steps.keyvault.outputs.claude_code_oauth_token }}
           github_token: ${{ github.token }}
