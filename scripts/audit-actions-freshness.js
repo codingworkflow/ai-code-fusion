@@ -11,8 +11,10 @@ const {
 const DEFAULT_REPORT_PATH = 'actions-freshness-report.md';
 const DEFAULT_JSON_PATH = 'actions-freshness-report.json';
 const DEFAULT_WORKFLOW_DIRECTORY = path.join('.github', 'workflows');
-const DEFAULT_TRACKING_ISSUE_TITLE = 'CI: refresh pinned GitHub Actions SHAs';
-const TRACKING_ISSUE_MARKER = '<!-- actions-freshness-tracker -->';
+const DEFAULT_TRACKING_PULL_REQUEST_TITLE = 'CI: refresh pinned GitHub Actions SHAs';
+const DEFAULT_TRACKING_PULL_REQUEST_BRANCH = 'automation/actions-freshness-tracker';
+const DEFAULT_TRACKING_PULL_REQUEST_FILE_PATH = '.github/actions-freshness-tracker.md';
+const TRACKING_PULL_REQUEST_MARKER = '<!-- actions-freshness-tracker -->';
 
 function toPosixPath(filePath) {
   return filePath.split(path.sep).join('/');
@@ -24,8 +26,10 @@ function parseArguments(argv) {
     jsonPath: DEFAULT_JSON_PATH,
     workflowDirectory: DEFAULT_WORKFLOW_DIRECTORY,
     failOnStale: false,
-    manageIssue: false,
-    issueTitle: DEFAULT_TRACKING_ISSUE_TITLE,
+    managePullRequest: false,
+    pullRequestTitle: DEFAULT_TRACKING_PULL_REQUEST_TITLE,
+    pullRequestBranch: DEFAULT_TRACKING_PULL_REQUEST_BRANCH,
+    pullRequestFilePath: DEFAULT_TRACKING_PULL_REQUEST_FILE_PATH,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -49,8 +53,8 @@ function parseArguments(argv) {
       continue;
     }
 
-    if (argument === '--issue-title') {
-      options.issueTitle = argv[index + 1];
+    if (argument === '--issue-title' || argument === '--pr-title') {
+      options.pullRequestTitle = argv[index + 1];
       index += 1;
       continue;
     }
@@ -60,8 +64,20 @@ function parseArguments(argv) {
       continue;
     }
 
-    if (argument === '--manage-issue') {
-      options.manageIssue = true;
+    if (argument === '--pr-branch') {
+      options.pullRequestBranch = argv[index + 1];
+      index += 1;
+      continue;
+    }
+
+    if (argument === '--pr-file-path') {
+      options.pullRequestFilePath = argv[index + 1];
+      index += 1;
+      continue;
+    }
+
+    if (argument === '--manage-issue' || argument === '--manage-pr') {
+      options.managePullRequest = true;
       continue;
     }
 
@@ -80,8 +96,16 @@ function parseArguments(argv) {
     throw new Error('The --workflow-dir option requires a value.');
   }
 
-  if (!options.issueTitle) {
-    throw new Error('The --issue-title option requires a value.');
+  if (!options.pullRequestTitle) {
+    throw new Error('The --pr-title option requires a value.');
+  }
+
+  if (!options.pullRequestBranch) {
+    throw new Error('The --pr-branch option requires a value.');
+  }
+
+  if (!options.pullRequestFilePath) {
+    throw new Error('The --pr-file-path option requires a value.');
   }
 
   return options;
@@ -348,112 +372,237 @@ function buildJsonReport({
   };
 }
 
-async function findTrackingIssue({ owner, repository, token, issueTitle }) {
-  for (let page = 1; page <= 5; page += 1) {
-    const issues = await githubRequest({
-      endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/issues?state=open&per_page=100&page=${page}`,
+function toGitHubRefPath(value) {
+  return value
+    .split('/')
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
+function toGitHubContentPath(filePath) {
+  return filePath
+    .split('/')
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
+async function getRepositoryMetadata({ owner, repository, token }) {
+  return githubRequest({
+    endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}`,
+    token,
+  });
+}
+
+async function ensureTrackingPullRequestBranch({
+  owner,
+  repository,
+  token,
+  defaultBranch,
+  trackingBranch,
+}) {
+  const defaultBranchRef = await githubRequest({
+    endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/git/ref/heads/${toGitHubRefPath(defaultBranch)}`,
+    token,
+  });
+  const defaultBranchSha = defaultBranchRef && defaultBranchRef.object ? defaultBranchRef.object.sha : '';
+  if (!defaultBranchSha) {
+    throw new Error(`Could not resolve latest commit on ${defaultBranch}.`);
+  }
+
+  try {
+    await githubRequest({
+      endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/git/ref/heads/${toGitHubRefPath(trackingBranch)}`,
       token,
     });
-
-    if (!Array.isArray(issues) || issues.length === 0) {
-      return null;
+  } catch (error) {
+    if (error.status !== 404) {
+      throw error;
     }
 
-    const trackingIssue = issues.find(
-      (issue) =>
-        !issue.pull_request &&
-        issue.title === issueTitle &&
-        typeof issue.body === 'string' &&
-        issue.body.includes(TRACKING_ISSUE_MARKER)
-    );
+    await githubRequest({
+      endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/git/refs`,
+      token,
+      method: 'POST',
+      body: {
+        ref: `refs/heads/${trackingBranch}`,
+        sha: defaultBranchSha,
+      },
+    });
+    console.log(`[actions-freshness] Created branch ${trackingBranch}`);
+  }
+}
 
-    if (trackingIssue) {
-      return trackingIssue;
+async function upsertTrackingPullRequestFile({
+  owner,
+  repository,
+  token,
+  trackingBranch,
+  filePath,
+  content,
+}) {
+  const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/contents/${toGitHubContentPath(filePath)}`;
+  let existingSha = '';
+
+  try {
+    const existingFile = await githubRequest({
+      endpoint: `${endpoint}?ref=${encodeURIComponent(trackingBranch)}`,
+      token,
+    });
+    if (existingFile && typeof existingFile === 'object' && existingFile.sha) {
+      existingSha = existingFile.sha;
     }
-
-    if (issues.length < 100) {
-      break;
+  } catch (error) {
+    if (error.status !== 404) {
+      throw error;
     }
   }
 
-  return null;
+  const payload = {
+    message: 'chore(ci): refresh actions freshness tracker',
+    content: Buffer.from(content, 'utf8').toString('base64'),
+    branch: trackingBranch,
+  };
+
+  if (existingSha) {
+    payload.sha = existingSha;
+  }
+
+  await githubRequest({
+    endpoint,
+    token,
+    method: 'PUT',
+    body: payload,
+  });
 }
 
-async function closeTrackingIssue({ owner, repository, issueNumber, token }) {
-  await githubRequest({
-    endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/issues/${issueNumber}/comments`,
+async function findTrackingPullRequest({ owner, repository, token, trackingBranch }) {
+  const pullRequests = await githubRequest({
+    endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/pulls?state=open&head=${encodeURIComponent(`${owner}:${trackingBranch}`)}&per_page=10`,
     token,
-    method: 'POST',
-    body: {
-      body: 'Automated actions freshness audit is clean. Closing this tracker.',
-    },
   });
 
+  if (!Array.isArray(pullRequests) || pullRequests.length === 0) {
+    return null;
+  }
+
+  return (
+    pullRequests.find(
+      (pullRequest) =>
+        typeof pullRequest.body === 'string' &&
+        pullRequest.body.includes(TRACKING_PULL_REQUEST_MARKER)
+    ) || pullRequests[0]
+  );
+}
+
+async function closeTrackingPullRequest({ owner, repository, pullRequestNumber, token }) {
   await githubRequest({
-    endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/issues/${issueNumber}`,
+    endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/pulls/${pullRequestNumber}`,
     token,
     method: 'PATCH',
-    body: { state: 'closed' },
+    body: {
+      state: 'closed',
+    },
   });
 }
 
-async function upsertTrackingIssue({
+async function upsertTrackingPullRequest({
   token,
   owner,
   repository,
-  issueTitle,
+  pullRequestTitle,
+  pullRequestBranch,
+  pullRequestFilePath,
   staleCount,
   resolutionErrorCount,
   reportMarkdown,
 }) {
-  const trackingIssue = await findTrackingIssue({
+  const trackingPullRequest = await findTrackingPullRequest({
     owner,
     repository,
     token,
-    issueTitle,
+    trackingBranch: pullRequestBranch,
   });
-  const body = `${TRACKING_ISSUE_MARKER}\n\n${reportMarkdown}`;
+  const body = `${TRACKING_PULL_REQUEST_MARKER}\n\n${reportMarkdown}`;
   const hasFindings = staleCount > 0 || resolutionErrorCount > 0;
 
   if (!hasFindings) {
-    if (!trackingIssue) {
+    if (!trackingPullRequest) {
       return;
     }
 
-    await closeTrackingIssue({
+    await closeTrackingPullRequest({
       owner,
       repository,
-      issueNumber: trackingIssue.number,
+      pullRequestNumber: trackingPullRequest.number,
       token,
     });
-    console.log(`[actions-freshness] Closed issue #${trackingIssue.number}`);
+    console.log(`[actions-freshness] Closed pull request #${trackingPullRequest.number}`);
     return;
   }
 
-  if (trackingIssue) {
+  const repositoryMetadata = await getRepositoryMetadata({ owner, repository, token });
+  const defaultBranch = repositoryMetadata && repositoryMetadata.default_branch;
+  if (!defaultBranch) {
+    throw new Error('Could not resolve repository default branch for tracker pull request.');
+  }
+
+  await ensureTrackingPullRequestBranch({
+    owner,
+    repository,
+    token,
+    defaultBranch,
+    trackingBranch: pullRequestBranch,
+  });
+
+  const trackingFileContent = [
+    TRACKING_PULL_REQUEST_MARKER,
+    '',
+    '# Actions Freshness Tracker',
+    '',
+    `Last updated: ${new Date().toISOString()}`,
+    '',
+    reportMarkdown,
+    '',
+  ].join('\n');
+
+  await upsertTrackingPullRequestFile({
+    owner,
+    repository,
+    token,
+    trackingBranch: pullRequestBranch,
+    filePath: pullRequestFilePath,
+    content: trackingFileContent,
+  });
+
+  if (trackingPullRequest) {
     await githubRequest({
-      endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/issues/${trackingIssue.number}`,
+      endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/pulls/${trackingPullRequest.number}`,
       token,
       method: 'PATCH',
       body: {
-        title: issueTitle,
+        title: pullRequestTitle,
         body,
       },
     });
-    console.log(`[actions-freshness] Updated issue #${trackingIssue.number}`);
+    console.log(`[actions-freshness] Updated pull request #${trackingPullRequest.number}`);
     return;
   }
 
-  const createdIssue = await githubRequest({
-    endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/issues`,
+  const createdPullRequest = await githubRequest({
+    endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/pulls`,
     token,
     method: 'POST',
     body: {
-      title: issueTitle,
+      title: pullRequestTitle,
+      head: pullRequestBranch,
+      base: defaultBranch,
       body,
+      draft: true,
     },
   });
-  console.log(`[actions-freshness] Created issue #${createdIssue.number}`);
+  console.log(`[actions-freshness] Created draft pull request #${createdPullRequest.number}`);
 }
 
 function writeReportFiles({ reportPath, jsonPath, markdownReport, jsonReport }) {
@@ -514,23 +663,27 @@ async function run() {
   console.log(`[actions-freshness] json: ${fileOutput.jsonAbsolutePath}`);
   console.log(`[actions-freshness] stale pinned references: ${jsonReport.staleCount}`);
 
-  if (options.manageIssue) {
+  if (options.managePullRequest) {
     if (!token) {
-      throw new Error('Issue management requested, but GITHUB_TOKEN/GH_TOKEN is not set.');
+      throw new Error(
+        'Tracker pull request management requested, but GITHUB_TOKEN/GH_TOKEN is not set.'
+      );
     }
 
     const repositoryMetadata = parseRepositoryFromEnvironment();
     if (!repositoryMetadata) {
       throw new Error(
-        'Issue management requested, but GITHUB_REPOSITORY is not set to owner/repository.'
+        'Tracker pull request management requested, but GITHUB_REPOSITORY is not set to owner/repository.'
       );
     }
 
-    await upsertTrackingIssue({
+    await upsertTrackingPullRequest({
       token,
       owner: repositoryMetadata.owner,
       repository: repositoryMetadata.repository,
-      issueTitle: options.issueTitle,
+      pullRequestTitle: options.pullRequestTitle,
+      pullRequestBranch: options.pullRequestBranch,
+      pullRequestFilePath: options.pullRequestFilePath,
       staleCount: jsonReport.staleCount,
       resolutionErrorCount: jsonReport.resolutionErrors.length,
       reportMarkdown: markdownReport,
