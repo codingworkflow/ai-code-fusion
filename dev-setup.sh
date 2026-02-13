@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # Detect OS and set app data path
 case "$(uname -s)" in
     Linux*)
