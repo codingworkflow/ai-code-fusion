@@ -7,7 +7,7 @@ module.exports = {
     jest: true,
   },
   extends: ['eslint:recommended', 'plugin:react/recommended'],
-  plugins: ['react', 'sonarjs', 'unicorn'],
+  plugins: ['react'],
   parserOptions: {
     ecmaVersion: 2020,
     sourceType: 'module',
@@ -40,26 +40,6 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'off',
   },
   overrides: [
-    {
-      files: ['src/**/*.{js,jsx,ts,tsx}'],
-      excludedFiles: [
-        'src/**/__tests__/**',
-        'src/**/*.test.{js,jsx,ts,tsx}',
-        'src/**/*.spec.{js,jsx,ts,tsx}',
-      ],
-      rules: {
-        'sonarjs/no-collapsible-if': 'error',
-        'sonarjs/no-identical-conditions': 'error',
-        'sonarjs/no-identical-expressions': 'error',
-        'sonarjs/no-ignored-return': 'error',
-        'sonarjs/no-inverted-boolean-check': 'error',
-        'unicorn/no-array-callback-reference': 'error',
-        'unicorn/no-invalid-fetch-options': 'error',
-        'unicorn/prefer-array-some': 'error',
-        'unicorn/prefer-optional-catch-binding': 'error',
-        'unicorn/prefer-string-starts-ends-with': 'error',
-      },
-    },
     {
       files: ['**/*.{ts,tsx}'],
       extends: ['plugin:@typescript-eslint/recommended'],

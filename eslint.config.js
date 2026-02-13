@@ -7,6 +7,10 @@ const reactHooksPlugin = require('eslint-plugin-react-hooks');
 const tsPlugin = require('@typescript-eslint/eslint-plugin');
 const tsParser = require('@typescript-eslint/parser');
 const unusedImportsPlugin = require('eslint-plugin-unused-imports');
+const sonarjsPluginModule = require('eslint-plugin-sonarjs');
+const unicornPluginModule = require('eslint-plugin-unicorn');
+const sonarjsPlugin = sonarjsPluginModule.default ?? sonarjsPluginModule;
+const unicornPlugin = unicornPluginModule.default ?? unicornPluginModule;
 
 module.exports = [
   {
@@ -58,6 +62,30 @@ module.exports = [
           alphabetize: { order: 'asc', caseInsensitive: true },
         },
       ],
+    },
+  },
+  {
+    files: ['src/**/*.{js,jsx,ts,tsx}'],
+    ignores: [
+      'src/**/__tests__/**',
+      'src/**/*.test.{js,jsx,ts,tsx}',
+      'src/**/*.spec.{js,jsx,ts,tsx}',
+    ],
+    plugins: {
+      sonarjs: sonarjsPlugin,
+      unicorn: unicornPlugin,
+    },
+    rules: {
+      'sonarjs/no-collapsible-if': 'error',
+      'sonarjs/no-identical-conditions': 'error',
+      'sonarjs/no-identical-expressions': 'error',
+      'sonarjs/no-ignored-return': 'error',
+      'sonarjs/no-inverted-boolean-check': 'error',
+      'unicorn/no-array-callback-reference': 'error',
+      'unicorn/no-invalid-fetch-options': 'error',
+      'unicorn/prefer-array-some': 'error',
+      'unicorn/prefer-optional-catch-binding': 'error',
+      'unicorn/prefer-string-starts-ends-with': 'error',
     },
   },
   {
