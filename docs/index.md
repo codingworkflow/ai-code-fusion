@@ -17,7 +17,7 @@ Core documentation for setup, configuration, and usage.
 ## Examples
 
 - [Markdown Output Example](examples/output-markdown.md)
-- [XML Output Example](examples/output.xml)
+- [XML Output Example](examples/output-xml.md)
 
 ## Observability
 

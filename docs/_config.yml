@@ -1,4 +1,4 @@
 title: AI Code Fusion Docs
 description: Documentation for AI Code Fusion
 exclude:
-  - plan
+  - plan/**

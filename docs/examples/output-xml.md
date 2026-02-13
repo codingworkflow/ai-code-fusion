@@ -1,0 +1,19 @@
+# XML Output Example
+
+The sample below mirrors the canonical XML output in [`output.xml`](output.xml).
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<repository totalFiles="2" totalTokens="360">
+  <file path="src/App.tsx" tokens="120"><![CDATA[
+export function App() {
+  return <main>Hello AI Code Fusion</main>;
+}
+  ]]></file>
+  <file path="src/features/feature-24/ui/Feature24Panel.tsx" tokens="240"><![CDATA[
+export function Feature24Panel() {
+  return <section>Panel content</section>;
+}
+  ]]></file>
+</repository>
+```
