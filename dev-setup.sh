@@ -24,7 +24,7 @@ fi
 
 echo ""
 echo "=== Installing dependencies ==="
-npm install
+npm ci
 
 echo ""
 echo "=== Starting in dev mode ==="

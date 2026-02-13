@@ -170,7 +170,6 @@
     "electron": "^40.3.0",
     "electron-builder": "^26.7.0",
     "electron-devtools-installer": "^4.0.0",
-    "electron-icon-maker": "0.0.5",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
