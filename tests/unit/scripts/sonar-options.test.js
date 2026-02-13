@@ -26,7 +26,20 @@ describe('buildScannerOptions', () => {
 
     expect(options['sonar.cpd.exclusions']).toBe(DEFAULT_CPD_EXCLUSIONS);
     expect(options['sonar.cpd.exclusions']).toContain('tests/**');
+    expect(options['sonar.cpd.exclusions']).toContain('scripts/**');
     expect(options['sonar.cpd.exclusions']).toContain('**/*.stress.test.ts');
+  });
+
+  test('default issue-scan exclusions include tests and scripts', () => {
+    const options = buildScannerOptions({
+      projectKey: 'ai-code-fusion',
+      properties: {},
+      sonarUrl: 'http://localhost:9000',
+      sonarToken: '',
+    });
+
+    expect(options['sonar.exclusions']).toContain('tests/**');
+    expect(options['sonar.exclusions']).toContain('scripts/**');
   });
 
   test('preserves additional custom Sonar properties while setting required scanner fields', () => {
