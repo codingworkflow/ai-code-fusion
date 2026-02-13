@@ -193,6 +193,11 @@ module.exports = {
               context.report({ node, messageId: 'noElectronImport' });
             }
           },
+          ImportExpression(node) {
+            if (node.source && node.source.type === 'Literal' && node.source.value === 'electron') {
+              context.report({ node, messageId: 'noElectronImport' });
+            }
+          },
           CallExpression(node) {
             if (
               node.callee.type === 'Identifier' &&

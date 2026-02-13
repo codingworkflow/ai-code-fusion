@@ -136,4 +136,25 @@ describe('electron custom eslint rules', () => {
     expect(rendererRequire).toHaveLength(1);
     expect(rendererRequire[0].message).toContain('Do not import electron directly in renderer files');
   });
+
+  test('no-electron-import-in-renderer blocks dynamic import("electron") only in renderer paths', () => {
+    const mainProcessDynamicImport = lintWithRule({
+      ruleName: 'no-electron-import-in-renderer',
+      code: "async function load() { await import('electron'); }",
+      filename: '/workspace/src/main/preload.ts',
+    });
+
+    expect(mainProcessDynamicImport).toHaveLength(0);
+
+    const rendererDynamicImport = lintWithRule({
+      ruleName: 'no-electron-import-in-renderer',
+      code: "async function load() { await import('electron'); }",
+      filename: '/workspace/src/renderer/components/App.tsx',
+    });
+
+    expect(rendererDynamicImport).toHaveLength(1);
+    expect(rendererDynamicImport[0].message).toContain(
+      'Do not import electron directly in renderer files'
+    );
+  });
 });
