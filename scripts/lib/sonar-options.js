@@ -7,7 +7,7 @@ const DEFAULT_TESTS = 'src/__tests__,tests';
 const DEFAULT_TEST_INCLUSIONS =
   'tests/**/*.test.{js,jsx,ts,tsx},tests/**/*.spec.{js,jsx,ts,tsx},tests/**/*.stress.test.{js,jsx,ts,tsx},src/**/__tests__/**/*.{js,jsx,ts,tsx},src/**/*.test.{js,jsx,ts,tsx},src/**/*.spec.{js,jsx,ts,tsx}';
 const DEFAULT_CPD_EXCLUSIONS =
-  'tests/**,src/**/__tests__/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx,**/*.stress.test.js,**/*.stress.test.jsx,**/*.stress.test.ts,**/*.stress.test.tsx';
+  'tests/**,scripts/**,src/**/__tests__/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx,**/*.stress.test.js,**/*.stress.test.jsx,**/*.stress.test.ts,**/*.stress.test.tsx';
 const DEFAULT_LCOV_PATH = 'coverage/lcov.info';
 const DEFAULT_SOURCE_ENCODING = 'UTF-8';
 const SONAR_PROPERTY_KEY_PATTERN = /^sonar\.[a-zA-Z0-9_.-]+$/;

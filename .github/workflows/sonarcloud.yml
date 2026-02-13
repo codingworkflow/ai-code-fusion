@@ -78,8 +78,11 @@ jobs:
             -Dsonar.organization=${{ vars.SONAR_ORGANIZATION || 'codingworkflow' }}
             -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY || 'codingworkflow_ai-code-fusion' }}
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-            -Dsonar.exclusions=tests/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx
-            -Dsonar.cpd.exclusions=tests/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx,src/**/__tests__/**
+            -Dsonar.sources=src
+            -Dsonar.tests=tests,src/__tests__
+            -Dsonar.test.inclusions=tests/**/*.test.{js,jsx,ts,tsx},tests/**/*.spec.{js,jsx,ts,tsx},tests/**/*.stress.test.{js,jsx,ts,tsx},src/**/__tests__/**/*.{js,jsx,ts,tsx},src/**/*.test.{js,jsx,ts,tsx},src/**/*.spec.{js,jsx,ts,tsx}
+            -Dsonar.exclusions=node_modules/**,dist/**,coverage/**,tests/**,scripts/**,**/__tests__/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx,src/renderer/bundle.js,src/renderer/bundle.js.map,src/renderer/bundle.js.LICENSE.txt,src/renderer/output.css,src/renderer/styles.css
+            -Dsonar.cpd.exclusions=tests/**,scripts/**,src/**/__tests__/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx,**/*.stress.test.js,**/*.stress.test.jsx,**/*.stress.test.ts,**/*.stress.test.tsx
 
       - name: SonarCloud quality gate
         continue-on-error: true
