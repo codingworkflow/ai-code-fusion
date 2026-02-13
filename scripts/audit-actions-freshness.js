@@ -97,7 +97,7 @@ function parseArguments(argv) {
   }
 
   if (!options.pullRequestTitle) {
-    throw new Error('The --pr-title option requires a value.');
+    throw new Error('The --pr-title/--issue-title option requires a value.');
   }
 
   if (!options.pullRequestBranch) {
@@ -492,7 +492,7 @@ async function findTrackingPullRequest({ owner, repository, token, trackingBranc
       (pullRequest) =>
         typeof pullRequest.body === 'string' &&
         pullRequest.body.includes(TRACKING_PULL_REQUEST_MARKER)
-    ) || pullRequests[0]
+    ) || null
   );
 }
 
