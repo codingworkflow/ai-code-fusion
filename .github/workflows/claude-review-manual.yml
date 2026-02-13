@@ -166,15 +166,26 @@ jobs:
             PR BODY:
             ${{ steps.pr.outputs.body }}
 
-            Review this pull request and leave exactly one consolidated `gh pr comment` with:
-            - code quality and best practices issues
-            - potential bugs or regressions
-            - performance concerns
-            - security concerns
-            - missing or weak test coverage
+            You are performing a strict pull request review. Review only changed files in this PR.
+            Post exactly one consolidated `gh pr comment`.
 
+            Required comment format:
+            - first line: `Model used: anthropics/claude-code-action`
+            - section `### Executive Summary`
+            - section `### Findings`
+            - section `### Test Coverage Gaps`
+            - section `### Final Verdict`
+
+            Findings requirements:
+            - prioritize by severity: Critical, High, Medium, Low
+            - include concrete evidence with `path:line` references from the diff
+            - classify each finding as one of: Bug, Security, Performance, Testing, Maintainability
+            - explain why it matters and provide a concrete fix
+            - avoid speculative findings without evidence
+
+            If no material issues exist, state exactly `No material issues found` and list any residual risks.
             Review only; do not modify files, push commits, or open additional PRs.
-            Keep comments factual and specific to the changed code.
+            Keep comments factual, specific, and action-oriented.
 
       - name: Warn when Claude review fails (non-blocking)
         if: ${{ always() && (inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20) && steps.claude_review.outcome == 'failure' }}
