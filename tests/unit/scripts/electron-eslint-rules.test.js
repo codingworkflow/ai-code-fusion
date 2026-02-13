@@ -34,20 +34,56 @@ describe('electron custom eslint rules', () => {
 
     expect(valid).toHaveLength(0);
 
-    const invalid = lintWithRule({
+    const invalidFlags = lintWithRule({
       ruleName: 'safe-browser-window-webpreferences',
       code: 'new BrowserWindow({ webPreferences: { nodeIntegration: true } });',
       filename: '/workspace/src/main/index.ts',
     });
 
-    expect(invalid.some((message) => message.message.includes('nodeIntegration'))).toBe(true);
-    expect(invalid.some((message) => message.message.includes('contextIsolation'))).toBe(true);
+    expect(invalidFlags.some((message) => message.messageId === 'requireNodeIntegrationFalse')).toBe(true);
+    expect(invalidFlags.some((message) => message.messageId === 'requireContextIsolationTrue')).toBe(true);
+
+    const missingOptions = lintWithRule({
+      ruleName: 'safe-browser-window-webpreferences',
+      code: 'new BrowserWindow();',
+      filename: '/workspace/src/main/index.ts',
+    });
+
+    expect(missingOptions.some((message) => message.messageId === 'requireWebPreferences')).toBe(true);
+
+    const missingWebPreferences = lintWithRule({
+      ruleName: 'safe-browser-window-webpreferences',
+      code: 'new BrowserWindow({});',
+      filename: '/workspace/src/main/index.ts',
+    });
+
+    expect(missingWebPreferences.some((message) => message.messageId === 'requireWebPreferences')).toBe(true);
+
+    const missingNodeIntegration = lintWithRule({
+      ruleName: 'safe-browser-window-webpreferences',
+      code: 'new BrowserWindow({ webPreferences: { contextIsolation: true } });',
+      filename: '/workspace/src/main/index.ts',
+    });
+
+    expect(
+      missingNodeIntegration.some((message) => message.messageId === 'requireNodeIntegrationFalse')
+    ).toBe(true);
+
+    const missingContextIsolation = lintWithRule({
+      ruleName: 'safe-browser-window-webpreferences',
+      code: 'new BrowserWindow({ webPreferences: { nodeIntegration: false } });',
+      filename: '/workspace/src/main/index.ts',
+    });
+
+    expect(
+      missingContextIsolation.some((message) => message.messageId === 'requireContextIsolationTrue')
+    ).toBe(true);
   });
 
   test('ipc-channel-namespaced requires literal namespaced channel names', () => {
     const valid = lintWithRule({
       ruleName: 'ipc-channel-namespaced',
-      code: "ipcMain.handle('repo:process', () => {}); ipcRenderer.invoke('tokens:countFiles');",
+      code: "ipcMain.handle('repo:process', () => {}); ipcRenderer.invoke('tokens:countFiles'); ipcMain?.on('repo:process', () => {});",
       filename: '/workspace/src/main/preload.ts',
     });
 
@@ -55,11 +91,11 @@ describe('electron custom eslint rules', () => {
 
     const invalid = lintWithRule({
       ruleName: 'ipc-channel-namespaced',
-      code: "const channel = 'repo:process'; ipcMain.handle(channel, () => {}); ipcRenderer.invoke('badChannel');",
+      code: "const channel = 'repo:process'; ipcMain.handle(channel, () => {}); ipcRenderer.invoke('badChannel'); ipcRenderer?.invoke('stillBad');",
       filename: '/workspace/src/main/preload.ts',
     });
 
-    expect(invalid).toHaveLength(2);
+    expect(invalid).toHaveLength(3);
     expect(invalid.every((message) => message.message.includes('namespaced format'))).toBe(true);
   });
 
@@ -80,5 +116,24 @@ describe('electron custom eslint rules', () => {
 
     expect(rendererImport).toHaveLength(1);
     expect(rendererImport[0].message).toContain('Do not import electron directly in renderer files');
+  });
+
+  test('no-electron-import-in-renderer blocks require("electron") only in renderer paths', () => {
+    const mainProcessRequire = lintWithRule({
+      ruleName: 'no-electron-import-in-renderer',
+      code: "const { shell } = require('electron');",
+      filename: '/workspace/src/main/preload.ts',
+    });
+
+    expect(mainProcessRequire).toHaveLength(0);
+
+    const rendererRequire = lintWithRule({
+      ruleName: 'no-electron-import-in-renderer',
+      code: "const { ipcRenderer } = require('electron');",
+      filename: '/workspace/src/renderer/components/App.tsx',
+    });
+
+    expect(rendererRequire).toHaveLength(1);
+    expect(rendererRequire[0].message).toContain('Do not import electron directly in renderer files');
   });
 });

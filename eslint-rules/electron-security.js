@@ -54,13 +54,15 @@ const isBrowserWindowConstructor = (callee) => {
   return (
     callee.type === 'MemberExpression' &&
     !callee.computed &&
+    callee.object.type === 'Identifier' &&
+    callee.object.name === 'electron' &&
     callee.property.type === 'Identifier' &&
     callee.property.name === 'BrowserWindow'
   );
 };
 
 const isRendererFile = (context) => {
-  const filename = context.filename || context.getFilename();
+  const filename = context.getFilename();
   return typeof filename === 'string' && RENDERER_PATH_PATTERN.test(filename);
 };
 
@@ -75,8 +77,7 @@ module.exports = {
         },
         schema: [],
         messages: {
-          requireWebPreferences:
-            'BrowserWindow must define webPreferences with security flags.',
+          requireWebPreferences: 'BrowserWindow must define webPreferences with security flags.',
           requireNodeIntegrationFalse:
             'BrowserWindow webPreferences.nodeIntegration must be set to false.',
           requireContextIsolationTrue:
@@ -130,16 +131,24 @@ module.exports = {
       create(context) {
         return {
           CallExpression(node) {
-            if (!node.callee || node.callee.type !== 'MemberExpression') {
+            if (!node.callee) {
               return;
             }
 
-            const object = node.callee.object;
-            const property = node.callee.property;
-            const isIpcObject =
-              object.type === 'Identifier' && (object.name === 'ipcMain' || object.name === 'ipcRenderer');
+            const callee =
+              node.callee.type === 'ChainExpression' ? node.callee.expression : node.callee;
 
-            if (!isIpcObject || node.callee.computed || property.type !== 'Identifier') {
+            if (callee.type !== 'MemberExpression') {
+              return;
+            }
+
+            const object = callee.object;
+            const property = callee.property;
+            const isIpcObject =
+              object.type === 'Identifier' &&
+              (object.name === 'ipcMain' || object.name === 'ipcRenderer');
+
+            if (!isIpcObject || callee.computed || property.type !== 'Identifier') {
               return;
             }
 
