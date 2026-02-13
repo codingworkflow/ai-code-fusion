@@ -111,6 +111,12 @@ devcontainer exec --workspace-folder . id -u
 devcontainer exec --workspace-folder . npm run lint
 ```
 
+## Governance
+
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
+
 ## License
 
 GPL 3.0
