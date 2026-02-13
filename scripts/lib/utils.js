@@ -230,7 +230,9 @@ function printHelp() {
   console.log('  prometheus:verify    - Verify pushed stress metrics in Prometheus');
   console.log('  perf-test            - Run stress tests, push metrics, and verify Prometheus');
   console.log('  lint                 - Run linter');
-  console.log('  lint:md             - Validate markdown links, image paths, and no decorative icons');
+  console.log(
+    '  lint:md             - Validate markdown links, image paths, and no decorative icons'
+  );
   console.log('  format               - Format code');
   console.log('  validate             - Run all code quality checks');
   console.log('  qa                   - Run lint + tests + security checks');

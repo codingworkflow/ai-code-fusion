@@ -14,7 +14,13 @@ const DEFAULT_SCREENSHOT_NAME = `ui-${process.platform}-${process.arch}.png`;
 const FIXED_MTIME = 1700000000000;
 
 function loadSecretScannerHelpers() {
-  const compiledSecretScannerPath = path.join(ROOT_DIR, 'build', 'ts', 'utils', 'secret-scanner.js');
+  const compiledSecretScannerPath = path.join(
+    ROOT_DIR,
+    'build',
+    'ts',
+    'utils',
+    'secret-scanner.js'
+  );
 
   try {
     return require(compiledSecretScannerPath);
@@ -49,7 +55,10 @@ function sanitizeScreenshotName(nameCandidate) {
     typeof nameCandidate === 'string' && nameCandidate.trim()
       ? nameCandidate.trim()
       : DEFAULT_SCREENSHOT_NAME;
-  const baseName = path.basename(rawName).replace(/[^a-zA-Z0-9._-]/g, '-').replace(/^\.+/, '');
+  const baseName = path
+    .basename(rawName)
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/^\.+/, '');
   const withExtension = baseName.toLowerCase().endsWith('.png') ? baseName : `${baseName}.png`;
 
   if (!withExtension || withExtension === '.png') {
@@ -361,7 +370,8 @@ async function setupMockElectronApi(page) {
       localStorage.setItem('configContent', mockConfig);
 
       const cloneTree = (treeItems) => JSON.parse(JSON.stringify(treeItems));
-      const delay = (durationMs) => new Promise((resolve) => window.setTimeout(resolve, durationMs));
+      const delay = (durationMs) =>
+        new Promise((resolve) => window.setTimeout(resolve, durationMs));
 
       window.electronAPI = {
         getDefaultConfig: async () => mockConfig,
@@ -371,14 +381,16 @@ async function setupMockElectronApi(page) {
             typeof configContent === 'string' && configContent.trim()
               ? configContent
               : localStorage.getItem('configContent') || '';
-          const excludeSensitiveFiles = !/(^|\n)\s*enable_secret_scanning\s*:\s*false\b/i.test(
-            activeConfig
-          ) && !/(^|\n)\s*exclude_suspicious_files\s*:\s*false\b/i.test(activeConfig);
+          const excludeSensitiveFiles =
+            !/(^|\n)\s*enable_secret_scanning\s*:\s*false\b/i.test(activeConfig) &&
+            !/(^|\n)\s*exclude_suspicious_files\s*:\s*false\b/i.test(activeConfig);
           const tree = excludeSensitiveFiles ? mockFilteredDirectoryTree : mockDirectoryTree;
           return cloneTree(tree);
         },
         analyzeRepository: async (options = {}) => {
-          const selectedFilePaths = Array.isArray(options?.selectedFiles) ? options.selectedFiles : [];
+          const selectedFilePaths = Array.isArray(options?.selectedFiles)
+            ? options.selectedFiles
+            : [];
           const filesInfo = selectedFilePaths.map((filePath, index) => {
             const normalizedPath = String(filePath);
             const relativePath = normalizedPath.startsWith(`${mockRootPath}/`)
@@ -402,7 +414,9 @@ async function setupMockElectronApi(page) {
           const filesInfo = inputFilesInfo.map((file, index) => ({
             path: String(file?.path || `src/file-${index + 1}.ts`),
             tokens:
-              Number.isFinite(file?.tokens) && Number(file.tokens) > 0 ? Number(file.tokens) : 120 * (index + 1),
+              Number.isFinite(file?.tokens) && Number(file.tokens) > 0
+                ? Number(file.tokens)
+                : 120 * (index + 1),
             isBinary: false,
           }));
           const totalTokens = filesInfo.reduce((sum, file) => sum + file.tokens, 0);
@@ -422,7 +436,8 @@ async function setupMockElectronApi(page) {
                   '# Repository Analysis',
                   '',
                   ...filesInfo.map(
-                    (file) => `## ${file.path}\n\n\`\`\`ts\n// Preview for ${file.path}\n\`\`\`\nTokens: ${file.tokens}\n`
+                    (file) =>
+                      `## ${file.path}\n\n\`\`\`ts\n// Preview for ${file.path}\n\`\`\`\nTokens: ${file.tokens}\n`
                   ),
                   '--END--',
                 ].join('\n');
@@ -516,7 +531,10 @@ async function captureAppStateScreenshots(page) {
   });
 
   await runStep('Verify secret files are hidden by default', async () => {
-    await page.waitForFunction((selector) => !document.querySelector(selector), UI_SELECTORS.secretFileEntry);
+    await page.waitForFunction(
+      (selector) => !document.querySelector(selector),
+      UI_SELECTORS.secretFileEntry
+    );
   });
 
   await runStep('Capture source tab screenshot', async () => {

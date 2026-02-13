@@ -99,7 +99,9 @@ function resolveCommand(command, localCandidates = []) {
   }
 
   for (const candidate of localCandidates) {
-    const absolutePath = path.isAbsolute(candidate) ? candidate : path.join(utils.ROOT_DIR, candidate);
+    const absolutePath = path.isAbsolute(candidate)
+      ? candidate
+      : path.join(utils.ROOT_DIR, candidate);
     if (fs.existsSync(absolutePath)) {
       return absolutePath;
     }
@@ -285,7 +287,9 @@ function resolveTokenFromFile() {
     return '';
   }
 
-  const tokenFilePath = path.isAbsolute(tokenFile) ? tokenFile : path.join(utils.ROOT_DIR, tokenFile);
+  const tokenFilePath = path.isAbsolute(tokenFile)
+    ? tokenFile
+    : path.join(utils.ROOT_DIR, tokenFile);
   if (!fs.existsSync(tokenFilePath)) {
     return '';
   }
@@ -508,7 +512,8 @@ async function runMendScan() {
   assertAllowedExecutable(mendPath);
 
   const pkg = readPackageMetadata();
-  const project = process.env.MEND_PROJECT || process.env.BINARY_NAME || pkg.name || 'ai-code-fusion';
+  const project =
+    process.env.MEND_PROJECT || process.env.BINARY_NAME || pkg.name || 'ai-code-fusion';
   const version = process.env.MEND_PROJECT_VERSION || process.env.VERSION || pkg.version || '0.0.0';
   const commandName = process.platform === 'win32' ? 'mend-scan.exe' : 'mend-scan';
   const args = ['scan', '--project', project, '--version', version];

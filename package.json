@@ -18,14 +18,14 @@
     "predev": "npm run build:ts && node scripts/clean-dev-assets.js",
     "dev": "node scripts/index.js dev",
     "clear-assets": "rimraf src/renderer/bundle.js src/renderer/bundle.js.map src/renderer/bundle.js.LICENSE.txt src/renderer/output.css",
-    "lint": "npm run format:check && eslint src tests --cache --max-warnings 0 && npm run lint:md && npm run test:catalog && npm run changelog:validate",
+    "lint": "npm run format:check && eslint src tests scripts eslint.config.js .eslintrc.js .babelrc.js babel.config.js jest.config.js playwright.config.ts postcss.config.js prettier.config.js tailwind.config.js webpack.config.js --cache --max-warnings 0 && npm run lint:md && npm run test:catalog && npm run changelog:validate",
     "lint:md": "npm run lint:md:links && npm run lint:md:style",
     "lint:md:links": "node scripts/lint-markdown-links.js",
     "lint:md:style": "markdownlint \"**/*.{md,mdx}\" --config .markdownlint.json --ignore node_modules --ignore dist",
     "changelog:validate": "node scripts/validate-changelog.js",
     "lint:tests": "eslint tests --cache --max-warnings 0",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,html,css}\"",
-    "format:check": "prettier --check --end-of-line auto \"**/*.{json,md,html,css}\"",
+    "format:check": "prettier --check --end-of-line auto \"**/*.{json,md,html,css}\" && prettier --check --end-of-line auto \"scripts/**/*.js\" \"*.config.js\" \"eslint.config.js\" \".eslintrc.js\" \".babelrc.js\" \"jest.config.js\" \"postcss.config.js\" \"prettier.config.js\" \"tailwind.config.js\" \"webpack.config.js\" \"playwright.config.ts\"",
     "test": "jest --config jest.config.js --passWithNoTests",
     "test:watch": "jest --watch --config jest.config.js --passWithNoTests",
     "test:stress": "jest --config jest.config.js --runInBand --testMatch=\"**/tests/stress/**/*.{js,jsx,ts,tsx}\" --verbose",
@@ -77,7 +77,7 @@
     "*.{json,md,html,css}": [
       "prettier --write"
     ],
-    "{src,tests}/**/*.{js,jsx,ts,tsx}": [
+    "{src,tests,scripts}/**/*.{js,jsx,ts,tsx}": [
       "eslint --fix"
     ]
   },

@@ -203,7 +203,8 @@ function runWithNativeScanner(scannerOptions, token) {
   const scannerOptionsForArgs = { ...scannerOptions };
   delete scannerOptionsForArgs['sonar.token'];
   const args = Object.entries(scannerOptionsForArgs).map(([key, value]) => `-D${key}=${value}`);
-  const useWindowsShell = process.platform === 'win32' && scannerBinary.toLowerCase().endsWith('.bat');
+  const useWindowsShell =
+    process.platform === 'win32' && scannerBinary.toLowerCase().endsWith('.bat');
   const scannerEnv = { ...process.env };
   if (token) {
     scannerEnv.SONAR_TOKEN = token;
@@ -278,7 +279,11 @@ function resolveNativeScannerPath() {
 function isNpmScannerWrapperPath(scannerPath) {
   const normalizedPath = path.normalize(scannerPath).toLowerCase();
   const wrapperSuffix = path
-    .join('node_modules', '.bin', process.platform === 'win32' ? 'sonar-scanner.cmd' : 'sonar-scanner')
+    .join(
+      'node_modules',
+      '.bin',
+      process.platform === 'win32' ? 'sonar-scanner.cmd' : 'sonar-scanner'
+    )
     .toLowerCase();
   return normalizedPath.endsWith(wrapperSuffix);
 }
@@ -397,9 +402,7 @@ try {
       console.log(
         '2. Check if the project exists on the server or if you have permission to create it'
       );
-      console.log(
-        '3. Verify the token has not expired and is valid for the specified project key'
-      );
+      console.log('3. Verify the token has not expired and is valid for the specified project key');
       process.exit(1);
     } else {
       console.log('SonarQube scan completed successfully!');

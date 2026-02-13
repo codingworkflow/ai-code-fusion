@@ -200,7 +200,9 @@ function buildPrometheusPayload(records, options = {}) {
     }
   }
 
-  lines.push(`# HELP ${METRIC_PREFIX}_file_count Number of files exercised by the stress scenario.`);
+  lines.push(
+    `# HELP ${METRIC_PREFIX}_file_count Number of files exercised by the stress scenario.`
+  );
   lines.push(`# TYPE ${METRIC_PREFIX}_file_count gauge`);
 
   for (const record of records) {
