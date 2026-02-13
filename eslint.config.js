@@ -20,7 +20,6 @@ module.exports = [
       'dist/**',
       'build/**',
       'coverage/**',
-      'scripts/**',
       'src/renderer/bundle.js',
       'src/renderer/bundle.js.map',
       'src/renderer/bundle.js.LICENSE.txt',
@@ -31,6 +30,36 @@ module.exports = [
     ],
   },
   js.configs.recommended,
+  {
+    files: [
+      'scripts/**/*.js',
+      '*.config.js',
+      'eslint.config.js',
+      '.eslintrc.js',
+      '.babelrc.js',
+      'tests/.eslintrc.js',
+    ],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'commonjs',
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      'no-unused-vars': 'off',
+      'no-case-declarations': 'off',
+      'no-useless-escape': 'off',
+    },
+  },
+  {
+    files: ['scripts/capture-ui-screenshot.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
   {
     files: ['src/**/*.{js,jsx,ts,tsx}', 'tests/**/*.{js,jsx,ts,tsx}'],
     languageOptions: {
@@ -58,7 +87,16 @@ module.exports = [
       'import/order': [
         'error',
         {
-          groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'object', 'type'],
+          groups: [
+            'builtin',
+            'external',
+            'internal',
+            'parent',
+            'sibling',
+            'index',
+            'object',
+            'type',
+          ],
           'newlines-between': 'always',
           alphabetize: { order: 'asc', caseInsensitive: true },
         },

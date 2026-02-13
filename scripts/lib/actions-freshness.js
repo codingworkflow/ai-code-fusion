@@ -31,12 +31,9 @@ function extractUsesValue(line) {
     return '';
   }
 
-  const withoutPrefix = normalized
-    .slice(USES_LINE_PATTERN.length)
-    .trimStart();
+  const withoutPrefix = normalized.slice(USES_LINE_PATTERN.length).trimStart();
   const commentStart = withoutPrefix.search(/\s#/);
-  const rawValue =
-    commentStart >= 0 ? withoutPrefix.slice(0, commentStart) : withoutPrefix;
+  const rawValue = commentStart >= 0 ? withoutPrefix.slice(0, commentStart) : withoutPrefix;
 
   return normalizeReferenceValue(rawValue.trim());
 }
@@ -131,10 +128,7 @@ function escapeMarkdownTableCell(value) {
     return '';
   }
 
-  return String(value)
-    .replace(/\\/g, '\\\\')
-    .replace(/\r?\n/g, '<br>')
-    .replace(/\|/g, '\\|');
+  return String(value).replace(/\\/g, '\\\\').replace(/\r?\n/g, '<br>').replace(/\|/g, '\\|');
 }
 
 function buildMarkdownReport(report) {
@@ -202,7 +196,9 @@ function buildMarkdownReport(report) {
   }
 
   if (report.staleCount === 0 && report.resolutionErrors.length === 0) {
-    lines.push('All pinned GitHub Actions references are current against latest upstream releases.');
+    lines.push(
+      'All pinned GitHub Actions references are current against latest upstream releases.'
+    );
     lines.push('');
   }
 

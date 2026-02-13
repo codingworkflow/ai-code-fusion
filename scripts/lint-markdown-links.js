@@ -62,7 +62,11 @@ function normalizeTarget(rawTarget) {
 function resolveTargetPath(markdownFilePath, target) {
   const [pathWithoutAnchor] = target.split('#');
 
-  if (!pathWithoutAnchor || isExternalTarget(pathWithoutAnchor) || pathWithoutAnchor.startsWith('#')) {
+  if (
+    !pathWithoutAnchor ||
+    isExternalTarget(pathWithoutAnchor) ||
+    pathWithoutAnchor.startsWith('#')
+  ) {
     return null;
   }
 
@@ -131,7 +135,11 @@ function lintMarkdownFile(markdownFilePath) {
     const rawTargets = extractTargetsFromLine(line);
     for (const rawTarget of rawTargets) {
       const normalizedTarget = normalizeTarget(rawTarget);
-      if (!normalizedTarget || isExternalTarget(normalizedTarget) || normalizedTarget.startsWith('#')) {
+      if (
+        !normalizedTarget ||
+        isExternalTarget(normalizedTarget) ||
+        normalizedTarget.startsWith('#')
+      ) {
         continue;
       }
 
@@ -177,12 +185,16 @@ function run() {
       const relativeFilePath = path.relative(ROOT_DIR, error.filePath);
 
       if (error.kind === 'decorative-icon') {
-        console.error(`- ${relativeFilePath}:${error.lineNumber} -> decorative icon found: ${error.lineText}`);
+        console.error(
+          `- ${relativeFilePath}:${error.lineNumber} -> decorative icon found: ${error.lineText}`
+        );
         continue;
       }
 
       const relativeResolvedPath = path.relative(ROOT_DIR, error.resolvedPath);
-      console.error(`- ${relativeFilePath}:${error.lineNumber} -> ${error.target} (missing: ${relativeResolvedPath})`);
+      console.error(
+        `- ${relativeFilePath}:${error.lineNumber} -> ${error.target} (missing: ${relativeResolvedPath})`
+      );
     }
     process.exit(1);
   }

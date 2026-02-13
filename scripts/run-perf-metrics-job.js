@@ -127,10 +127,12 @@ async function runPerfMetricsJob(options = {}) {
     );
   }
 
-  const jobName = (env.PUSHGATEWAY_JOB || DEFAULT_PUSHGATEWAY_JOB).trim() || DEFAULT_PUSHGATEWAY_JOB;
+  const jobName =
+    (env.PUSHGATEWAY_JOB || DEFAULT_PUSHGATEWAY_JOB).trim() || DEFAULT_PUSHGATEWAY_JOB;
   const instanceName =
     (env.PUSHGATEWAY_INSTANCE || '').trim() || buildDefaultInstanceName(nowFn(), hostName);
-  const strictMode = (env.PUSHGATEWAY_STRICT || 'true').trim().toLowerCase() === 'false' ? 'false' : 'true';
+  const strictMode =
+    (env.PUSHGATEWAY_STRICT || 'true').trim().toLowerCase() === 'false' ? 'false' : 'true';
   const timeoutMs = toFiniteNumber(env.PROMETHEUS_VERIFY_TIMEOUT_MS) || 60_000;
   const pollIntervalMs = toFiniteNumber(env.PROMETHEUS_VERIFY_POLL_INTERVAL_MS) || 5_000;
   const minPublishTimestampSeconds = Math.floor(nowFn() / 1000);

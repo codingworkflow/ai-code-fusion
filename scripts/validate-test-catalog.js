@@ -218,7 +218,11 @@ function run() {
 
   try {
     catalogPath = resolvePathWithinRoot(catalogArg, DEFAULT_CATALOG_PATH, 'Catalog path');
-    jestConfigPath = resolvePathWithinRoot(jestConfigArg, DEFAULT_JEST_CONFIG_PATH, 'Jest config path');
+    jestConfigPath = resolvePathWithinRoot(
+      jestConfigArg,
+      DEFAULT_JEST_CONFIG_PATH,
+      'Jest config path'
+    );
   } catch (error) {
     console.error('Test catalog validation failed:');
     console.error(`- ${error.message}`);

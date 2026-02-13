@@ -34,4 +34,11 @@ describe('eslint phase 2 strict packs config', () => {
       "'electron-security/no-electron-import-in-renderer': 'error'"
     );
   });
+
+  test('includes scripts/config lint scope and does not globally ignore scripts', () => {
+    expect(eslintConfigSource).toContain("'scripts/**/*.js'");
+    expect(eslintConfigSource).toContain("'*.config.js'");
+    expect(eslintConfigSource).toContain("sourceType: 'commonjs'");
+    expect(eslintConfigSource).not.toContain("'scripts/**',");
+  });
 });

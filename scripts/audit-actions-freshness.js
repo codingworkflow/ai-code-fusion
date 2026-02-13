@@ -121,8 +121,7 @@ function readWorkflowFiles(workflowDirectory) {
   const entries = fs
     .readdirSync(directoryPath, { withFileTypes: true })
     .filter(
-      (entry) =>
-        entry.isFile() && (entry.name.endsWith('.yml') || entry.name.endsWith('.yaml'))
+      (entry) => entry.isFile() && (entry.name.endsWith('.yml') || entry.name.endsWith('.yaml'))
     )
     .map((entry) => entry.name)
     .sort((left, right) => left.localeCompare(right));
@@ -203,7 +202,9 @@ async function githubRequest({ endpoint, token, method = 'GET', body = null }) {
 
   if (!response.ok) {
     const detail = data && typeof data === 'object' && data.message ? data.message : responseText;
-    const error = new Error(`GitHub API ${method} ${endpoint} failed (${response.status}): ${detail}`);
+    const error = new Error(
+      `GitHub API ${method} ${endpoint} failed (${response.status}): ${detail}`
+    );
     error.status = response.status;
     throw error;
   }
@@ -406,7 +407,8 @@ async function ensureTrackingPullRequestBranch({
     endpoint: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/git/ref/heads/${toGitHubRefPath(defaultBranch)}`,
     token,
   });
-  const defaultBranchSha = defaultBranchRef && defaultBranchRef.object ? defaultBranchRef.object.sha : '';
+  const defaultBranchSha =
+    defaultBranchRef && defaultBranchRef.object ? defaultBranchRef.object.sha : '';
   if (!defaultBranchSha) {
     throw new Error(`Could not resolve latest commit on ${defaultBranch}.`);
   }
