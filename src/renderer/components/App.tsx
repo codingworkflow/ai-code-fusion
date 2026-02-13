@@ -544,12 +544,9 @@ const App = () => {
       let folders: string[] = [];
 
       for (const item of folder.children ?? []) {
-        if (item.type === 'directory') {
-          // Validate each folder is within current root
-          if (isPathWithinRootBoundary(item.path)) {
-            folders.push(item.path);
-            folders = [...folders, ...getAllSubFolders(item)];
-          }
+        if (item.type === 'directory' && isPathWithinRootBoundary(item.path)) {
+          folders.push(item.path);
+          folders = [...folders, ...getAllSubFolders(item)];
         }
       }
 
