@@ -2,11 +2,11 @@
 
 # Actions Freshness Tracker
 
-Last updated: 2026-02-13T00:12:22.302Z
+Last updated: 2026-02-13T04:58:50.556Z
 
 # GitHub Actions Freshness Report
 
-Generated at: 2026-02-13T00:12:21.548Z
+Generated at: 2026-02-13T04:58:49.644Z
 
 - Workflows scanned: 13
 - Action references found: 62
@@ -21,7 +21,7 @@ Generated at: 2026-02-13T00:12:21.548Z
 | anthropics/claude-code-action | `f669191d7d1e` | `v1` | `c22f7c3f9dbd` | `.github/workflows/claude-review-manual.yml:157` |
 | github/codeql-action/init | `45cbd0c69e56` | `codeql-bundle-v2.24.1` | `77591e2c4a43` | `.github/workflows/codeql.yml:34` |
 | github/codeql-action/analyze | `45cbd0c69e56` | `codeql-bundle-v2.24.1` | `77591e2c4a43` | `.github/workflows/codeql.yml:40` |
-| anomalyco/opencode/github | `42bea5d29712` | `v1.1.64` | `76db21867449` | `.github/workflows/opencode-review-manual.yml:213` |
+| anomalyco/opencode/github | `42bea5d29712` | `v1.1.64` | `76db21867449` | `.github/workflows/opencode-review-manual.yml:283` |
 | github/codeql-action/upload-sarif | `45cbd0c69e56` | `codeql-bundle-v2.24.1` | `77591e2c4a43` | `.github/workflows/poutine.yml:41` |
 | actions/download-artifact | `d3f86a106a0b` | `v7.0.0` | `37930b1c2aba` | `.github/workflows/qa-matrix.yml:149` |
 
