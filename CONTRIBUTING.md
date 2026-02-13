@@ -4,7 +4,7 @@
 
 We do not accept external pull requests for this repository.
 
-This repository is a closed-source collaboration for maintainers and approved internal contributors.
+This repository is a public, closed-contribution collaboration for maintainers and approved internal contributors.
 Unsolicited external pull requests may be closed without review.
 
 ## Communication First
@@ -27,4 +27,5 @@ Use Issues for bugs and feature requests.
 
 - Never commit secrets, tokens, or credentials.
 - Treat `.env` changes as sensitive and local-development only.
+- If a non-sensitive template is needed in the future, use `.env.example`.
 - For vulnerabilities, use private reporting as defined in `SECURITY.md`.

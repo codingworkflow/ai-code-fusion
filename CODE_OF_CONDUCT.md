@@ -23,6 +23,8 @@ This project is committed to a respectful, harassment-free environment for maint
 Report conduct incidents privately through repository maintainers using a private
 security report in GitHub Security Advisories.
 
+Open the repository Security tab, select Advisories, then choose Report a vulnerability.
+
 While named for security, this is the project's designated private channel for all
 sensitive reports, including conduct violations.
 
