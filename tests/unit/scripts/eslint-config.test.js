@@ -24,4 +24,14 @@ describe('eslint phase 2 strict packs config', () => {
     expect(eslintConfigSource).toContain("'unicorn/prefer-optional-catch-binding': 'error'");
     expect(eslintConfigSource).toContain("'unicorn/prefer-string-starts-ends-with': 'error'");
   });
+
+  test('wires project-specific electron safety rules', () => {
+    expect(eslintConfigSource).toContain("'electron-security/ipc-channel-namespaced': 'error'");
+    expect(eslintConfigSource).toContain(
+      "'electron-security/safe-browser-window-webpreferences': 'error'"
+    );
+    expect(eslintConfigSource).toContain(
+      "'electron-security/no-electron-import-in-renderer': 'error'"
+    );
+  });
 });
