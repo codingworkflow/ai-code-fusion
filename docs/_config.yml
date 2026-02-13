@@ -1,4 +1,5 @@
 title: AI Code Fusion Docs
 description: Documentation for AI Code Fusion
+theme: minima
 exclude:
   - plan/**

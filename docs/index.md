@@ -1,5 +1,4 @@
 ---
-layout: default
 title: AI Code Fusion Documentation
 ---
 
