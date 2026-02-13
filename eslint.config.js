@@ -9,6 +9,7 @@ const tsParser = require('@typescript-eslint/parser');
 const unusedImportsPlugin = require('eslint-plugin-unused-imports');
 const sonarjsPluginModule = require('eslint-plugin-sonarjs');
 const unicornPluginModule = require('eslint-plugin-unicorn');
+const electronSecurityPlugin = require('./eslint-rules/electron-security');
 const sonarjsPlugin = sonarjsPluginModule.default ?? sonarjsPluginModule;
 const unicornPlugin = unicornPluginModule.default ?? unicornPluginModule;
 
@@ -62,6 +63,25 @@ module.exports = [
           alphabetize: { order: 'asc', caseInsensitive: true },
         },
       ],
+    },
+  },
+  {
+    files: ['src/main/**/*.{js,ts}'],
+    plugins: {
+      'electron-security': electronSecurityPlugin,
+    },
+    rules: {
+      'electron-security/ipc-channel-namespaced': 'error',
+      'electron-security/safe-browser-window-webpreferences': 'error',
+    },
+  },
+  {
+    files: ['src/renderer/**/*.{js,jsx,ts,tsx}'],
+    plugins: {
+      'electron-security': electronSecurityPlugin,
+    },
+    rules: {
+      'electron-security/no-electron-import-in-renderer': 'error',
     },
   },
   {
