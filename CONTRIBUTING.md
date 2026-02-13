@@ -4,7 +4,7 @@
 
 We do not accept external pull requests for this repository.
 
-This repository is closed-source collaboration for maintainers and approved internal contributors.
+This repository is a closed-source collaboration for maintainers and approved internal contributors.
 Unsolicited external pull requests may be closed without review.
 
 ## Communication First

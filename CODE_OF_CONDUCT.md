@@ -14,7 +14,7 @@ This project is committed to a respectful, harassment-free environment for maint
 ## Unacceptable Behavior
 
 - Harassment, discrimination, threats, or personal attacks.
-- Doxxing or sharing private or confidential information.
+- Doxing or sharing private or confidential information.
 - Repeated off-topic disruption or bad-faith arguments.
 - Any behavior that makes collaboration unsafe or hostile.
 
