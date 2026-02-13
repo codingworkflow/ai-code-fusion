@@ -87,14 +87,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          claude_token="az keyvault secret show --vault-name "${AZURE_KEY_VAULT_NAME}" --name "${CLAUDE_SECRET_NAME}" --query value -o tsv)"
-          if [ -z "${claude_token}}" ]; then
+          claude_token="$(az keyvault secret show --vault-name "${AZURE_KEY_VAULT_NAME}" --name "${CLAUDE_SECRET_NAME}" --query value -o tsv)"
+          if [ -z "${claude_token}" ]; then
             echo "Failed to read Claude token from Azure Key Vault secret '${CLAUDE_SECRET_NAME}'."
             exit 1
           fi
 
-          echo "::add-mask::${claude_token}}"
-          echo "claude_code_oauth_token=${claude_token}}" >> "${GITHUB_OUTPUT}"
+          echo "::add-mask::${claude_token}"
+          echo "claude_code_oauth_token=${claude_token}" >> "${GITHUB_OUTPUT}"
 
       - name: Resolve pull request metadata
         id: pr
@@ -166,26 +166,15 @@ jobs:
             PR BODY:
             ${{ steps.pr.outputs.body }}
 
-            You are performing a strict pull request review. Review only changed files in this PR.
-            Post exactly one consolidated `gh pr comment`.
+            Review this pull request and leave exactly one consolidated `gh pr comment` with:
+            - code quality and best practices issues
+            - potential bugs or regressions
+            - performance concerns
+            - security concerns
+            - missing or weak test coverage
 
-            Required comment format:
-            - first line: `Model used: anthropics/claude-code-action`
-            - section `### Executive Summary`
-            - section `### Findings`
-            - section `### Test Coverage Gaps`
-            - section `### Final Verdict`
-
-            Findings requirements:
-            - prioritize by severity: Critical, High, Medium, Low
-            - include concrete evidence with `path:line` references from the diff
-            - classify each finding as one of: Bug, Security, Performance, Testing, Maintainability
-            - explain why it matters and provide a concrete fix
-            - avoid speculative findings without evidence
-
-            If no material issues exist, state exactly `No material issues found` and list any residual risks.
             Review only; do not modify files, push commits, or open additional PRs.
-            Keep comments factual, specific, and action-oriented.
+            Keep comments factual and specific to the changed code.
 
       - name: Warn when Claude review fails (non-blocking)
         if: ${{ always() && (inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20) && steps.claude_review.outcome == 'failure' }}

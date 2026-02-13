@@ -8,25 +8,10 @@ on:
         required: true
         type: string
       model:
-        description: Single OpenCode model in provider/model format (used when models is empty)
-        required: false
+        description: OpenCode model in provider/model format (defaults to GLM, supports any provider/model)
+        required: true
         default: zai-coding-plan/glm-4.7
         type: string
-      models:
-        description: Optional comma or newline separated model list (overrides model)
-        required: false
-        default: ""
-        type: string
-      max_parallel:
-        description: Maximum parallel model reviews
-        required: true
-        default: "1"
-        type: choice
-        options:
-          - "1"
-          - "2"
-          - "3"
-          - "4"
       force_review:
         description: Run review even when the PR is below default size thresholds
         required: true
@@ -44,62 +29,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  prepare-model-matrix:
-    name: Prepare OpenCode model matrix
-    runs-on: ubuntu-latest
-    outputs:
-      models_json: ${{ steps.models.outputs.models_json }}
-      model_count: ${{ steps.models.outputs.model_count }}
-    steps:
-      - name: Normalize model input list
-        id: models
-        env:
-          SINGLE_MODEL: ${{ inputs.model || 'zai-coding-plan/glm-4.7' }}
-          MULTI_MODELS: ${{ inputs.models }}
-        run: |
-          set -euo pipefail
-
-          if [ -n "${MULTI_MODELS}" ]; then
-            source_models="${MULTI_MODELS}"
-          else
-            source_models="${SINGLE_MODEL}"
-          fi
-
-          normalized_models="$(
-            printf '%s\n' "${source_models}" \
-              | tr ',;' '\n' \
-              | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
-              | awk 'NF && !seen[$0]++'
-          )"
-
-          if [ -z "${normalized_models}" ]; then
-            echo "No valid model entries were provided."
-            exit 1
-          fi
-
-          models_json="$(printf '%s\n' "${normalized_models}" | jq -R . | jq -cs .)"
-          model_count="$(printf '%s\n' "${normalized_models}" | awk 'NF' | wc -l | tr -d ' ')"
-
-          echo "models_json=${models_json}" >> "${GITHUB_OUTPUT}"
-          echo "model_count=${model_count}" >> "${GITHUB_OUTPUT}"
-
-          {
-            echo "### OpenCode Model Matrix"
-            echo "- Count: ${model_count}"
-            echo "- Models:"
-            printf '  - %s\n' ${normalized_models}
-          } >> "${GITHUB_STEP_SUMMARY}"
-
   opencode-review:
-    name: OpenCode Manual Review (${{ matrix.model }})
-    needs: prepare-model-matrix
+    name: OpenCode Manual Review
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      max-parallel: ${{ fromJSON(inputs.max_parallel) }}
-      matrix:
-        model: ${{ fromJSON(needs.prepare-model-matrix.outputs.models_json) }}
     permissions:
       contents: read
       pull-requests: write
@@ -285,43 +218,38 @@ jobs:
           MOCK_EVENT: ${{ steps.mock.outputs.event }}
           ZHIPU_API_KEY: ${{ steps.keyvault.outputs.zhipu_api_key }}
         with:
-          model: ${{ matrix.model }}
+          model: ${{ inputs.model || 'zai-coding-plan/glm-4.7' }}
           agent: plan
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ inputs.pr_number }}
-            MODEL: ${{ matrix.model }}
+            MODEL: ${{ inputs.model || 'zai-coding-plan/glm-4.7' }}
             PR TITLE: ${{ steps.pr.outputs.title }}
             PR BODY:
             ${{ steps.pr.outputs.body }}
 
-            You are performing a strict pull request review. Review only changed files in this PR.
-            Post exactly one consolidated `gh pr comment` for this model execution.
+            Review this pull request and leave exactly one consolidated `gh pr comment` with:
+            - findings prioritized by severity: Critical, High, Medium, Low
+            - concrete bugs/regressions with file path evidence
+            - security concerns and exploitability/risk
+            - performance concerns with likely impact
+            - missing or weak test coverage and suggested tests
 
-            Required comment format:
-            - first line: `Model used: <provider/model>`
-            - section `### Executive Summary`
-            - section `### Findings`
-            - section `### Test Coverage Gaps`
-            - section `### Final Verdict`
+            In the comment:
+            - start with `Model used: <provider/model>`
+            - include a brief summary and then findings
+            - for each finding include why it matters and a concrete fix
+            - if no material issues, state `No material issues found` and list residual risks
 
-            Findings requirements:
-            - prioritize by severity: Critical, High, Medium, Low
-            - include concrete evidence with `path:line` references from the diff
-            - classify each finding as one of: Bug, Security, Performance, Testing, Maintainability
-            - explain why it matters and provide a concrete fix
-            - avoid speculative findings without evidence
-
-            If no material issues exist, state exactly `No material issues found` and list any residual risks.
             Review only; do not modify files, push commits, or open additional PRs.
-            Keep comments factual, specific, and action-oriented.
+            Keep comments factual and specific to the changed code.
           use_github_token: true
 
       - name: Warn when OpenCode review fails (non-blocking)
         if: ${{ always() && (inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20) && steps.opencode_review.outcome == 'failure' }}
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
-          MODEL: ${{ matrix.model }}
+          MODEL: ${{ inputs.model || 'zai-coding-plan/glm-4.7' }}
         run: |
           echo "::warning::OpenCode manual review failed but is configured as non-blocking. Check the previous step logs."
           {
