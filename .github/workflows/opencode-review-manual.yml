@@ -36,9 +36,6 @@ on:
           - "false"
           - "true"
 
-permissions:
-  contents: read
-
 concurrency:
   group: opencode-manual-review-${{ inputs.pr_number }}
   cancel-in-progress: true
@@ -47,6 +44,8 @@ jobs:
   prepare-model-matrix:
     name: Prepare OpenCode model matrix
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       models_json: ${{ steps.models.outputs.models_json }}
       model_count: ${{ steps.models.outputs.model_count }}
