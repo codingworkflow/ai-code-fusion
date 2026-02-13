@@ -36,13 +36,11 @@ If the repository is opened via a WSL UNC path (`\\wsl.localhost\...`), use Powe
 # Setup / development
 make setup
 make dev
-
 # Build
 make build
 make build-win
 make build-linux
 make build-mac
-
 # Quality
 make test
 make lint
@@ -51,7 +49,6 @@ make format
 make validate
 make qa
 make docs-screenshots
-
 # Security / dependency automation
 make security
 make gitleaks
@@ -69,9 +66,7 @@ make mend-scan
 - `make renovate` runs Renovate against the remote repository.
 - `make renovate-local` runs a local dry-run and writes `dist/security/renovate/renovate-local-report.json`.
 - `make mend-scan` runs Mend Unified Agent if installed.
-
-Renovate token sources (in order):
-
+  Renovate token sources (in order):
 - `RENOVATE_TOKEN`
 - `GITHUB_TOKEN`
 - `GH_TOKEN`

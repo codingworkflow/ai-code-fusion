@@ -20,7 +20,6 @@ The application uses YAML format for its configuration. Below is an example show
 .go
 .scm
 .php
-
 # Patterns to exclude (using fnmatch syntax)
 # Version Control
 '**/.git/**'
@@ -29,7 +28,6 @@ The application uses YAML format for its configuration. Below is an example show
 '**/vocab.txt'
 '**.onnx'
 '**/test*.py'
-
 # Dependencies
 '**/node_modules/**'
 '**/venv/**'
@@ -38,14 +36,12 @@ The application uses YAML format for its configuration. Below is an example show
 '**/.github/**'
 '**/vendor/**'
 '**/website/**'
-
 # Build outputs
 '**/test/**'
 '**/dist/**'
 '**/build/**'
 '**/__pycache__/**'
 '**/*.pyc'
-
 # Config files
 '**/.DS_Store'
 '**/.env'
@@ -56,14 +52,12 @@ The application uses YAML format for its configuration. Below is an example show
 '**/.gitignore'
 '**/.gitattributes'
 '**/.npmrc'
-
 # Documentation
 '**/LICENSE*'
 '**/LICENSE.*'
 '**/COPYING'
 '**/CODE_OF**'
 '**/CONTRIBUTING**'
-
 # Test files
 '**/tests/**'
 '**/test/**'
@@ -75,7 +69,6 @@ The application uses YAML format for its configuration. Below is an example show
 ### Include Extensions
 
 The `include_extensions` section specifies which file extensions should be processed. Only files with these extensions will be considered for processing.
-
 Example:
 
 ```
@@ -87,14 +80,12 @@ Example:
 ### Exclude Patterns
 
 The `exclude_patterns` section defines patterns for files and directories that should be excluded from processing, even if they have a matching extension from the include list.
-
 Patterns use the fnmatch syntax:
 
 - `*` matches any sequence of characters
 - `**` matches any sequence of directories
 - `?` matches a single character
-
-Example:
+  Example:
 
 ```
 '**/node_modules/**' # Exclude all node_modules directories

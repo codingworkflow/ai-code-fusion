@@ -6,25 +6,20 @@ This document explains how to use the SonarQube integration with the AI Code Fus
 
 1. Access to a SonarQube server (self-hosted or SonarCloud).
 2. Generate an authentication token from your SonarQube instance.
-
-Note: The SonarQube Scanner is now included as a dependency in the project, so you don't need to install it separately.
+   Note: The SonarQube Scanner is now included as a dependency in the project, so you don't need to install it separately.
 
 ## Configuration
 
 1. Copy the `.env.sample` file to `.env`:
-
    ```bash
    cp .env.sample .env
    ```
-
 2. Edit the `.env` file and set your SonarQube server URL, authentication token, and project key:
-
    ```bash
    SONAR_URL=http://your-sonarqube-server:9000
    SONAR_TOKEN=your-sonar-auth-token
    SONAR_PROJECT_KEY=ai-code-fusion
    ```
-
    The project key must match an existing project on your SonarQube server, or you need permissions to create new projects.
 
 ## Running a Scan
@@ -77,8 +72,7 @@ If you see errors like "You're not authorized to analyze this project or the pro
    - Use a token from an account with "Create Projects" permission
 3. **Token Scope**: Make sure the token is not limited to a different project
 4. **Project Key**: Verify that SONAR_PROJECT_KEY in your .env matches the project key in SonarQube
-
-You can also ask your SonarQube administrator to:
+   You can also ask your SonarQube administrator to:
 
 - Create the project manually with the key matching your SONAR_PROJECT_KEY
 - Grant your user the necessary permissions to the project

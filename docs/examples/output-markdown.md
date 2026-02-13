@@ -19,5 +19,4 @@ export function Feature24Panel() {
 ```
 
 Tokens: 240
-
 --END--
