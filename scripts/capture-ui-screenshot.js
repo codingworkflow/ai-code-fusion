@@ -381,9 +381,12 @@ async function setupMockElectronApi(page) {
             typeof configContent === 'string' && configContent.trim()
               ? configContent
               : localStorage.getItem('configContent') || '';
-          const excludeSensitiveFiles =
-            !/(^|\n)\s*enable_secret_scanning\s*:\s*false\b/i.test(activeConfig) &&
-            !/(^|\n)\s*exclude_suspicious_files\s*:\s*false\b/i.test(activeConfig);
+          const configLines = activeConfig
+            .split('\n')
+            .map((line) => line.trim().toLowerCase().replaceAll(' ', '').replaceAll('\t', ''));
+          const hasSecretScanningDisabled = configLines.includes('enable_secret_scanning:false');
+          const hasSuspiciousFilesDisabled = configLines.includes('exclude_suspicious_files:false');
+          const excludeSensitiveFiles = !hasSecretScanningDisabled && !hasSuspiciousFilesDisabled;
           const tree = excludeSensitiveFiles ? mockFilteredDirectoryTree : mockDirectoryTree;
           return cloneTree(tree);
         },
