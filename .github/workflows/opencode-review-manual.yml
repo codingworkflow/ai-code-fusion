@@ -280,7 +280,7 @@ jobs:
         id: opencode_review
         if: ${{ inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20 }}
         continue-on-error: true
-        uses: anomalyco/opencode/github@42bea5d297125c4f8ea5c1d6055fa06829de0a51
+        uses: anomalyco/opencode/github@76db218674496f9ca9e91b49e5718eabf6df7cc0
         env:
           TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
