@@ -38,6 +38,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | `tests/unit/utils/token-counter.test.ts`               | `src/utils/token-counter.ts`            | Token counting basics, empty/null input handling                                              |
 | `tests/unit/scripts/security.test.js`                  | `scripts/lib/security.js`               | Command safety validation, Windows path acceptance for approved executables                   |
 | `tests/unit/scripts/actions-freshness.test.js`         | `scripts/lib/actions-freshness.js`      | Workflow `uses:` reference parsing, pinning classification, freshness markdown report output  |
+| `tests/unit/scripts/eslint-config.test.js`             | `eslint.config.js`                      | Guard scoped unicorn/sonarjs strict-pack configuration and test exclusions                    |
 | `tests/unit/scripts/sonar-options.test.js`             | `scripts/lib/sonar-options.js`          | Sonar scanner option merge behavior and CPD exclusion defaults                                |
 | `tests/unit/scripts/publish-stress-metrics.test.js`    | `scripts/publish-stress-metrics.js`     | Prometheus payload generation and Pushgateway publication safeguards                          |
 | `tests/unit/scripts/verify-prometheus-metrics.test.js` | `scripts/verify-prometheus-metrics.js`  | Prometheus scrape verification retries, timeouts, and parsing                                 |

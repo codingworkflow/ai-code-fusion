@@ -85,11 +85,10 @@ class FileAnalyzer {
       this.config.use_custom_includes !== false &&
       this.config.include_extensions &&
       Array.isArray(this.config.include_extensions) &&
-      ext
+      ext &&
+      !this.config.include_extensions.includes(ext.toLowerCase())
     ) {
-      if (!this.config.include_extensions.includes(ext.toLowerCase())) {
-        return false; // Exclude files with extensions not in the include list
-      }
+      return false; // Exclude files with extensions not in the include list
     }
 
     // 2. Build patterns array with proper structure and priority
