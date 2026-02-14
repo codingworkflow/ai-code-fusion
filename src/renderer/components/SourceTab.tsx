@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import yaml from 'yaml';
 
 import FileTree from './FileTree';
@@ -73,6 +74,7 @@ const SourceTab = ({
   onAnalyze,
   onRefreshTree,
 }: SourceTabProps) => {
+  const { t } = useTranslation();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showTokenCount, setShowTokenCount] = useState(true);
   const [totalTokens, setTotalTokens] = useState(0);
@@ -204,7 +206,7 @@ const SourceTab = ({
       return (
         <>
           <Spinner className='-ml-1 mr-2 h-4 w-4 text-white' data-testid='process-selected-files-spinner' />
-          Processing...
+          {t('source.processingSelectedFiles')}
         </>
       );
     }
@@ -213,7 +215,7 @@ const SourceTab = ({
       return (
         <>
           <Spinner className='-ml-1 mr-2 h-4 w-4 text-white' data-testid='process-selected-files-spinner' />
-          Selecting files...
+          {t('source.selectingFiles')}
         </>
       );
     }
@@ -234,7 +236,7 @@ const SourceTab = ({
             d='M13 10V3L4 14h7v7l9-11h-7z'
           />
         </svg>
-        Process Selected Files
+        {t('source.processSelectedFiles')}
       </>
     );
   };
@@ -248,7 +250,7 @@ const SourceTab = ({
             htmlFor='file-folder-selection'
             className='block text-sm font-medium text-gray-700 dark:text-gray-300'
           >
-            Select Files and Folders
+            {t('source.selectFilesAndFolders')}
           </label>
         </div>
 
@@ -284,7 +286,7 @@ const SourceTab = ({
             d='M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z'
           ></path>
         </svg>
-        <p className='mt-2 text-gray-500 dark:text-gray-400'>Loading directory content...</p>
+        <p className='mt-2 text-gray-500 dark:text-gray-400'>{t('source.loadingDirectory')}</p>
       </div>
     );
   }
@@ -298,9 +300,9 @@ const SourceTab = ({
             className='grow border border-gray-300 dark:border-gray-700 dark:bg-gray-700 dark:text-white px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 cursor-pointer'
             value={rootPath}
             readOnly
-            placeholder='Select a root folder'
+            placeholder={t('source.selectRootFolderPlaceholder')}
             onClick={handleDirectorySelect}
-            title='Click to browse for a directory'
+            title={t('source.browseDirectoryTitle')}
           />
           <button
             onClick={handleDirectorySelect}
@@ -320,7 +322,7 @@ const SourceTab = ({
                 d='M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z'
               />
             </svg>
-            Change Folder
+            {t('source.changeFolder')}
           </button>
         </div>
       </div>
@@ -339,7 +341,7 @@ const SourceTab = ({
                 await onRefreshTree();
               }}
               className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
-              title='Refresh the file list'
+              title={t('source.refreshFileListTitle')}
             >
               <svg
                 className='size-4 mr-1'
@@ -355,7 +357,7 @@ const SourceTab = ({
                   d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
                 />
               </svg>
-              Refresh file list
+              {t('source.refreshFileList')}
             </button>
 
             <button
@@ -369,7 +371,7 @@ const SourceTab = ({
                 setIsCalculating(false);
               }}
               className='inline-flex items-center border border-transparent bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
-              title='Clear all selected files'
+              title={t('source.clearSelectionTitle')}
             >
               <svg
                 className='size-4 mr-1'
@@ -385,14 +387,14 @@ const SourceTab = ({
                   d='M6 18L18 6M6 6l12 12'
                 />
               </svg>
-              Clear selection
+              {t('source.clearSelection')}
             </button>
           </div>
         )}
 
         <div className='ml-auto flex items-center space-x-4'>
           <div className='flex items-center'>
-            <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Files</span>
+            <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>{t('common.files')}</span>
             <span className='text-lg font-bold text-blue-600 dark:text-blue-400'>
               {selectedFiles.size}
             </span>
@@ -402,7 +404,7 @@ const SourceTab = ({
             <>
               <div className='text-gray-400 mx-1'>|</div>
               <div className='flex items-center'>
-                <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Tokens</span>
+                <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>{t('common.tokens')}</span>
                 <span className='text-lg font-bold text-green-600 dark:text-green-400'>
                   {totalTokens.toLocaleString()}
                 </span>
@@ -436,7 +438,7 @@ const SourceTab = ({
         <div className='mt-4 p-4 bg-blue-50 rounded-md border border-blue-100 dark:border-blue-800 dark:bg-blue-900/30'>
           <div className='flex items-center justify-center text-blue-700 dark:text-blue-300'>
             <Spinner className='-ml-1 mr-3 h-5 w-5' />
-            Analyzing selected files, please wait...
+            {t('source.analyzingWait')}
           </div>
         </div>
       )}

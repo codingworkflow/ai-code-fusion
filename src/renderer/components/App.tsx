@@ -1,16 +1,20 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { AppProvider, useApp } from '../context/AppContext';
 import { DarkModeProvider } from '../context/DarkModeContext';
+import '../i18n';
 
 import ConfigTab from './ConfigTab';
 import DarkModeToggle from './DarkModeToggle';
+import LanguageSelector from './LanguageSelector';
 import ProcessedTab from './ProcessedTab';
 import SourceTab from './SourceTab';
 import TabBar from './TabBar';
 
 const ErrorBanner = () => {
   const { appError, dismissError } = useApp();
+  const { t } = useTranslation();
 
   if (!appError) return null;
 
@@ -20,7 +24,7 @@ const ErrorBanner = () => {
       <button
         onClick={dismissError}
         className='ml-4 shrink-0 text-red-600 dark:text-red-300 hover:text-red-800 dark:hover:text-red-100'
-        aria-label='Dismiss error'
+        aria-label={t('app.dismissError')}
       >
         <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
           <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
@@ -31,6 +35,7 @@ const ErrorBanner = () => {
 };
 
 const AppContent = () => {
+  const { t } = useTranslation();
   const {
     activeTab,
     rootPath,
@@ -59,6 +64,7 @@ const AppContent = () => {
         <div className='w-full border-b border-gray-300 dark:border-gray-700 flex justify-between items-center bg-gray-100 dark:bg-gray-800 transition-colors duration-200'>
           <TabBar activeTab={activeTab} onTabChange={switchTab} />
           <div className='flex items-center pr-4 space-x-2'>
+            <LanguageSelector />
             <DarkModeToggle />
             <button
               onClick={() => {
@@ -67,12 +73,12 @@ const AppContent = () => {
                 );
               }}
               className='flex items-center hover:text-blue-700 dark:hover:text-blue-500 cursor-pointer bg-transparent border-0 text-gray-900 dark:text-gray-100'
-              title='View on GitHub'
+              title={t('app.github')}
             >
               <div className='h-8 w-8 mr-2 flex items-center justify-center'>
                 <img
                   src='icon.png'
-                  alt='AI Code Fusion'
+                  alt={t('app.name')}
                   className='h-8 w-8'
                   onError={(event: React.SyntheticEvent<HTMLImageElement, Event>) => {
                     console.error('Failed to load icon.png');
@@ -101,7 +107,7 @@ const AppContent = () => {
                 </svg>
               </div>
               <div className='flex items-center'>
-                <h1 className='text-2xl font-bold dark:text-white'>AI Code Fusion</h1>
+                <h1 className='text-2xl font-bold dark:text-white'>{t('app.name')}</h1>
                 <svg
                   className='ml-2 w-5 h-5 text-gray-600 dark:text-gray-400'
                   fill='currentColor'

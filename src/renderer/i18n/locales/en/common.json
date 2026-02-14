@@ -1,0 +1,127 @@
+{
+  "app": {
+    "name": "AI Code Fusion",
+    "github": "View on GitHub",
+    "dismissError": "Dismiss error"
+  },
+  "languageSelector": {
+    "label": "Language",
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German"
+  },
+  "darkMode": {
+    "switchToLight": "Switch to Light Mode",
+    "switchToDark": "Switch to Dark Mode"
+  },
+  "tabs": {
+    "config": "Start",
+    "source": "Select Files",
+    "processed": "Processed Output"
+  },
+  "common": {
+    "files": "Files",
+    "tokens": "Tokens"
+  },
+  "config": {
+    "selectRootFolderPlaceholder": "Select a root folder",
+    "browseDirectoryTitle": "Click to browse for a directory",
+    "selectFolder": "Select Folder",
+    "fileFilteringTitle": "File Filtering",
+    "filterByExtensions": "Filter by file extensions",
+    "useExcludePatterns": "Use exclude patterns",
+    "applyGitignoreRules": "Apply .gitignore rules",
+    "scanSecrets": "Scan content for secrets",
+    "excludeSuspiciousFiles": "Exclude suspicious files",
+    "outputFormattingTitle": "Output Formatting",
+    "includeFileTree": "Include file tree in output",
+    "displayTokenCounts": "Display token counts",
+    "exportFormat": "Export format",
+    "exportFormatMarkdown": "Markdown",
+    "exportFormatXml": "XML",
+    "providerSetupTitle": "Provider Setup Assistant",
+    "providerSetupDescription": "Configure a model provider and run a connection test before saving.",
+    "provider": "Provider",
+    "selectProvider": "Select provider",
+    "model": "Model",
+    "modelPlaceholder": "e.g. gpt-4o-mini",
+    "baseUrlOptional": "Base URL (optional)",
+    "apiKeyOptionalOllama": "API key (optional for Ollama)",
+    "apiKeyPlaceholder": "Enter provider API key",
+    "testing": "Testing...",
+    "testConnection": "Test Connection",
+    "autoSaveHint": "Changes are automatically saved and will be applied when switching to the Source tab. Token count estimates help with optimizing context for large repositories.",
+    "saveConfig": "Save Config",
+    "savedConfig": "✓ Saved",
+    "includeExtensionsTitle": "Only process files with these extensions",
+    "includeExtensionsHint": "One extension per line (include the dot)",
+    "excludePatternsTitle": "Exclude Patterns",
+    "excludePatternsHint": "One pattern per line (using glob pattern)",
+    "configSummary": "Configure which file types to include and patterns to exclude in the analysis.",
+    "providerTestDisabled": "Provider connection testing is disabled outside dev mode.",
+    "providerFixBeforeTesting": "Fix provider settings before testing the connection.",
+    "providerUnavailable": "Provider connection testing is unavailable in this build.",
+    "providerFixBeforeSaving": "Fix provider settings before saving.",
+    "connectionTestFailed": "Connection test failed: {{message}}",
+    "validation": {
+      "selectProvider": "Select a provider.",
+      "modelRequired": "Model is required.",
+      "apiKeyRequired": "API key is required for this provider.",
+      "baseUrlProtocol": "Base URL must use http or https.",
+      "baseUrlValid": "Base URL must be a valid URL."
+    }
+  },
+  "source": {
+    "processSelectedFiles": "Process Selected Files",
+    "processingSelectedFiles": "Processing...",
+    "selectingFiles": "Selecting files...",
+    "selectFilesAndFolders": "Select Files and Folders",
+    "loadingDirectory": "Loading directory content...",
+    "selectRootFolderPlaceholder": "Select a root folder",
+    "browseDirectoryTitle": "Click to browse for a directory",
+    "changeFolder": "Change Folder",
+    "refreshFileList": "Refresh file list",
+    "refreshFileListTitle": "Refresh the file list",
+    "clearSelection": "Clear selection",
+    "clearSelectionTitle": "Clear all selected files",
+    "analyzingWait": "Analyzing selected files, please wait..."
+  },
+  "processed": {
+    "refreshCode": "Refresh Code",
+    "refreshCodeTitle": "Reload selected files and regenerate output with latest content",
+    "reprocessing": "Reprocessing...",
+    "skipped": "Skipped",
+    "copied": "✓ Copied",
+    "copyContent": "Copy Content",
+    "saving": "✓ Saving...",
+    "saveToFile": "Save to File",
+    "processedContent": "Processed Content",
+    "contentReady": "Content is ready to be saved",
+    "filesByTokenCount": "Files by Token Count",
+    "filePath": "File Path",
+    "noFileData": "No file data available",
+    "noProcessedContent": "No processed content yet",
+    "noProcessedContentHint": "Go to the Source tab to select files, then analyze and process them."
+  },
+  "fileTree": {
+    "collapseFolder": "Collapse folder",
+    "expandFolder": "Expand folder",
+    "collapseFolderWithName": "Collapse folder {{name}}",
+    "expandFolderWithName": "Expand folder {{name}}",
+    "selectAll": "Select All",
+    "selectedCount": "{{selected}} of {{total}} files selected",
+    "emptyTitle": "No files to display",
+    "emptyHint": "Select a directory to view files"
+  },
+  "errors": {
+    "selectRootAndFiles": "Please select a root directory and at least one file.",
+    "noValidFiles": "No valid files selected for analysis. Please select files within the current directory.",
+    "electronApiUnavailable": "Electron API is not available.",
+    "processingFailed": "An error occurred while processing the repository. Check the console for details.",
+    "noFilesSelectedForProcessing": "No files are selected for processing. Please go to the Source tab and select files.",
+    "refreshFailed": "An error occurred while refreshing content. Check the console for details.",
+    "noProcessedContentToSave": "No processed content to save.",
+    "saveFailed": "An error occurred while saving the file. Check the console for details."
+  }
+}

@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import yaml from 'yaml';
 
 import { normalizeExportFormat } from '../../utils/export-format';
+import i18n from '../i18n';
 
 import type {
   AnalyzeRepositoryResult,
@@ -437,7 +438,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
   const handleAnalyze = useCallback(async (): Promise<AnalyzeRepositoryResult | undefined> => {
     const selectedFilesArray = [...selectedFiles];
     if (!rootPath || selectedFilesArray.length === 0) {
-      showError('Please select a root directory and at least one file.');
+      showError(i18n.t('errors.selectRootAndFiles'));
       return undefined;
     }
 
@@ -452,14 +453,12 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       });
 
       if (validFiles.length === 0) {
-        showError(
-          'No valid files selected for analysis. Please select files within the current directory.'
-        );
+        showError(i18n.t('errors.noValidFiles'));
         return undefined;
       }
 
       if (!appWindow.electronAPI?.analyzeRepository || !appWindow.electronAPI?.processRepository) {
-        throw new Error('Electron API is not available.');
+        throw new Error(i18n.t('errors.electronApiUnavailable'));
       }
 
       const currentAnalysisResult = await appWindow.electronAPI.analyzeRepository({
@@ -504,7 +503,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     } catch (error) {
       const processedError = ensureError(error);
       console.error('Error processing repository:', processedError);
-      showError('An error occurred while processing the repository. Check the console for details.');
+      showError(i18n.t('errors.processingFailed'));
       throw processedError;
     }
   }, [selectedFiles, rootPath, configContent, appWindow, showError]);
@@ -513,14 +512,12 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     try {
       const selectedFilesArray = [...selectedFiles];
       if (!rootPath || selectedFilesArray.length === 0) {
-        showError(
-          'No files are selected for processing. Please go to the Source tab and select files.'
-        );
+        showError(i18n.t('errors.noFilesSelectedForProcessing'));
         return null;
       }
 
       if (!appWindow.electronAPI?.analyzeRepository || !appWindow.electronAPI?.processRepository) {
-        throw new Error('Electron API is not available.');
+        throw new Error(i18n.t('errors.electronApiUnavailable'));
       }
 
       const currentReanalysisResult = await appWindow.electronAPI.analyzeRepository({
@@ -561,14 +558,14 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     } catch (error) {
       const processedError = ensureError(error);
       console.error('Error refreshing processed content:', processedError);
-      showError('An error occurred while refreshing content. Check the console for details.');
+      showError(i18n.t('errors.refreshFailed'));
       throw processedError;
     }
   }, [selectedFiles, rootPath, configContent, appWindow, processingOptions, showError]);
 
   const handleSaveOutput = useCallback(async () => {
     if (!processedResult) {
-      showError('No processed content to save.');
+      showError(i18n.t('errors.noProcessedContentToSave'));
       return;
     }
 
@@ -581,7 +578,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     } catch (error) {
       const processedError = ensureError(error);
       console.error('Error saving file:', processedError);
-      showError('An error occurred while saving the file. Check the console for details.');
+      showError(i18n.t('errors.saveFailed'));
     }
   }, [processedResult, appWindow, rootPath, showError]);
 

@@ -1,0 +1,127 @@
+{
+  "app": {
+    "name": "AI Code Fusion",
+    "github": "Voir sur GitHub",
+    "dismissError": "Fermer l'erreur"
+  },
+  "languageSelector": {
+    "label": "Langue",
+    "en": "Anglais",
+    "es": "Espagnol",
+    "fr": "Français",
+    "de": "Allemand"
+  },
+  "darkMode": {
+    "switchToLight": "Passer en mode clair",
+    "switchToDark": "Passer en mode sombre"
+  },
+  "tabs": {
+    "config": "Démarrer",
+    "source": "Sélectionner des fichiers",
+    "processed": "Sortie traitée"
+  },
+  "common": {
+    "files": "Fichiers",
+    "tokens": "Tokens"
+  },
+  "config": {
+    "selectRootFolderPlaceholder": "Sélectionnez un dossier racine",
+    "browseDirectoryTitle": "Cliquez pour parcourir un dossier",
+    "selectFolder": "Sélectionner un dossier",
+    "fileFilteringTitle": "Filtrage des fichiers",
+    "filterByExtensions": "Filtrer par extensions",
+    "useExcludePatterns": "Utiliser des motifs d'exclusion",
+    "applyGitignoreRules": "Appliquer les règles .gitignore",
+    "scanSecrets": "Scanner le contenu pour les secrets",
+    "excludeSuspiciousFiles": "Exclure les fichiers suspects",
+    "outputFormattingTitle": "Format de sortie",
+    "includeFileTree": "Inclure l'arborescence dans la sortie",
+    "displayTokenCounts": "Afficher le nombre de tokens",
+    "exportFormat": "Format d'export",
+    "exportFormatMarkdown": "Markdown",
+    "exportFormatXml": "XML",
+    "providerSetupTitle": "Assistant de configuration du fournisseur",
+    "providerSetupDescription": "Configurez un fournisseur de modèle et lancez un test de connexion avant d'enregistrer.",
+    "provider": "Fournisseur",
+    "selectProvider": "Sélectionner un fournisseur",
+    "model": "Modèle",
+    "modelPlaceholder": "ex. gpt-4o-mini",
+    "baseUrlOptional": "URL de base (optionnelle)",
+    "apiKeyOptionalOllama": "Clé API (optionnelle pour Ollama)",
+    "apiKeyPlaceholder": "Entrez la clé API du fournisseur",
+    "testing": "Test en cours...",
+    "testConnection": "Tester la connexion",
+    "autoSaveHint": "Les modifications sont enregistrées automatiquement et seront appliquées lors du passage à l'onglet Source. Les estimations de tokens aident à optimiser le contexte pour les grands dépôts.",
+    "saveConfig": "Enregistrer la configuration",
+    "savedConfig": "✓ Enregistré",
+    "includeExtensionsTitle": "Traiter uniquement les fichiers avec ces extensions",
+    "includeExtensionsHint": "Une extension par ligne (inclure le point)",
+    "excludePatternsTitle": "Motifs d'exclusion",
+    "excludePatternsHint": "Un motif par ligne (syntaxe glob)",
+    "configSummary": "Configurez les types de fichiers à inclure et les motifs à exclure de l'analyse.",
+    "providerTestDisabled": "Le test de connexion fournisseur est désactivé hors mode développement.",
+    "providerFixBeforeTesting": "Corrigez les paramètres du fournisseur avant de tester la connexion.",
+    "providerUnavailable": "Le test de connexion fournisseur n'est pas disponible dans cette version.",
+    "providerFixBeforeSaving": "Corrigez les paramètres du fournisseur avant d'enregistrer.",
+    "connectionTestFailed": "Échec du test de connexion : {{message}}",
+    "validation": {
+      "selectProvider": "Sélectionnez un fournisseur.",
+      "modelRequired": "Le modèle est requis.",
+      "apiKeyRequired": "La clé API est requise pour ce fournisseur.",
+      "baseUrlProtocol": "L'URL de base doit utiliser http ou https.",
+      "baseUrlValid": "L'URL de base doit être valide."
+    }
+  },
+  "source": {
+    "processSelectedFiles": "Traiter les fichiers sélectionnés",
+    "processingSelectedFiles": "Traitement...",
+    "selectingFiles": "Sélection des fichiers...",
+    "selectFilesAndFolders": "Sélectionner des fichiers et dossiers",
+    "loadingDirectory": "Chargement du contenu du dossier...",
+    "selectRootFolderPlaceholder": "Sélectionnez un dossier racine",
+    "browseDirectoryTitle": "Cliquez pour parcourir un dossier",
+    "changeFolder": "Changer de dossier",
+    "refreshFileList": "Actualiser la liste des fichiers",
+    "refreshFileListTitle": "Actualiser la liste des fichiers",
+    "clearSelection": "Effacer la sélection",
+    "clearSelectionTitle": "Effacer tous les fichiers sélectionnés",
+    "analyzingWait": "Analyse des fichiers sélectionnés, veuillez patienter..."
+  },
+  "processed": {
+    "refreshCode": "Actualiser le code",
+    "refreshCodeTitle": "Recharger les fichiers sélectionnés et régénérer la sortie avec le contenu le plus récent",
+    "reprocessing": "Nouveau traitement...",
+    "skipped": "Ignorés",
+    "copied": "✓ Copié",
+    "copyContent": "Copier le contenu",
+    "saving": "✓ Enregistrement...",
+    "saveToFile": "Enregistrer dans un fichier",
+    "processedContent": "Contenu traité",
+    "contentReady": "Le contenu est prêt à être enregistré",
+    "filesByTokenCount": "Fichiers par nombre de tokens",
+    "filePath": "Chemin du fichier",
+    "noFileData": "Aucune donnée de fichier disponible",
+    "noProcessedContent": "Aucun contenu traité pour le moment",
+    "noProcessedContentHint": "Allez dans l'onglet Source pour sélectionner des fichiers, puis les analyser et les traiter."
+  },
+  "fileTree": {
+    "collapseFolder": "Réduire le dossier",
+    "expandFolder": "Développer le dossier",
+    "collapseFolderWithName": "Réduire le dossier {{name}}",
+    "expandFolderWithName": "Développer le dossier {{name}}",
+    "selectAll": "Tout sélectionner",
+    "selectedCount": "{{selected}} sur {{total}} fichiers sélectionnés",
+    "emptyTitle": "Aucun fichier à afficher",
+    "emptyHint": "Sélectionnez un dossier pour afficher les fichiers"
+  },
+  "errors": {
+    "selectRootAndFiles": "Veuillez sélectionner un dossier racine et au moins un fichier.",
+    "noValidFiles": "Aucun fichier valide sélectionné pour l'analyse. Sélectionnez des fichiers dans le dossier actuel.",
+    "electronApiUnavailable": "L'API Electron n'est pas disponible.",
+    "processingFailed": "Une erreur s'est produite lors du traitement du dépôt. Consultez la console pour plus de détails.",
+    "noFilesSelectedForProcessing": "Aucun fichier sélectionné pour le traitement. Allez dans l'onglet Source et sélectionnez des fichiers.",
+    "refreshFailed": "Une erreur s'est produite lors de l'actualisation du contenu. Consultez la console pour plus de détails.",
+    "noProcessedContentToSave": "Aucun contenu traité à enregistrer.",
+    "saveFailed": "Une erreur s'est produite lors de l'enregistrement du fichier. Consultez la console pour plus de détails."
+  }
+}
