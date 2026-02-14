@@ -4,18 +4,9 @@ import path from 'path';
 
 import { app, BrowserWindow, dialog, ipcMain, net, protocol } from 'electron';
 import { autoUpdater } from 'electron-updater';
-import yaml from 'yaml';
 
 import { loadDefaultConfig } from '../utils/config-manager';
-import { ContentProcessor } from '../utils/content-processor';
-import {
-  normalizeExportFormat,
-  normalizeTokenCount,
-  toXmlNumericAttribute,
-  wrapXmlCdata,
-} from '../utils/export-format';
-import { FileAnalyzer, isBinaryFile } from '../utils/file-analyzer';
-import { getRelativePath } from '../utils/filter-utils';
+import { isBinaryFile } from '../utils/file-analyzer';
 import { GitignoreParser } from '../utils/gitignore-parser';
 import { TokenCounter } from '../utils/token-counter';
 
@@ -28,15 +19,15 @@ import {
 } from './security/path-guard';
 import { getDirectoryTree } from './services/directory-tree';
 import { testProviderConnection } from './services/provider-connection';
+import { analyzeRepository } from './services/repository-analyzer';
+import { processRepository } from './services/repository-processing';
 import { createUpdaterService, resolveUpdaterRuntimeOptions } from './updater';
 
 import type {
   AnalyzeRepositoryOptions,
   AnalyzeRepositoryResult,
-  ConfigObject,
   CountFilesTokensOptions,
   CountFilesTokensResult,
-  FileInfo,
   ProviderConnectionOptions,
   ProviderConnectionResult,
   ProcessRepositoryOptions,
@@ -282,241 +273,24 @@ ipcMain.handle(
         throw new Error('Unauthorized root path. Please select the directory again.');
       }
 
-      const config = (yaml.parse(configContent) || {}) as ConfigObject;
-      const localTokenCounter = new TokenCounter();
-
-      // Process gitignore if enabled
-      let gitignorePatterns = { excludePatterns: [], includePatterns: [] };
-      if (config.use_gitignore !== false) {
-        gitignorePatterns = gitignoreParser.parseGitignore(authorizedAnalyzeRoot);
-      }
-
-      // Create a file analyzer instance with the appropriate settings
-      const fileAnalyzer = new FileAnalyzer(config, localTokenCounter, {
-        useGitignore: config.use_gitignore !== false,
-        gitignorePatterns: gitignorePatterns,
+      return analyzeRepository({
+        rootPath: authorizedAnalyzeRoot,
+        configContent,
+        selectedFiles,
+        gitignoreParser,
+        onWarn: (message: string) => {
+          console.warn(message);
+        },
+        onInfo: (message: string) => {
+          console.info(message);
+        },
       });
-
-      // If selectedFiles is provided, only analyze those files
-      const filesInfo: FileInfo[] = [];
-      let totalTokens = 0;
-      let skippedBinaryFiles = 0;
-
-      for (const filePath of selectedFiles) {
-        const resolvedFilePath = path.resolve(authorizedAnalyzeRoot, filePath);
-
-        // Verify the file is within the current root path
-        if (!isPathWithinRoot(authorizedAnalyzeRoot, resolvedFilePath)) {
-          console.warn(`Skipping file outside current root directory: ${filePath}`);
-          continue;
-        }
-
-        // Use consistent path normalization
-        const relativePath = getRelativePath(resolvedFilePath, authorizedAnalyzeRoot);
-
-        // For binary files, record them as skipped but don't prevent selection
-        const binaryFile = isBinaryFile(resolvedFilePath);
-        if (binaryFile) {
-          console.log(`Binary file detected (will skip processing): ${relativePath}`);
-          skippedBinaryFiles++;
-        }
-
-        if (binaryFile) {
-          // For binary files, add to filesInfo but with zero tokens and a flag
-          filesInfo.push({
-            path: relativePath,
-            tokens: 0,
-            isBinary: true,
-          });
-        } else if (fileAnalyzer.shouldProcessFile(relativePath)) {
-          const tokenCount = fileAnalyzer.analyzeFile(resolvedFilePath);
-
-          if (tokenCount !== null) {
-            filesInfo.push({
-              path: relativePath,
-              tokens: tokenCount,
-            });
-
-            totalTokens += tokenCount;
-          }
-        }
-      }
-
-      // Sort by token count
-      filesInfo.sort((a, b) => b.tokens - a.tokens);
-
-      console.log(`Skipped ${skippedBinaryFiles} binary files during analysis`);
-
-      return {
-        filesInfo,
-        totalTokens,
-        skippedBinaryFiles,
-      };
     } catch (error) {
       console.error('Error analyzing repository:', error);
       throw error;
     }
   }
 );
-
-// Helper function to generate tree view from filesInfo
-function generateTreeView(filesInfo: FileInfo[]): string {
-  if (!filesInfo || !Array.isArray(filesInfo)) {
-    return '';
-  }
-
-  // Generate a more structured tree view from filesInfo
-  const sortedFiles = [...filesInfo].sort((a, b) => a.path.localeCompare(b.path));
-
-  // Build a path tree
-  interface PathTree {
-    [key: string]: PathTree | null;
-  }
-  const pathTree: PathTree = {};
-  sortedFiles.forEach((file) => {
-    if (!file?.path) return;
-
-    const parts = file.path.split('/');
-    let currentLevel: PathTree = pathTree;
-
-    parts.forEach((part, index) => {
-      if (!currentLevel[part]) {
-        currentLevel[part] = index === parts.length - 1 ? null : {};
-      }
-
-      if (index < parts.length - 1) {
-        const nextLevel = currentLevel[part];
-        if (nextLevel) {
-          currentLevel = nextLevel;
-        }
-      }
-    });
-  });
-
-  // Recursive function to print the tree
-  const printTree = (tree: PathTree, prefix = '', _isLast = true): string => {
-    const entries = Object.entries(tree);
-    let result = '';
-
-    entries.forEach(([key, value], index) => {
-      const isLastItem = index === entries.length - 1;
-
-      // Print current level
-      result += `${prefix}${isLastItem ? '└── ' : '├── '}${key}\n`;
-
-      // Print children
-      if (value !== null) {
-        const newPrefix = `${prefix}${isLastItem ? '    ' : '│   '}`;
-        result += printTree(value, newPrefix, isLastItem);
-      }
-    });
-
-    return result;
-  };
-
-  return printTree(pathTree);
-}
-
-type RepositoryProcessingOptions = {
-  showTokenCount: boolean;
-  includeTreeView: boolean;
-  exportFormat: ReturnType<typeof normalizeExportFormat>;
-};
-
-type ProcessedRepositoryFileResult = {
-  content: string;
-  tokenCount: number;
-} | null;
-
-const resolveRepositoryProcessingOptions = (
-  options: ProcessRepositoryOptions['options'] = {}
-): RepositoryProcessingOptions => ({
-  showTokenCount: options.showTokenCount !== false,
-  includeTreeView: options.includeTreeView === true,
-  exportFormat: normalizeExportFormat(options.exportFormat),
-});
-
-const buildRepositoryHeader = (
-  processingOptions: RepositoryProcessingOptions,
-  treeView: string | undefined,
-  filesInfo: FileInfo[]
-): string => {
-  let header =
-    processingOptions.exportFormat === 'xml'
-      ? '<?xml version="1.0" encoding="UTF-8"?>\n<repositoryContent>\n'
-      : '# Repository Content\n\n';
-
-  if (processingOptions.includeTreeView) {
-    const resolvedTreeView = treeView || generateTreeView(filesInfo);
-    if (processingOptions.exportFormat === 'xml') {
-      header += `<fileStructure>${wrapXmlCdata(resolvedTreeView)}</fileStructure>\n`;
-    } else {
-      header += '## File Structure\n\n';
-      header += '```\n';
-      header += resolvedTreeView;
-      header += '```\n\n';
-    }
-  }
-
-  if (processingOptions.exportFormat === 'markdown' && processingOptions.includeTreeView) {
-    header += '## File Contents\n\n';
-  }
-
-  if (processingOptions.exportFormat === 'xml') {
-    header += '<files>\n';
-  }
-
-  return header;
-};
-
-const processRepositoryFile = (
-  authorizedProcessRoot: string,
-  fileInfo: FileInfo,
-  contentProcessor: ContentProcessor,
-  processingOptions: RepositoryProcessingOptions
-): ProcessedRepositoryFileResult => {
-  const filePath = fileInfo.path;
-  const tokenCount = normalizeTokenCount(fileInfo.tokens);
-  const fullPath = path.resolve(authorizedProcessRoot, filePath);
-
-  if (!isPathWithinRoot(authorizedProcessRoot, fullPath)) {
-    console.warn(`Skipping file outside root directory: ${filePath}`);
-    return null;
-  }
-
-  if (!fs.existsSync(fullPath)) {
-    console.warn(`File not found: ${filePath}`);
-    return null;
-  }
-
-  const content = contentProcessor.processFile(fullPath, filePath, {
-    exportFormat: processingOptions.exportFormat,
-    showTokenCount: processingOptions.showTokenCount,
-    tokenCount,
-  });
-  if (!content) {
-    return null;
-  }
-
-  return { content, tokenCount };
-};
-
-const buildRepositoryFooter = (
-  processingOptions: RepositoryProcessingOptions,
-  summary: { totalTokens: number; processedFiles: number; skippedFiles: number }
-): string => {
-  if (processingOptions.exportFormat === 'xml') {
-    return (
-      '</files>\n' +
-      `<summary totalTokens="${toXmlNumericAttribute(summary.totalTokens)}" ` +
-      `processedFiles="${toXmlNumericAttribute(summary.processedFiles)}" ` +
-      `skippedFiles="${toXmlNumericAttribute(summary.skippedFiles)}" />\n` +
-      '</repositoryContent>\n'
-    );
-  }
-
-  return '\n--END--\n';
-};
 
 // Process repository
 ipcMain.handle(
@@ -531,60 +305,18 @@ ipcMain.handle(
         throw new Error('Unauthorized root path. Please select the directory again.');
       }
 
-      const tokenCounter = new TokenCounter();
-      const contentProcessor = new ContentProcessor(tokenCounter);
-      const processingOptions = resolveRepositoryProcessingOptions(options);
-
-      console.log('Processing with options:', processingOptions);
-
-      const normalizedFilesInfo = filesInfo ?? [];
-      let processedContent = buildRepositoryHeader(processingOptions, treeView, normalizedFilesInfo);
-
-      let totalTokens = 0;
-      let processedFiles = 0;
-      let skippedFiles = 0;
-
-      for (const fileInfo of normalizedFilesInfo) {
-        if (!fileInfo?.path) {
-          console.warn('Skipping invalid file info entry');
-          skippedFiles++;
-          continue;
-        }
-
-        try {
-          const processedFile = processRepositoryFile(
-            authorizedProcessRoot,
-            fileInfo,
-            contentProcessor,
-            processingOptions
-          );
-          if (!processedFile) {
-            skippedFiles++;
-            continue;
-          }
-
-          processedContent += processedFile.content;
-          totalTokens += processedFile.tokenCount;
-          processedFiles++;
-        } catch (error) {
-          console.warn(`Failed to process file: ${getErrorMessage(error)}`);
-          skippedFiles++;
-        }
-      }
-      processedContent += buildRepositoryFooter(processingOptions, {
-        totalTokens,
-        processedFiles,
-        skippedFiles,
+      return processRepository({
+        rootPath: authorizedProcessRoot,
+        filesInfo,
+        treeView,
+        options,
+        onWarn: (message: string) => {
+          console.warn(message);
+        },
+        onInfo: (message: string, metadata?: unknown) => {
+          console.info(message, metadata);
+        },
       });
-
-      return {
-        content: processedContent,
-        exportFormat: processingOptions.exportFormat,
-        totalTokens,
-        processedFiles,
-        skippedFiles,
-        filesInfo: normalizedFilesInfo,
-      };
     } catch (error) {
       console.error('Error processing repository:', error);
       throw error;
