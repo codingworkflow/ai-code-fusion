@@ -21,11 +21,15 @@ template_config {
 }
 
 env_template "SONAR_TOKEN" {
+  # Key precedence: SONAR_TOKEN -> sonar_token -> token (legacy fallback).
+  # The generic "token" fallback is retained for compatibility with legacy Vault layouts.
   contents             = "{{ with secret \"kv/data/Sonarqube/sonarqube\" }}{{ or .Data.data.SONAR_TOKEN .Data.data.sonar_token .Data.data.token }}{{ end }}"
   error_on_missing_key = false
 }
 
 env_template "DTRACK_API_KEY" {
+  # Key precedence: DTRACK_API_KEY -> api_key -> token (legacy fallback).
+  # The generic "token" fallback is retained for compatibility with legacy Vault layouts.
   contents             = "{{ with secret \"kv/data/dependencytrack\" }}{{ or .Data.data.DTRACK_API_KEY .Data.data.api_key .Data.data.token }}{{ end }}"
   error_on_missing_key = false
 }
