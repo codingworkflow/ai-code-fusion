@@ -3,11 +3,11 @@ const RENDERER_FEATURE_FLAGS = {
 } as const;
 
 const isDevMode = (): boolean => {
-  if (typeof window === 'undefined') {
+  if (globalThis.window === undefined) {
     return false;
   }
 
-  return window.devUtils?.isDev === true;
+  return globalThis.window.devUtils?.isDev === true;
 };
 
 export const isAiSurfacesEnabled = (): boolean => {

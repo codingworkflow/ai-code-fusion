@@ -141,49 +141,67 @@ type ConfigFormAction =
   | { type: 'SET_FIELD'; field: keyof ConfigFormState; value: ConfigFormState[keyof ConfigFormState] }
   | { type: 'LOAD_FROM_CONFIG'; config: ConfigObject; aiSurfacesEnabled: boolean };
 
+const toPlainTextList = (value: unknown): string => {
+  return Array.isArray(value) ? yamlArrayToPlainText(value) : '';
+};
+
+const toTrimmedLines = (value: string): string[] => {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+};
+
+const extractProviderFormFields = (
+  config: ConfigObject,
+  aiSurfacesEnabled: boolean
+): Pick<ConfigFormState, 'providerId' | 'providerModel' | 'providerApiKey' | 'providerBaseUrl'> => {
+  if (!aiSurfacesEnabled || !config.provider) {
+    return {
+      providerId: '',
+      providerModel: '',
+      providerApiKey: '',
+      providerBaseUrl: '',
+    };
+  }
+
+  const providerConfig = config.provider;
+  return {
+    providerId: isSupportedProviderId(providerConfig.id) ? providerConfig.id : '',
+    providerModel: typeof providerConfig.model === 'string' ? providerConfig.model : '',
+    providerApiKey: typeof providerConfig.api_key === 'string' ? providerConfig.api_key : '',
+    providerBaseUrl: typeof providerConfig.base_url === 'string' ? providerConfig.base_url : '',
+  };
+};
+
+const loadFormStateFromConfig = (
+  state: ConfigFormState,
+  config: ConfigObject,
+  aiSurfacesEnabled: boolean
+): ConfigFormState => {
+  const providerFields = extractProviderFormFields(config, aiSurfacesEnabled);
+  return {
+    ...state,
+    fileExtensions: toPlainTextList(config.include_extensions),
+    excludePatterns: toPlainTextList(config.exclude_patterns),
+    useCustomExcludes: config.use_custom_excludes !== false,
+    useCustomIncludes: config.use_custom_includes !== false,
+    useGitignore: config.use_gitignore !== false,
+    enableSecretScanning: config.enable_secret_scanning !== false,
+    excludeSuspiciousFiles: config.exclude_suspicious_files !== false,
+    includeTreeView: config.include_tree_view === true,
+    showTokenCount: config.show_token_count !== false,
+    exportFormat: normalizeExportFormat(config.export_format),
+    ...providerFields,
+  };
+};
+
 const configFormReducer = (state: ConfigFormState, action: ConfigFormAction): ConfigFormState => {
   switch (action.type) {
     case 'SET_FIELD':
       return { ...state, [action.field]: action.value };
-    case 'LOAD_FROM_CONFIG': {
-      const config = action.config;
-      const providerConfig = action.aiSurfacesEnabled ? config?.provider ?? {} : {};
-      return {
-        ...state,
-        fileExtensions:
-          config?.include_extensions && Array.isArray(config.include_extensions)
-            ? yamlArrayToPlainText(config.include_extensions)
-            : '',
-        excludePatterns:
-          config?.exclude_patterns && Array.isArray(config.exclude_patterns)
-            ? yamlArrayToPlainText(config.exclude_patterns)
-            : '',
-        useCustomExcludes: config?.use_custom_excludes !== false,
-        useCustomIncludes: config?.use_custom_includes !== false,
-        useGitignore: config?.use_gitignore !== false,
-        enableSecretScanning: config?.enable_secret_scanning !== false,
-        excludeSuspiciousFiles: config?.exclude_suspicious_files !== false,
-        includeTreeView: config?.include_tree_view === true,
-        showTokenCount: config?.show_token_count !== false,
-        exportFormat: normalizeExportFormat(config?.export_format),
-        providerId:
-          action.aiSurfacesEnabled && isSupportedProviderId(providerConfig.id)
-            ? providerConfig.id
-            : '',
-        providerModel:
-          action.aiSurfacesEnabled && typeof providerConfig.model === 'string'
-            ? providerConfig.model
-            : '',
-        providerApiKey:
-          action.aiSurfacesEnabled && typeof providerConfig.api_key === 'string'
-            ? providerConfig.api_key
-            : '',
-        providerBaseUrl:
-          action.aiSurfacesEnabled && typeof providerConfig.base_url === 'string'
-            ? providerConfig.base_url
-            : '',
-      };
-    }
+    case 'LOAD_FROM_CONFIG':
+      return loadFormStateFromConfig(state, action.config, action.aiSurfacesEnabled);
     default:
       return state;
   }
@@ -204,6 +222,80 @@ const initialFormState: ConfigFormState = {
   providerModel: '',
   providerApiKey: '',
   providerBaseUrl: '',
+};
+
+const parseConfigContent = (configContent: string): ConfigObject => {
+  try {
+    const parsedConfig = yaml.parse(configContent) as ConfigObject;
+    if (!parsedConfig || typeof parsedConfig !== 'object') {
+      return {};
+    }
+    return parsedConfig;
+  } catch (error) {
+    console.error('Error parsing config content, using empty config:', error);
+    return {};
+  }
+};
+
+const applyBaseConfigState = (config: ConfigObject, state: ConfigFormState): void => {
+  config.use_custom_excludes = state.useCustomExcludes;
+  config.use_custom_includes = state.useCustomIncludes;
+  config.use_gitignore = state.useGitignore;
+  config.enable_secret_scanning = state.enableSecretScanning;
+  config.exclude_suspicious_files = state.excludeSuspiciousFiles;
+  config.include_tree_view = state.includeTreeView;
+  config.show_token_count = state.showTokenCount;
+  config.export_format = state.exportFormat;
+  config.include_extensions = toTrimmedLines(state.fileExtensions);
+  config.exclude_patterns = toTrimmedLines(state.excludePatterns);
+};
+
+type ProviderConfigSaveResult = {
+  hasValidationErrors: boolean;
+  validationErrors: string[];
+};
+
+const applyProviderConfigState = (
+  config: ConfigObject,
+  state: ConfigFormState,
+  aiSurfacesEnabled: boolean,
+  translate: (key: string) => string
+): ProviderConfigSaveResult => {
+  if (!aiSurfacesEnabled) {
+    return { hasValidationErrors: false, validationErrors: [] };
+  }
+
+  const providerFields = {
+    providerId: state.providerId,
+    providerModel: state.providerModel,
+    providerApiKey: state.providerApiKey,
+    providerBaseUrl: state.providerBaseUrl,
+  };
+  const validationErrors = getProviderValidationErrors(providerFields, translate);
+  const hasValidationErrors = validationErrors.length > 0;
+
+  if (hasValidationErrors) {
+    if (config.provider) {
+      delete config.provider;
+    }
+    return { hasValidationErrors, validationErrors };
+  }
+
+  if (hasProviderInput(providerFields) && state.providerId) {
+    config.provider = {
+      id: state.providerId,
+      model: state.providerModel.trim(),
+      api_key: trimToUndefined(state.providerApiKey),
+      base_url: trimToUndefined(state.providerBaseUrl),
+    };
+    return { hasValidationErrors, validationErrors };
+  }
+
+  if (config.provider) {
+    delete config.provider;
+  }
+
+  return { hasValidationErrors, validationErrors };
 };
 
 const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
@@ -237,71 +329,17 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
   const saveConfig = useCallback(
     (state: ConfigFormState) => {
       try {
-        let config: ConfigObject;
+        const config = parseConfigContent(configContent);
+        applyBaseConfigState(config, state);
 
-        try {
-          config = yaml.parse(configContent) as ConfigObject;
-          if (!config) {
-            config = {};
-          }
-        } catch (error) {
-          console.error('Error parsing config content, using empty config:', error);
-          config = {};
-        }
-
-        config.use_custom_excludes = state.useCustomExcludes;
-        config.use_custom_includes = state.useCustomIncludes;
-        config.use_gitignore = state.useGitignore;
-        config.enable_secret_scanning = state.enableSecretScanning;
-        config.exclude_suspicious_files = state.excludeSuspiciousFiles;
-        config.include_tree_view = state.includeTreeView;
-        config.show_token_count = state.showTokenCount;
-        config.export_format = state.exportFormat;
-
-        config.include_extensions = state.fileExtensions
-          .split('\n')
-          .map((line) => line.trim())
-          .filter((line) => line.length > 0);
-
-        config.exclude_patterns = state.excludePatterns
-          .split('\n')
-          .map((line) => line.trim())
-          .filter((line) => line.length > 0);
-
-        let hasProviderValidationErrors = false;
-        if (aiSurfacesEnabled) {
-          const providerFields = {
-            providerId: state.providerId,
-            providerModel: state.providerModel,
-            providerApiKey: state.providerApiKey,
-            providerBaseUrl: state.providerBaseUrl,
-          };
-          const validationErrors = getProviderValidationErrors(providerFields, t);
-          hasProviderValidationErrors = validationErrors.length > 0;
-
-          if (hasProviderValidationErrors) {
-            setProviderValidationErrors(validationErrors);
-            setProviderTestResult({
-              ok: false,
-              message: t('config.providerFixBeforeSaving'),
-            });
-          }
-
-          if (hasProviderValidationErrors) {
-            if (config.provider) {
-              delete config.provider;
-            }
-          } else if (hasProviderInput(providerFields) && state.providerId) {
-            config.provider = {
-              id: state.providerId,
-              model: state.providerModel.trim(),
-              api_key: trimToUndefined(state.providerApiKey),
-              base_url: trimToUndefined(state.providerBaseUrl),
-            };
-          } else if (config.provider) {
-            delete config.provider;
-          }
-        } else {
+        const providerResult = applyProviderConfigState(config, state, aiSurfacesEnabled, t);
+        if (aiSurfacesEnabled && providerResult.hasValidationErrors) {
+          setProviderValidationErrors(providerResult.validationErrors);
+          setProviderTestResult({
+            ok: false,
+            message: t('config.providerFixBeforeSaving'),
+          });
+        } else if (!aiSurfacesEnabled) {
           setProviderValidationErrors([]);
           setProviderTestResult(null);
         }
@@ -315,15 +353,16 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
 
         onConfigChange(updatedConfig);
 
-        if (hasProviderValidationErrors) {
+        if (providerResult.hasValidationErrors) {
           setIsSaved(false);
-        } else {
-          setProviderValidationErrors([]);
-          setIsSaved(true);
-          setTimeout(() => {
-            setIsSaved(false);
-          }, 1500);
+          return;
         }
+
+        setProviderValidationErrors([]);
+        setIsSaved(true);
+        setTimeout(() => {
+          setIsSaved(false);
+        }, 1500);
       } catch (error) {
         console.error('Error updating config:', error);
       }

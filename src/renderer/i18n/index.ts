@@ -30,4 +30,6 @@ if (!i18n.isInitialized) {
   });
 }
 
-export default i18n;
+const i18nInstance = i18n;
+
+export default i18nInstance;

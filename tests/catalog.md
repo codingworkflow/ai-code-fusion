@@ -84,10 +84,10 @@ Stress benchmark outputs:
 
 ## Visual Regression Signal
 
-| Command                    | Primary Target                                      | Key Use Cases                                                                                                 |
-| -------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `npm run qa:screenshot`    | `scripts/capture-ui-screenshot.js` + renderer UI    | Cross-OS UI sanity, resized layout checks, deep file-tree selection visibility, secret-filter toggle behavior |
-| `npm run docs:screenshots` | `scripts/generate-doc-screenshots.js` + renderer UI | Refresh tracked screenshots for Config/Select/Processed panels in `docs/APP_VIEWS.md`                         |
+| Command                    | Primary Target                                      | Key Use Cases                                                                                                                                         |
+| -------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run qa:screenshot`    | `scripts/capture-ui-screenshot.js` + renderer UI    | Cross-OS UI sanity, EN/ES/FR/DE locale screenshot captures, resized layout checks, deep file-tree selection visibility, secret-filter toggle behavior |
+| `npm run docs:screenshots` | `scripts/generate-doc-screenshots.js` + renderer UI | Refresh tracked screenshots for Config/Select/Processed panels in `docs/APP_VIEWS.md`                                                                 |
 
 ## Manual UI Doc Test
 
