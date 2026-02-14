@@ -1,8 +1,10 @@
+import type { ProviderId as SharedProviderId } from '../shared/provider-registry';
+
 export type TabId = 'config' | 'source' | 'processed';
 export type ExportFormat = 'markdown' | 'xml';
 export type UpdaterChannel = 'alpha' | 'stable';
 export type UpdaterState = 'disabled' | 'up-to-date' | 'update-available' | 'error';
-export type ProviderId = 'openai' | 'anthropic' | 'ollama' | 'openai-compatible';
+export type ProviderId = SharedProviderId;
 
 export type SelectionHandler = (path: string, isSelected: boolean) => void;
 
