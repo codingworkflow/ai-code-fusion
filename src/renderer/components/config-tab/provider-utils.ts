@@ -1,9 +1,9 @@
 import {
-  isSupportedProviderId as isRegistryProviderId,
   PROVIDER_OPTIONS,
   type ProviderId,
 } from '../../../shared/provider-registry';
 
+export { isSupportedProviderId } from '../../../shared/provider-registry';
 export type { ProviderOption } from '../../../shared/provider-registry';
 export { PROVIDER_OPTIONS } from '../../../shared/provider-registry';
 
@@ -12,10 +12,6 @@ export type ProviderFields = {
   providerModel: string;
   providerApiKey: string;
   providerBaseUrl: string;
-};
-
-export const isSupportedProviderId = (value: unknown): value is ProviderId => {
-  return isRegistryProviderId(value);
 };
 
 export const trimToUndefined = (value: string): string | undefined => {

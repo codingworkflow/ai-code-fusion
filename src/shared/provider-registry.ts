@@ -36,21 +36,21 @@ export type ProviderOption = {
 
 export const PROVIDER_OPTIONS: readonly ProviderOption[] = PROVIDER_OPTIONS_INTERNAL;
 
-const SUPPORTED_PROVIDER_IDS = new Set<ProviderId>();
-const providerDefaultBaseUrls = {} as Record<ProviderId, string>;
-const providerApiKeyRequirements = {} as Record<ProviderId, boolean>;
+const providerEntries = PROVIDER_OPTIONS.map((providerOption) => [
+  providerOption.id,
+  providerOption,
+] as const);
 
-for (const providerOption of PROVIDER_OPTIONS) {
-  SUPPORTED_PROVIDER_IDS.add(providerOption.id);
-  providerDefaultBaseUrls[providerOption.id] = providerOption.defaultBaseUrl;
-  providerApiKeyRequirements[providerOption.id] = providerOption.requiresApiKey;
-}
+const SUPPORTED_PROVIDER_IDS = new Set<ProviderId>(providerEntries.map(([providerId]) => providerId));
 
-export const PROVIDER_DEFAULT_BASE_URLS: Readonly<Record<ProviderId, string>> =
-  providerDefaultBaseUrls;
+export const PROVIDER_DEFAULT_BASE_URLS: Readonly<Record<ProviderId, string>> = Object.fromEntries(
+  providerEntries.map(([providerId, providerOption]) => [providerId, providerOption.defaultBaseUrl])
+) as Record<ProviderId, string>;
 
 export const PROVIDER_API_KEY_REQUIREMENTS: Readonly<Record<ProviderId, boolean>> =
-  providerApiKeyRequirements;
+  Object.fromEntries(
+    providerEntries.map(([providerId, providerOption]) => [providerId, providerOption.requiresApiKey])
+  ) as Record<ProviderId, boolean>;
 
 export const isSupportedProviderId = (candidate: unknown): candidate is ProviderId => {
   return typeof candidate === 'string' && SUPPORTED_PROVIDER_IDS.has(candidate as ProviderId);
