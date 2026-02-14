@@ -3,6 +3,7 @@ import yaml from 'yaml';
 
 import { normalizeExportFormat } from '../../utils/export-format';
 import { yamlArrayToPlainText } from '../../utils/formatters/list-formatter';
+import { isAiSurfacesEnabled } from '../feature-flags';
 
 import type {
   ConfigObject,
@@ -227,6 +228,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
   );
   const [isTestingProviderConnection, setIsTestingProviderConnection] = useState(false);
   const appWindow = globalThis as Window & typeof globalThis;
+  const aiSurfacesEnabled = isAiSurfacesEnabled();
 
   // Extract and set file extensions and exclude patterns sections
   useEffect(() => {
@@ -248,19 +250,27 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
         setExportFormat,
       });
 
-      const providerConfig = config?.provider ?? {};
-      setProviderId(isSupportedProviderId(providerConfig.id) ? providerConfig.id : '');
-      setProviderModel(typeof providerConfig.model === 'string' ? providerConfig.model : '');
-      setProviderApiKey(typeof providerConfig.api_key === 'string' ? providerConfig.api_key : '');
-      setProviderBaseUrl(
-        typeof providerConfig.base_url === 'string' ? providerConfig.base_url : ''
-      );
+      if (aiSurfacesEnabled) {
+        const providerConfig = config?.provider ?? {};
+        setProviderId(isSupportedProviderId(providerConfig.id) ? providerConfig.id : '');
+        setProviderModel(typeof providerConfig.model === 'string' ? providerConfig.model : '');
+        setProviderApiKey(typeof providerConfig.api_key === 'string' ? providerConfig.api_key : '');
+        setProviderBaseUrl(
+          typeof providerConfig.base_url === 'string' ? providerConfig.base_url : ''
+        );
+      } else {
+        setProviderId('');
+        setProviderModel('');
+        setProviderApiKey('');
+        setProviderBaseUrl('');
+      }
+
       setProviderValidationErrors([]);
       setProviderTestResult(null);
     } catch (error) {
       console.error('Error parsing config:', error);
     }
-  }, [configContent]);
+  }, [aiSurfacesEnabled, configContent]);
 
   // Auto-save function whenever options change or manual save
   const saveConfig = useCallback(() => {
@@ -301,36 +311,39 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
         .map((line) => line.trim())
         .filter((line) => line.length > 0);
 
-      const providerFields = {
-        providerId,
-        providerModel,
-        providerApiKey,
-        providerBaseUrl,
-      };
-      const validationErrors = getProviderValidationErrors(providerFields);
-      const hasProviderValidationErrors = validationErrors.length > 0;
+      let hasProviderValidationErrors = false;
+      if (aiSurfacesEnabled) {
+        const providerFields = {
+          providerId,
+          providerModel,
+          providerApiKey,
+          providerBaseUrl,
+        };
+        const validationErrors = getProviderValidationErrors(providerFields);
+        hasProviderValidationErrors = validationErrors.length > 0;
 
-      if (hasProviderValidationErrors) {
-        setProviderValidationErrors(validationErrors);
-        setProviderTestResult({
-          ok: false,
-          message: 'Fix provider settings before saving.',
-        });
-      }
-
-      if (hasProviderValidationErrors) {
-        if (config.provider) {
+        if (hasProviderValidationErrors) {
+          setProviderValidationErrors(validationErrors);
+          setProviderTestResult({
+            ok: false,
+            message: 'Fix provider settings before saving.',
+          });
+          if (config.provider) {
+            delete config.provider;
+          }
+        } else if (hasProviderInput(providerFields) && providerId) {
+          config.provider = {
+            id: providerId,
+            model: providerModel.trim(),
+            api_key: trimToUndefined(providerApiKey),
+            base_url: trimToUndefined(providerBaseUrl),
+          };
+        } else if (config.provider) {
           delete config.provider;
         }
-      } else if (hasProviderInput(providerFields) && providerId) {
-        config.provider = {
-          id: providerId,
-          model: providerModel.trim(),
-          api_key: trimToUndefined(providerApiKey),
-          base_url: trimToUndefined(providerBaseUrl),
-        };
-      } else if (config.provider) {
-        delete config.provider;
+      } else {
+        setProviderValidationErrors([]);
+        setProviderTestResult(null);
       }
 
       // Convert back to YAML and save
@@ -363,6 +376,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
     exportFormat,
     fileExtensions,
     excludePatterns,
+    aiSurfacesEnabled,
     providerId,
     providerModel,
     providerApiKey,
@@ -393,6 +407,14 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
   };
 
   const handleTestProviderConnection = async () => {
+    if (!aiSurfacesEnabled) {
+      setProviderTestResult({
+        ok: false,
+        message: 'Provider connection testing is disabled outside dev mode.',
+      });
+      return;
+    }
+
     const providerFields = {
       providerId,
       providerModel,
@@ -700,136 +722,138 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
             </div>
           </div>
 
-          <div className='rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 p-4 mt-4'>
-            <h4 className='mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300'>
-              Provider Setup Assistant
-            </h4>
-            <p className='mb-3 text-xs text-gray-500 dark:text-gray-400'>
-              Configure a model provider and run a connection test before saving.
-            </p>
+          {aiSurfacesEnabled && (
+            <div className='rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 p-4 mt-4'>
+              <h4 className='mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300'>
+                Provider Setup Assistant
+              </h4>
+              <p className='mb-3 text-xs text-gray-500 dark:text-gray-400'>
+                Configure a model provider and run a connection test before saving.
+              </p>
 
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
-              <div>
-                <label
-                  htmlFor='provider-id'
-                  className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
+                <div>
+                  <label
+                    htmlFor='provider-id'
+                    className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
+                  >
+                    Provider
+                  </label>
+                  <select
+                    id='provider-id'
+                    value={providerId}
+                    onChange={(event) => {
+                      setProviderId(
+                        isSupportedProviderId(event.target.value) ? event.target.value : ''
+                      );
+                      resetProviderFeedback();
+                    }}
+                    className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+                  >
+                    <option value=''>Select provider</option>
+                    {PROVIDER_OPTIONS.map((providerOption) => (
+                      <option key={providerOption.id} value={providerOption.id}>
+                        {providerOption.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor='provider-model'
+                    className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
+                  >
+                    Model
+                  </label>
+                  <input
+                    id='provider-model'
+                    type='text'
+                    value={providerModel}
+                    placeholder='e.g. gpt-4o-mini'
+                    onChange={(event) => {
+                      setProviderModel(event.target.value);
+                      resetProviderFeedback();
+                    }}
+                    className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor='provider-base-url'
+                    className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
+                  >
+                    Base URL (optional)
+                  </label>
+                  <input
+                    id='provider-base-url'
+                    type='text'
+                    value={providerBaseUrl}
+                    placeholder={
+                      PROVIDER_OPTIONS.find((providerOption) => providerOption.id === providerId)
+                        ?.defaultBaseUrl || 'https://api.openai.com/v1'
+                    }
+                    onChange={(event) => {
+                      setProviderBaseUrl(event.target.value);
+                      resetProviderFeedback();
+                    }}
+                    className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor='provider-api-key'
+                    className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
+                  >
+                    API key (optional for Ollama)
+                  </label>
+                  <input
+                    id='provider-api-key'
+                    type='password'
+                    value={providerApiKey}
+                    placeholder='Enter provider API key'
+                    onChange={(event) => {
+                      setProviderApiKey(event.target.value);
+                      resetProviderFeedback();
+                    }}
+                    className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+                  />
+                </div>
+              </div>
+
+              <div className='mt-3 flex items-center gap-2'>
+                <button
+                  onClick={handleTestProviderConnection}
+                  disabled={isTestingProviderConnection}
+                  className='inline-flex items-center border border-transparent bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:bg-gray-400 focus:outline-none'
                 >
-                  Provider
-                </label>
-                <select
-                  id='provider-id'
-                  value={providerId}
-                  onChange={(event) => {
-                    setProviderId(
-                      isSupportedProviderId(event.target.value) ? event.target.value : ''
-                    );
-                    resetProviderFeedback();
-                  }}
-                  className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
-                >
-                  <option value=''>Select provider</option>
-                  {PROVIDER_OPTIONS.map((providerOption) => (
-                    <option key={providerOption.id} value={providerOption.id}>
-                      {providerOption.label}
-                    </option>
+                  {isTestingProviderConnection ? 'Testing...' : 'Test Connection'}
+                </button>
+
+                {providerTestResult && (
+                  <span
+                    className={`text-xs ${
+                      providerTestResult.ok
+                        ? 'text-green-700 dark:text-green-300'
+                        : 'text-red-700 dark:text-red-300'
+                    }`}
+                  >
+                    {providerTestResult.message}
+                  </span>
+                )}
+              </div>
+
+              {providerValidationErrors.length > 0 && (
+                <ul className='mt-3 list-disc pl-5 text-xs text-red-700 dark:text-red-300 space-y-1'>
+                  {providerValidationErrors.map((validationError) => (
+                    <li key={validationError}>{validationError}</li>
                   ))}
-                </select>
-              </div>
-
-              <div>
-                <label
-                  htmlFor='provider-model'
-                  className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
-                >
-                  Model
-                </label>
-                <input
-                  id='provider-model'
-                  type='text'
-                  value={providerModel}
-                  placeholder='e.g. gpt-4o-mini'
-                  onChange={(event) => {
-                    setProviderModel(event.target.value);
-                    resetProviderFeedback();
-                  }}
-                  className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor='provider-base-url'
-                  className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
-                >
-                  Base URL (optional)
-                </label>
-                <input
-                  id='provider-base-url'
-                  type='text'
-                  value={providerBaseUrl}
-                  placeholder={
-                    PROVIDER_OPTIONS.find((providerOption) => providerOption.id === providerId)
-                      ?.defaultBaseUrl || 'https://api.openai.com/v1'
-                  }
-                  onChange={(event) => {
-                    setProviderBaseUrl(event.target.value);
-                    resetProviderFeedback();
-                  }}
-                  className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor='provider-api-key'
-                  className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
-                >
-                  API key (optional for Ollama)
-                </label>
-                <input
-                  id='provider-api-key'
-                  type='password'
-                  value={providerApiKey}
-                  placeholder='Enter provider API key'
-                  onChange={(event) => {
-                    setProviderApiKey(event.target.value);
-                    resetProviderFeedback();
-                  }}
-                  className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
-                />
-              </div>
-            </div>
-
-            <div className='mt-3 flex items-center gap-2'>
-              <button
-                onClick={handleTestProviderConnection}
-                disabled={isTestingProviderConnection}
-                className='inline-flex items-center border border-transparent bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:bg-gray-400 focus:outline-none'
-              >
-                {isTestingProviderConnection ? 'Testing...' : 'Test Connection'}
-              </button>
-
-              {providerTestResult && (
-                <span
-                  className={`text-xs ${
-                    providerTestResult.ok
-                      ? 'text-green-700 dark:text-green-300'
-                      : 'text-red-700 dark:text-red-300'
-                  }`}
-                >
-                  {providerTestResult.message}
-                </span>
+                </ul>
               )}
             </div>
-
-            {providerValidationErrors.length > 0 && (
-              <ul className='mt-3 list-disc pl-5 text-xs text-red-700 dark:text-red-300 space-y-1'>
-                {providerValidationErrors.map((validationError) => (
-                  <li key={validationError}>{validationError}</li>
-                ))}
-              </ul>
-            )}
-          </div>
+          )}
 
           <p className='mt-3 text-xs text-gray-500 dark:text-gray-400'>
             Changes are automatically saved and will be applied when switching to the Source tab.

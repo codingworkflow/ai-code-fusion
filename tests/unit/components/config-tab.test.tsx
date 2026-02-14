@@ -75,6 +75,10 @@ describe('ConfigTab', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    window.devUtils = {
+      clearLocalStorage: jest.fn().mockReturnValue(true),
+      isDev: true,
+    };
     localStorageMock.getItem.mockReturnValue('/mock/saved/path');
     jest.useFakeTimers();
   });
@@ -237,5 +241,60 @@ describe('ConfigTab', () => {
       });
       expect(screen.getByText('Connection successful (200).')).toBeInTheDocument();
     });
+  });
+
+  test('hides provider setup assistant outside dev mode', () => {
+    window.devUtils = {
+      clearLocalStorage: jest.fn().mockReturnValue(false),
+      isDev: false,
+    };
+
+    render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
+
+    expect(screen.queryByText('Provider Setup Assistant')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Provider')).not.toBeInTheDocument();
+  });
+
+  test('preserves existing provider config when ai surfaces are disabled', async () => {
+    window.devUtils = {
+      clearLocalStorage: jest.fn().mockReturnValue(false),
+      isDev: false,
+    };
+
+    const configWithProvider = [
+      '# Test configuration',
+      'include_extensions:',
+      '  - .js',
+      '  - .jsx',
+      'provider:',
+      '  id: openai',
+      '  model: gpt-4o-mini',
+      '  api_key: test-api-key',
+      '  base_url: https://api.openai.com/v1',
+    ].join('\n');
+
+    render(<ConfigTab configContent={configWithProvider} onConfigChange={mockOnConfigChange} />);
+
+    const excludePatternCheckbox = screen.getByLabelText('Use exclude patterns');
+    act(() => {
+      fireEvent.click(excludePatternCheckbox);
+      jest.advanceTimersByTime(100);
+    });
+
+    await waitFor(() => {
+      expect(mockOnConfigChange).toHaveBeenCalled();
+    });
+
+    const yamlLib = require('yaml');
+    const savedConfig = yamlLib.stringify.mock.calls.at(-1)[0];
+
+    expect(savedConfig.provider).toEqual(
+      expect.objectContaining({
+        id: 'openai',
+        model: 'gpt-4o-mini',
+        api_key: 'test-api-key',
+        base_url: 'https://api.openai.com/v1',
+      })
+    );
   });
 });
