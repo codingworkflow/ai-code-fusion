@@ -53,6 +53,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | `tests/unit/main/feature-flags.test.ts`                | `src/main/feature-flags.ts`                    | OpenFeature normalization, env/remote merge rules, secure remote fetch behavior                                                                        |
 | `tests/unit/main/path-security.test.ts`                | `src/main/security/path-guard.ts`              | Root-path authorization, temp-root boundaries, symlink-aware realpath resolution                                                                       |
 | `tests/unit/main/provider-connection.test.ts`          | `src/main/services/provider-connection.ts`     | Provider defaults, URL validation/normalization, request construction, timeout/error handling                                                          |
+| `tests/unit/main/directory-tree.test.ts`               | `src/main/services/directory-tree.ts`          | Exclude/include pattern merge, symlink skip policy, canonical recursion-loop guard, parse-failure fallback                                             |
 
 ## Integration Tests
 
@@ -116,6 +117,7 @@ Stress benchmark outputs:
   - `tests/unit/main/feature-flags.test.ts`
   - `tests/unit/main/path-security.test.ts`
   - `tests/unit/main/provider-connection.test.ts`
+  - `tests/unit/main/directory-tree.test.ts`
   - `tests/stress/main-process/ipc-latency.stress.test.ts`
 - Content/token pipeline changes:
   - `tests/unit/file-analyzer.test.ts`
