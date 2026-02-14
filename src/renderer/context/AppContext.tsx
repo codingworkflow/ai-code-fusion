@@ -4,6 +4,15 @@ import yaml from 'yaml';
 import { normalizeExportFormat } from '../../utils/export-format';
 import i18n from '../i18n';
 
+import { INITIAL_CONFIG_PLACEHOLDER, sanitizeConfigForStorage } from './utils/config-storage';
+import { ensureError } from './utils/error-utils';
+import { isPathWithinRootBoundary } from './utils/path-boundary';
+import {
+  collectFilesWithinBoundary,
+  collectSubFoldersWithinBoundary,
+  findFolderByPath,
+} from './utils/tree-selection';
+
 import type {
   AnalyzeRepositoryResult,
   ConfigObject,
@@ -12,31 +21,6 @@ import type {
   ProcessRepositoryResult,
   TabId,
 } from '../../types/ipc';
-
-// Helper function to ensure consistent error handling
-const ensureError = (error: unknown): Error => {
-  if (error instanceof Error) {
-    return error;
-  }
-
-  if (typeof error === 'string') {
-    return new Error(error);
-  }
-
-  if (typeof error === 'number' || typeof error === 'boolean' || typeof error === 'bigint') {
-    return new Error(String(error));
-  }
-
-  if (typeof error === 'object' && error !== null) {
-    try {
-      return new Error(JSON.stringify(error));
-    } catch {
-      return new Error('Unknown error');
-    }
-  }
-
-  return new Error('Unknown error');
-};
 
 type ProcessingOptions = {
   showTokenCount: boolean;
@@ -75,77 +59,6 @@ type AppContextValue = {
 };
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
-
-const sanitizeConfigForStorage = (configContent: string): string => {
-  try {
-    const parsedConfig = yaml.parse(configContent);
-    if (!parsedConfig || typeof parsedConfig !== 'object') {
-      return configContent;
-    }
-
-    const config = parsedConfig as ConfigObject;
-    if (!config.provider || typeof config.provider !== 'object' || !config.provider.api_key) {
-      return configContent;
-    }
-
-    const sanitizedProvider = { ...config.provider };
-    delete sanitizedProvider.api_key;
-
-    const sanitizedConfig: ConfigObject = { ...config };
-    const providerValues = Object.values(sanitizedProvider).filter((value) => value !== undefined);
-    if (providerValues.length === 0) {
-      delete sanitizedConfig.provider;
-    } else {
-      sanitizedConfig.provider = sanitizedProvider;
-    }
-
-    return yaml.stringify(sanitizedConfig);
-  } catch {
-    return configContent;
-  }
-};
-
-const INITIAL_CONFIG_PLACEHOLDER = '# Loading configuration...';
-
-const normalizePathForBoundaryCheck = (inputPath: string): string => {
-  const normalizedSlashes = inputPath.replaceAll('\\', '/');
-  const driveMatch = /^[A-Za-z]:/.exec(normalizedSlashes);
-  const drivePrefix = driveMatch ? driveMatch[0].toLowerCase() : '';
-  const pathWithoutDrive = drivePrefix ? normalizedSlashes.slice(2) : normalizedSlashes;
-  const hasLeadingSlash = pathWithoutDrive.startsWith('/');
-
-  const segments = pathWithoutDrive.split('/').filter((segment) => segment && segment !== '.');
-  const resolvedSegments: string[] = [];
-
-  for (const segment of segments) {
-    if (segment === '..') {
-      if (resolvedSegments.length > 0 && resolvedSegments.at(-1) !== '..') {
-        resolvedSegments.pop();
-      } else if (!hasLeadingSlash) {
-        resolvedSegments.push('..');
-      }
-      continue;
-    }
-
-    resolvedSegments.push(segment);
-  }
-
-  return `${drivePrefix}${hasLeadingSlash ? '/' : ''}${resolvedSegments.join('/')}`;
-};
-
-const isPathWithinRootBoundary = (candidatePath: string, rootPath: string): boolean => {
-  if (!candidatePath || !rootPath) {
-    return false;
-  }
-
-  const normalizedRootPath = normalizePathForBoundaryCheck(rootPath);
-  const normalizedCandidatePath = normalizePathForBoundaryCheck(candidatePath);
-
-  return (
-    normalizedCandidatePath === normalizedRootPath ||
-    normalizedCandidatePath.startsWith(`${normalizedRootPath}/`)
-  );
-};
 
 type AppProviderProps = {
   children: React.ReactNode;
@@ -337,63 +250,11 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       return;
     }
 
-    const findFolder = (
-      items: DirectoryTreeItem[] | undefined,
-      targetPath: string
-    ): DirectoryTreeItem | null => {
-      for (const item of items ?? []) {
-        if (item.path === targetPath) {
-          return item;
-        }
-
-        if (item.type === 'directory' && item.children) {
-          const found = findFolder(item.children, targetPath);
-          if (found) {
-            return found;
-          }
-        }
-      }
-
-      return null;
-    };
-
-    const getAllSubFolders = (folder: DirectoryTreeItem): string[] => {
-      if (!folder.children) return [];
-
-      let folders: string[] = [];
-
-      for (const item of folder.children ?? []) {
-        if (item.type === 'directory' && isPathWithinRootBoundary(item.path, rootPath)) {
-          folders.push(item.path, ...getAllSubFolders(item));
-        }
-      }
-
-      return folders;
-    };
-
-    const getAllFiles = (folder: DirectoryTreeItem): string[] => {
-      if (!folder.children) return [];
-
-      let files: string[] = [];
-
-      for (const item of folder.children ?? []) {
-        if (item.type === 'file') {
-          if (isPathWithinRootBoundary(item.path, rootPath)) {
-            files.push(item.path);
-          }
-        } else if (item.type === 'directory') {
-          files = [...files, ...getAllFiles(item)];
-        }
-      }
-
-      return files;
-    };
-
-    const folder = findFolder(directoryTree, folderPath);
+    const folder = findFolderByPath(directoryTree, folderPath);
 
     if (folder) {
-      const subFolders = getAllSubFolders(folder);
-      const files = getAllFiles(folder);
+      const subFolders = collectSubFoldersWithinBoundary(folder, rootPath);
+      const files = collectFilesWithinBoundary(folder, rootPath);
 
       if (isSelected) {
         setSelectedFolders((prev) => {

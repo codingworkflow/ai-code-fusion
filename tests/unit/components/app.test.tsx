@@ -324,6 +324,36 @@ describe('App Component', () => {
     });
   });
 
+  test('redacts api_key when config cannot be parsed before localStorage save', async () => {
+    const safeConfig = '# Base config\nuse_custom_excludes: true';
+    localStorage.setItem('configContent', safeConfig);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect((screen.getByTestId('config-content') as HTMLTextAreaElement).value).toBe(safeConfig);
+    });
+
+    const invalidConfigWithSecret = [
+      'provider:',
+      '  id: openai',
+      '  model: gpt-4o-mini',
+      '  api_key: leaked-api-key',
+      '  base_url: https://api.openai.com/v1',
+      'broken: [',
+    ].join('\n');
+
+    fireEvent.change(screen.getByTestId('config-content'), {
+      target: { value: invalidConfigWithSecret },
+    });
+
+    await waitFor(() => {
+      const storedConfig = localStorageStore.configContent;
+      expect(storedConfig).not.toContain('api_key: leaked-api-key');
+      expect(storedConfig).not.toContain('leaked-api-key');
+    });
+  });
+
   test('updates rootPath when directory is selected', async () => {
     render(<App />);
 

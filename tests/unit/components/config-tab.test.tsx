@@ -24,6 +24,10 @@ jest.mock('../../../src/utils/formatters/list-formatter', () => ({
 // Mock yaml package
 jest.mock('yaml', () => ({
   parse: jest.fn().mockImplementation((str = '') => {
+    if (str.includes('invalid_yaml')) {
+      throw new Error('Invalid YAML');
+    }
+
     const exportFormat = str.includes('export_format: xml') ? 'xml' : 'markdown';
     const includesProvider = str.includes('provider:');
     if (str && str.includes('include_extensions')) {
@@ -185,6 +189,19 @@ describe('ConfigTab', () => {
   test('initializes export format selector to xml when config specifies export_format: xml', () => {
     const xmlConfigContent = `${mockConfigContent}\nexport_format: xml`;
     render(<ConfigTab configContent={xmlConfigContent} onConfigChange={mockOnConfigChange} />);
+
+    expect(screen.getByLabelText('Export format')).toHaveValue('xml');
+  });
+
+  test('keeps existing form values when incoming config yaml is invalid', () => {
+    const xmlConfigContent = `${mockConfigContent}\nexport_format: xml`;
+    const { rerender } = render(
+      <ConfigTab configContent={xmlConfigContent} onConfigChange={mockOnConfigChange} />
+    );
+
+    expect(screen.getByLabelText('Export format')).toHaveValue('xml');
+
+    rerender(<ConfigTab configContent='invalid_yaml: [' onConfigChange={mockOnConfigChange} />);
 
     expect(screen.getByLabelText('Export format')).toHaveValue('xml');
   });
