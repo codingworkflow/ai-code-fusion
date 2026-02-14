@@ -6,6 +6,7 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 const ROOT_DIR = path.join(__dirname, '..');
+const ASSETS_DIR = path.join(ROOT_DIR, 'src', 'assets');
 const RENDERER_SOURCE_DIR = path.join(ROOT_DIR, 'src', 'renderer');
 const RENDERER_BUILD_DIR = path.join(ROOT_DIR, 'dist', 'renderer');
 const DEFAULT_SCREENSHOT_DIR = path.join('dist', 'qa', 'screenshots');
@@ -48,7 +49,7 @@ const MIME_TYPES = {
 const STATIC_FILE_ROUTES = new Map([
   ['/', path.join(RENDERER_SOURCE_DIR, 'index.html')],
   ['/index.html', path.join(RENDERER_SOURCE_DIR, 'index.html')],
-  ['/icon.png', path.join(RENDERER_SOURCE_DIR, 'icon.png')],
+  ['/assets/icon.png', path.join(ASSETS_DIR, 'icon.png')],
   ['/dist/renderer/output.css', path.join(RENDERER_BUILD_DIR, 'output.css')],
   ['/dist/renderer/bundle.js', path.join(RENDERER_BUILD_DIR, 'bundle.js')],
   ['/dist/renderer/bundle.js.map', path.join(RENDERER_BUILD_DIR, 'bundle.js.map')],
