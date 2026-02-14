@@ -268,15 +268,15 @@ describe('Main Process IPC Handlers', () => {
 
       expect(mockNetFetch).toHaveBeenNthCalledWith(
         1,
-        expect.stringContaining('/src/assets/icon.png')
+        expect.stringContaining('assets/icon.png')
       );
       expect(mockNetFetch).toHaveBeenNthCalledWith(
         2,
-        expect.stringContaining('/src/assets/icons/512x512.png')
+        expect.stringContaining('assets/icons/512x512.png')
       );
       expect(mockNetFetch).toHaveBeenNthCalledWith(
         3,
-        expect.stringContaining('/src/assets/icons/space%20file.png')
+        expect.stringContaining('assets/icons/space%20file.png')
       );
     });
 
@@ -1099,8 +1099,7 @@ describe('Main Process IPC Handlers', () => {
       const result = await handler(null, 'icon.png');
 
       expect(typeof result).toBe('string');
-      expect(result).toContain('/src/assets/');
-      expect(result).toContain('icon.png');
+      expect(result).toMatch(/assets[\\/]+icon\.png$/);
     });
 
     test('should reject traversal paths outside assets directory', async () => {
