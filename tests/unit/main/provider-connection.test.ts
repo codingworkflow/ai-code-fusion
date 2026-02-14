@@ -231,6 +231,7 @@ describe('provider-connection service', () => {
       'Provider connection test threw an error',
       expect.objectContaining({
         providerId: 'openai',
+        error: 'Error',
       })
     );
     expect(genericResult).toEqual({

@@ -1,5 +1,3 @@
-import { getErrorMessage } from '../errors';
-
 import type {
   ProviderConnectionOptions,
   ProviderConnectionResult,
@@ -39,7 +37,7 @@ export type ProviderConnectionFetch = (
 ) => Promise<Pick<Response, 'ok' | 'status' | 'statusText'>>;
 
 type ProviderConnectionWarningContext = {
-  providerId?: unknown;
+  providerId?: ProviderId;
   status?: number;
   statusText?: string;
   error?: string;
@@ -164,6 +162,20 @@ const isAbortError = (error: unknown): boolean => {
   );
 };
 
+const getErrorNameForLogs = (error: unknown): string => {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    typeof (error as { name?: unknown }).name === 'string'
+  ) {
+    const errorName = (error as { name: string }).name.trim();
+    return errorName.length > 0 ? errorName : 'Error';
+  }
+
+  return 'Error';
+};
+
 export const testProviderConnection = async (
   options: ProviderConnectionOptions,
   dependencies: ProviderConnectionDependencies
@@ -218,13 +230,12 @@ export const testProviderConnection = async (
       message: `Connection failed (${statusLabel}).`,
     };
   } catch (error) {
-    const errorMessage = getErrorMessage(error);
     const didAbort = isAbortError(error);
 
     if (!didAbort) {
       dependencies.onWarn?.('Provider connection test threw an error', {
         providerId: options.providerId,
-        error: errorMessage,
+        error: getErrorNameForLogs(error),
       });
     }
 
