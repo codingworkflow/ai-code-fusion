@@ -38,6 +38,10 @@ interface PathTree {
   [key: string]: PathTree | null;
 }
 
+const createPathTreeNode = (): PathTree => {
+  return Object.create(null) as PathTree;
+};
+
 const resolveRepositoryProcessingOptions = (
   options: ProcessRepositoryOptions['options'] = {}
 ): RepositoryProcessingOptions => ({
@@ -49,7 +53,7 @@ const resolveRepositoryProcessingOptions = (
 const upsertPathPart = (tree: PathTree, part: string, isLeaf: boolean): PathTree | null => {
   const existing = tree[part];
   if (existing === null && !isLeaf) {
-    const promotedPathNode: PathTree = {};
+    const promotedPathNode = createPathTreeNode();
     tree[part] = promotedPathNode;
     return promotedPathNode;
   }
@@ -58,7 +62,7 @@ const upsertPathPart = (tree: PathTree, part: string, isLeaf: boolean): PathTree
     return existing;
   }
 
-  const nextValue = isLeaf ? null : {};
+  const nextValue = isLeaf ? null : createPathTreeNode();
   tree[part] = nextValue;
   return nextValue;
 };
@@ -84,7 +88,7 @@ const addFilePathToTree = (pathTree: PathTree, filePath: string): void => {
 };
 
 const buildPathTree = (filesInfo: FileInfo[]): PathTree => {
-  const pathTree: PathTree = {};
+  const pathTree = createPathTreeNode();
   const sortedFiles = [...filesInfo].sort((a, b) => a.path.localeCompare(b.path));
 
   for (const file of sortedFiles) {

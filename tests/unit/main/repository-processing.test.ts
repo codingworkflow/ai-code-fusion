@@ -105,6 +105,29 @@ describe('repository-processing service', () => {
     }
   });
 
+  test('does not mutate object prototypes when tree paths contain special keys', () => {
+    const { rootPath, cleanup } = createTempRepository();
+    try {
+      const prototypeBefore = Reflect.get({}, 'polluted');
+
+      const result = processRepository({
+        rootPath,
+        filesInfo: [
+          { path: '__proto__/polluted.txt', tokens: 1 },
+          { path: 'constructor/test.ts', tokens: 1 },
+        ],
+        options: { includeTreeView: true },
+      });
+
+      expect(prototypeBefore).toBeUndefined();
+      expect(Reflect.get({}, 'polluted')).toBeUndefined();
+      expect(result.content).toContain('__proto__');
+      expect(result.content).toContain('constructor');
+    } finally {
+      cleanup();
+    }
+  });
+
   test('keeps xml token attributes enabled by default', () => {
     const { rootPath, createFile, cleanup } = createTempRepository();
     try {
