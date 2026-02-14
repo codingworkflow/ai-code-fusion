@@ -17,10 +17,13 @@ const ErrorBanner = () => {
   const { t } = useTranslation();
 
   if (!appError) return null;
+  const translatedMessage = appError.translationKey
+    ? t(appError.translationKey, appError.translationOptions)
+    : appError.message;
 
   return (
     <div className='flex items-center justify-between bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800 px-4 py-2 text-sm text-red-800 dark:text-red-200'>
-      <span>{appError.message}</span>
+      <span>{translatedMessage}</span>
       <button
         onClick={dismissError}
         className='ml-4 shrink-0 text-red-600 dark:text-red-300 hover:text-red-800 dark:hover:text-red-100'

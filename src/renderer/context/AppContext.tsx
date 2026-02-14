@@ -46,6 +46,8 @@ type ProcessingOptions = {
 
 type AppError = {
   message: string;
+  translationKey?: string;
+  translationOptions?: Record<string, string | number>;
   timestamp: number;
 };
 
@@ -167,9 +169,30 @@ export const AppProvider = ({ children }: AppProviderProps) => {
   const appWindow = globalThis as Window & typeof globalThis;
   const electronAPI = appWindow.electronAPI;
 
-  const showError = useCallback((message: string) => {
-    setAppError({ message, timestamp: Date.now() });
-  }, []);
+  const showError = useCallback(
+    (
+      error:
+        | string
+        | {
+            translationKey: string;
+            translationOptions?: Record<string, string | number>;
+            message?: string;
+          }
+    ) => {
+      if (typeof error === 'string') {
+        setAppError({ message: error, timestamp: Date.now() });
+        return;
+      }
+
+      setAppError({
+        message: error.message ?? '',
+        translationKey: error.translationKey,
+        translationOptions: error.translationOptions,
+        timestamp: Date.now(),
+      });
+    },
+    []
+  );
 
   const dismissError = useCallback(() => {
     setAppError(null);
@@ -438,7 +461,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
   const handleAnalyze = useCallback(async (): Promise<AnalyzeRepositoryResult | undefined> => {
     const selectedFilesArray = [...selectedFiles];
     if (!rootPath || selectedFilesArray.length === 0) {
-      showError(i18n.t('errors.selectRootAndFiles'));
+      showError({ translationKey: 'errors.selectRootAndFiles' });
       return undefined;
     }
 
@@ -453,7 +476,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       });
 
       if (validFiles.length === 0) {
-        showError(i18n.t('errors.noValidFiles'));
+        showError({ translationKey: 'errors.noValidFiles' });
         return undefined;
       }
 
@@ -503,7 +526,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     } catch (error) {
       const processedError = ensureError(error);
       console.error('Error processing repository:', processedError);
-      showError(i18n.t('errors.processingFailed'));
+      showError({ translationKey: 'errors.processingFailed' });
       throw processedError;
     }
   }, [selectedFiles, rootPath, configContent, appWindow, showError]);
@@ -512,7 +535,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     try {
       const selectedFilesArray = [...selectedFiles];
       if (!rootPath || selectedFilesArray.length === 0) {
-        showError(i18n.t('errors.noFilesSelectedForProcessing'));
+        showError({ translationKey: 'errors.noFilesSelectedForProcessing' });
         return null;
       }
 
@@ -558,14 +581,14 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     } catch (error) {
       const processedError = ensureError(error);
       console.error('Error refreshing processed content:', processedError);
-      showError(i18n.t('errors.refreshFailed'));
+      showError({ translationKey: 'errors.refreshFailed' });
       throw processedError;
     }
   }, [selectedFiles, rootPath, configContent, appWindow, processingOptions, showError]);
 
   const handleSaveOutput = useCallback(async () => {
     if (!processedResult) {
-      showError(i18n.t('errors.noProcessedContentToSave'));
+      showError({ translationKey: 'errors.noProcessedContentToSave' });
       return;
     }
 
@@ -578,7 +601,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     } catch (error) {
       const processedError = ensureError(error);
       console.error('Error saving file:', processedError);
-      showError(i18n.t('errors.saveFailed'));
+      showError({ translationKey: 'errors.saveFailed' });
     }
   }, [processedResult, appWindow, rootPath, showError]);
 

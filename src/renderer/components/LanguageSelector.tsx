@@ -1,15 +1,19 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { persistLocale, SUPPORTED_LOCALES, type SupportedLocale } from '../i18n/settings';
+import {
+  DEFAULT_LOCALE,
+  isSupportedLocale,
+  persistLocale,
+  SUPPORTED_LOCALES,
+  type SupportedLocale,
+} from '../i18n/settings';
 
 const LanguageSelector = () => {
   const { i18n, t } = useTranslation();
 
-  const resolvedLanguage = (i18n.resolvedLanguage || i18n.language || 'en').split('-')[0];
-  const selectedLocale = (SUPPORTED_LOCALES.includes(resolvedLanguage as SupportedLocale)
-    ? resolvedLanguage
-    : 'en') as SupportedLocale;
+  const baseLanguage = (i18n.resolvedLanguage || i18n.language || DEFAULT_LOCALE).split('-')[0];
+  const selectedLocale = isSupportedLocale(baseLanguage) ? baseLanguage : DEFAULT_LOCALE;
 
   const handleLanguageChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
     const nextLocale = event.target.value as SupportedLocale;
