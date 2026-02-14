@@ -58,12 +58,15 @@ describe('SourceTab Component', () => {
             path: SELECTED_FILE,
           },
         ]}
-        selectedFiles={[SELECTED_FILE]}
-        selectedFolders={[]}
+        selectedFiles={new Set([SELECTED_FILE])}
+        selectedFolders={new Set()}
+        configContent={'show_token_count: true'}
         onDirectorySelect={jest.fn()}
         onFileSelect={jest.fn()}
         onFolderSelect={jest.fn()}
+        onBatchSelect={jest.fn()}
         onAnalyze={jest.fn().mockResolvedValue({})}
+        onRefreshTree={jest.fn().mockResolvedValue(undefined)}
       />
     );
 

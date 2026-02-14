@@ -244,7 +244,7 @@ const readPathStats = (itemPath: string): { stats: fs.Stats; isSymbolicLink: boo
   const lstatFn = fs.lstatSync;
   if (typeof lstatFn === 'function') {
     try {
-      const lstatResult = lstatFn(itemPath) as fs.Stats | undefined;
+      const lstatResult = lstatFn(itemPath);
       if (lstatResult && typeof lstatResult.isDirectory === 'function') {
         return {
           stats: lstatResult,
@@ -276,12 +276,12 @@ const resolveAuthorizedPath = (candidatePath: string): string | null => {
   return resolvedCandidatePath;
 };
 
-const SUPPORTED_PROVIDER_IDS: ProviderId[] = [
+const SUPPORTED_PROVIDER_IDS = new Set<ProviderId>([
   'openai',
   'anthropic',
   'ollama',
   'openai-compatible',
-];
+]);
 
 const PROVIDER_DEFAULT_BASE_URLS: Record<ProviderId, string> = {
   openai: 'https://api.openai.com/v1',
@@ -299,12 +299,12 @@ const trimToUndefined = (value: unknown): string | undefined => {
 };
 
 const isSupportedProviderId = (candidate: unknown): candidate is ProviderId => {
-  return typeof candidate === 'string' && SUPPORTED_PROVIDER_IDS.includes(candidate as ProviderId);
+  return typeof candidate === 'string' && SUPPORTED_PROVIDER_IDS.has(candidate as ProviderId);
 };
 
 const stripTrailingSlashes = (value: string): string => {
   let endIndex = value.length;
-  while (endIndex > 0 && value.charCodeAt(endIndex - 1) === 47) {
+  while (endIndex > 0 && value.codePointAt(endIndex - 1) === 47) {
     endIndex -= 1;
   }
   return value.slice(0, endIndex);
@@ -559,6 +559,66 @@ ipcMain.handle(
     };
 
     const visitedDirectoryRealPaths = new Set<string>();
+
+    const processEntry = (
+      dir: string,
+      item: string,
+      walkFn: (d: string) => DirectoryTreeItem[]
+    ): DirectoryTreeItem | null => {
+      const itemPath = path.join(dir, item);
+
+      if (localShouldExclude(itemPath)) {
+        return null;
+      }
+
+      const { stats, isSymbolicLink } = readPathStats(itemPath);
+      if (isSymbolicLink) {
+        const resolvedSymlinkPath = resolveRealPath(itemPath);
+        if (!isPathWithinRoot(authorizedDirPath, resolvedSymlinkPath)) {
+          console.warn(`Skipping symlink outside current root directory: ${itemPath}`);
+        }
+        // Intentionally skip all symlinks (including in-root targets) to avoid
+        // implicit path aliasing in tree output and keep traversal boundaries explicit.
+        return null;
+      }
+
+      if (!isPathWithinRoot(authorizedDirPath, itemPath)) {
+        console.warn(`Skipping path outside current root directory: ${itemPath}`);
+        return null;
+      }
+
+      if (stats.isDirectory()) {
+        const children = walkFn(itemPath);
+        if (children.length === 0) {
+          return null;
+        }
+        return {
+          name: item,
+          path: itemPath,
+          type: 'directory',
+          size: stats.size,
+          lastModified: stats.mtime,
+          children,
+          itemCount: children.length,
+        };
+      }
+
+      return {
+        name: item,
+        path: itemPath,
+        type: 'file',
+        size: stats.size,
+        lastModified: stats.mtime,
+        extension: path.extname(item).toLowerCase(),
+      };
+    };
+
+    const sortTreeItems = (a: DirectoryTreeItem, b: DirectoryTreeItem): number => {
+      if (a.type === 'directory' && b.type === 'file') return -1;
+      if (a.type === 'file' && b.type === 'directory') return 1;
+      return a.name.localeCompare(b.name);
+    };
+
     const walkDirectory = (dir: string): DirectoryTreeItem[] => {
       const realDirectoryPath = resolveRealPath(dir);
       if (visitedDirectoryRealPaths.has(realDirectoryPath)) {
@@ -572,66 +632,16 @@ ipcMain.handle(
 
       for (const item of items) {
         try {
-          const itemPath = path.join(dir, item);
-
-          // Skip excluded items based on patterns, but don't exclude binary files from the tree
-          if (localShouldExclude(itemPath)) {
-            continue;
-          }
-
-          const { stats, isSymbolicLink } = readPathStats(itemPath);
-          if (isSymbolicLink) {
-            const resolvedSymlinkPath = resolveRealPath(itemPath);
-            if (!isPathWithinRoot(authorizedDirPath, resolvedSymlinkPath)) {
-              console.warn(`Skipping symlink outside current root directory: ${itemPath}`);
-            }
-            // Skip symlinks to prevent traversal aliasing and recursion loops.
-            continue;
-          }
-
-          if (!isPathWithinRoot(authorizedDirPath, itemPath)) {
-            console.warn(`Skipping path outside current root directory: ${itemPath}`);
-            continue;
-          }
-
-          const ext = path.extname(item).toLowerCase();
-
-          if (stats.isDirectory()) {
-            const children = walkDirectory(itemPath);
-            // Only include directory if it has children or if we want to show empty dirs
-            if (children.length > 0) {
-              result.push({
-                name: item,
-                path: itemPath,
-                type: 'directory',
-                size: stats.size,
-                lastModified: stats.mtime,
-                children: children,
-                itemCount: children.length,
-              });
-            }
-          } else {
-            result.push({
-              name: item,
-              path: itemPath,
-              type: 'file',
-              size: stats.size,
-              lastModified: stats.mtime,
-              extension: ext,
-            });
+          const entry = processEntry(dir, item, walkDirectory);
+          if (entry) {
+            result.push(entry);
           }
         } catch (err) {
           console.error(`Error processing ${path.join(dir, item)}:`, err);
-          // Continue with next file instead of breaking
         }
       }
 
-      // Sort directories first, then files alphabetically
-      return result.sort((a, b) => {
-        if (a.type === 'directory' && b.type === 'file') return -1;
-        if (a.type === 'file' && b.type === 'directory') return 1;
-        return a.name.localeCompare(b.name);
-      });
+      return result.sort(sortTreeItems);
     };
 
     try {

@@ -1,5 +1,18 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+
+// Mock useApp from AppContext
+const mockSelectDirectory = jest.fn().mockResolvedValue(true);
+const mockSwitchTab = jest.fn();
+
+jest.mock('../../../src/renderer/context/AppContext', () => ({
+  useApp: () => ({
+    rootPath: '/mock/saved/path',
+    selectDirectory: mockSelectDirectory,
+    switchTab: mockSwitchTab,
+  }),
+}));
+
 import ConfigTab from '../../../src/renderer/components/ConfigTab';
 
 // Mock the list formatter
@@ -64,10 +77,8 @@ window.electronAPI = {
   }),
 };
 
-// Mock alert and custom events
-window.alert = jest.fn();
+// Mock custom events
 window.dispatchEvent = jest.fn();
-window.switchToTab = jest.fn();
 
 describe('ConfigTab', () => {
   const mockConfigContent = '# Test configuration\ninclude_extensions:\n  - .js\n  - .jsx';
@@ -75,6 +86,10 @@ describe('ConfigTab', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    window.devUtils = {
+      clearLocalStorage: jest.fn().mockReturnValue(true),
+      isDev: true,
+    };
     localStorageMock.getItem.mockReturnValue('/mock/saved/path');
     jest.useFakeTimers();
   });
@@ -87,7 +102,7 @@ describe('ConfigTab', () => {
   test('renders inputs and checkboxes correctly', () => {
     render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
 
-    // Check folder input
+    // Check folder input - reads rootPath from context
     const folderInput = screen.getByPlaceholderText('Select a root folder');
     expect(folderInput).toBeInTheDocument();
     expect(folderInput).toHaveValue('/mock/saved/path');
@@ -174,31 +189,39 @@ describe('ConfigTab', () => {
     expect(screen.getByLabelText('Export format')).toHaveValue('xml');
   });
 
-  test('calls selectDirectory when folder button is clicked', async () => {
+  test('calls selectDirectory from context when folder button is clicked', async () => {
     render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
 
     const selectFolderButton = screen.getByText('Select Folder');
 
-    act(() => {
+    await act(async () => {
       fireEvent.click(selectFolderButton);
     });
 
     await waitFor(() => {
-      expect(window.electronAPI.selectDirectory).toHaveBeenCalled();
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('rootPath', '/mock/directory');
+      expect(mockSelectDirectory).toHaveBeenCalled();
+      expect(mockSwitchTab).toHaveBeenCalledWith('source');
     });
   });
 
   test('shows provider validation errors but still saves non-provider config', async () => {
     render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
 
+    // Flush initial auto-save timer and isSaved reset from mount
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
     mockOnConfigChange.mockClear();
 
     const providerSelect = screen.getByLabelText('Provider');
-    const saveButton = screen.getByRole('button', { name: /save config/i });
 
     act(() => {
       fireEvent.change(providerSelect, { target: { value: 'openai' } });
+    });
+
+    // Re-query save button after re-render and click it
+    const saveButton = screen.getByRole('button', { name: /save config/i });
+    act(() => {
       fireEvent.click(saveButton);
       jest.advanceTimersByTime(100);
     });
@@ -237,5 +260,60 @@ describe('ConfigTab', () => {
       });
       expect(screen.getByText('Connection successful (200).')).toBeInTheDocument();
     });
+  });
+
+  test('hides provider setup assistant outside dev mode', () => {
+    window.devUtils = {
+      clearLocalStorage: jest.fn().mockReturnValue(false),
+      isDev: false,
+    };
+
+    render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
+
+    expect(screen.queryByText('Provider Setup Assistant')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Provider')).not.toBeInTheDocument();
+  });
+
+  test('preserves existing provider config when ai surfaces are disabled', async () => {
+    window.devUtils = {
+      clearLocalStorage: jest.fn().mockReturnValue(false),
+      isDev: false,
+    };
+
+    const configWithProvider = [
+      '# Test configuration',
+      'include_extensions:',
+      '  - .js',
+      '  - .jsx',
+      'provider:',
+      '  id: openai',
+      '  model: gpt-4o-mini',
+      '  api_key: test-api-key',
+      '  base_url: https://api.openai.com/v1',
+    ].join('\n');
+
+    render(<ConfigTab configContent={configWithProvider} onConfigChange={mockOnConfigChange} />);
+
+    const excludePatternCheckbox = screen.getByLabelText('Use exclude patterns');
+    act(() => {
+      fireEvent.click(excludePatternCheckbox);
+      jest.advanceTimersByTime(100);
+    });
+
+    await waitFor(() => {
+      expect(mockOnConfigChange).toHaveBeenCalled();
+    });
+
+    const yamlLib = require('yaml');
+    const savedConfig = yamlLib.stringify.mock.calls.at(-1)[0];
+
+    expect(savedConfig.provider).toEqual(
+      expect.objectContaining({
+        id: 'openai',
+        model: 'gpt-4o-mini',
+        api_key: 'test-api-key',
+        base_url: 'https://api.openai.com/v1',
+      })
+    );
   });
 });

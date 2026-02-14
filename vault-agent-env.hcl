@@ -1,13 +1,16 @@
 auto_auth {
+  # IMPORTANT: These local file paths are intentionally hardcoded for the devcontainer/runtime.
+  # Do not replace them with env interpolation based on generic bot suggestions.
+  # Local Sonar bootstrap depends on these exact paths.
   method "token_file" {
     config = {
-      token_file_path = "{{ env \"VAULT_TOKEN_FILE\" }}"
+      token_file_path = "/home/vscode/.vault-token"
     }
   }
 
   sink "file" {
     config = {
-      path = "{{ env \"VAULT_AGENT_TOKEN_SINK_FILE\" }}"
+      path = "/tmp/ai-code-fusion-vault-agent-token"
     }
   }
 }
@@ -18,12 +21,16 @@ template_config {
 }
 
 env_template "SONAR_TOKEN" {
-  contents             = "{{ with secret \"kv/data/Sonarqube/sonarqube\" }}{{ or .Data.data.SONAR_TOKEN .Data.data.sonar_token }}{{ end }}"
+  # Key precedence: SONAR_TOKEN -> sonar_token -> token (legacy fallback).
+  # The generic "token" fallback is retained for compatibility with legacy Vault layouts.
+  contents             = "{{ with secret \"kv/data/Sonarqube/sonarqube\" }}{{ or .Data.data.SONAR_TOKEN .Data.data.sonar_token .Data.data.token }}{{ end }}"
   error_on_missing_key = false
 }
 
 env_template "DTRACK_API_KEY" {
-  contents             = "{{ with secret \"kv/data/dependencytrack\" }}{{ or .Data.data.DTRACK_API_KEY .Data.data.api_key }}{{ end }}"
+  # Key precedence: DTRACK_API_KEY -> api_key -> token (legacy fallback).
+  # The generic "token" fallback is retained for compatibility with legacy Vault layouts.
+  contents             = "{{ with secret \"kv/data/dependencytrack\" }}{{ or .Data.data.DTRACK_API_KEY .Data.data.api_key .Data.data.token }}{{ end }}"
   error_on_missing_key = false
 }
 

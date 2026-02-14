@@ -84,7 +84,7 @@ jest.mock('../../../src/renderer/components/SourceTab', () => {
         >
           Analyze
         </button>
-        <div data-testid='selected-files-count'>{selectedFiles.length}</div>
+        <div data-testid='selected-files-count'>{selectedFiles.size}</div>
         <button
           data-testid='mock-select-file-btn'
           onClick={() => onFileSelect && onFileSelect('/mock/directory/src/file1.js', true)}
@@ -103,7 +103,7 @@ jest.mock('../../../src/renderer/components/SourceTab', () => {
 
   MockSourceTab.propTypes = {
     rootPath: PropTypes.string,
-    selectedFiles: PropTypes.array.isRequired,
+    selectedFiles: PropTypes.any.isRequired,
     onDirectorySelect: PropTypes.func.isRequired,
     onAnalyze: PropTypes.func.isRequired,
     onFileSelect: PropTypes.func,
@@ -215,7 +215,6 @@ Object.defineProperty(window, 'localStorage', {
 
 // Mock window functions
 window.dispatchEvent = jest.fn();
-window.alert = jest.fn();
 
 describe('App Component', () => {
   beforeEach(() => {
@@ -258,6 +257,7 @@ describe('App Component', () => {
 
     // Source tab should be active
     expect(sourceTab).toHaveAttribute('data-active', 'true');
+    // All tabs stay in DOM with CSS visibility; verify source tab is active
     expect(screen.getByTestId('mock-source-tab')).toBeInTheDocument();
   });
 
@@ -618,14 +618,10 @@ describe('App Component', () => {
 
   test('handles error when repository analysis fails', async () => {
     // Setup
-    jest.clearAllMocks();
     localStorage.setItem('rootPath', '/mock/directory');
 
     // Mock API to reject with error
     window.electronAPI.analyzeRepository.mockRejectedValueOnce(new Error('Analysis failed'));
-
-    // Spy on window.alert
-    jest.spyOn(window, 'alert').mockImplementation(() => {});
 
     // Render the App
     render(<App />);
@@ -639,25 +635,21 @@ describe('App Component', () => {
     const selectFileBtn = screen.getByTestId('mock-select-file-btn');
     fireEvent.click(selectFileBtn);
 
-    // Click analyze button
+    // Click analyze button and wait for async error handling
     const analyzeBtn = screen.getByTestId('analyze-btn');
-    await act(async () => {
-      fireEvent.click(analyzeBtn);
-      // Wait for alert to be shown
-      await waitFor(() => expect(window.alert).toHaveBeenCalled());
+    fireEvent.click(analyzeBtn);
+
+    // Wait for error banner to appear (showError sets state after async rejection)
+    await waitFor(() => {
+      expect(
+        screen.getByText(/An error occurred while processing the repository/i)
+      ).toBeInTheDocument();
     });
 
-    // Verify API call and error handling
+    // Verify API call and error handling via error banner (not alert)
     expect(window.electronAPI.analyzeRepository).toHaveBeenCalled();
-    expect(window.alert).toHaveBeenCalledWith(
-      expect.stringContaining('Error processing repository: Analysis failed')
-    );
 
     // Ensure we didn't switch to processed tab
-    expect(screen.getByTestId('mock-source-tab')).toBeInTheDocument();
-    expect(screen.queryByTestId('mock-processed-tab')).not.toBeInTheDocument();
-
-    // Cleanup
-    window.alert.mockRestore();
+    expect(sourceTab).toHaveAttribute('data-active', 'true');
   });
 });

@@ -2,18 +2,22 @@ import React, { useEffect, useRef, useState } from 'react';
 import yaml from 'yaml';
 
 import FileTree from './FileTree';
+import Spinner from './icons/Spinner';
 
 import type { CountFilesTokensResult, DirectoryTreeItem, SelectionHandler } from '../../types/ipc';
 
 type SourceTabProps = {
   rootPath: string;
   directoryTree: DirectoryTreeItem[];
-  selectedFiles: string[];
-  selectedFolders?: string[];
+  selectedFiles: Set<string>;
+  selectedFolders: Set<string>;
+  configContent: string;
   onDirectorySelect: () => Promise<void> | void;
   onFileSelect: SelectionHandler;
   onFolderSelect: SelectionHandler;
+  onBatchSelect: (files: string[], folders: string[], isSelected: boolean) => void;
   onAnalyze: () => Promise<unknown>;
+  onRefreshTree: () => Promise<void>;
 };
 
 type TokenCacheEntry = {
@@ -60,11 +64,14 @@ const SourceTab = ({
   rootPath,
   directoryTree,
   selectedFiles,
-  selectedFolders = [],
+  selectedFolders,
   onDirectorySelect,
   onFileSelect,
   onFolderSelect,
+  configContent,
+  onBatchSelect,
   onAnalyze,
+  onRefreshTree,
 }: SourceTabProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showTokenCount, setShowTokenCount] = useState(true);
@@ -73,6 +80,8 @@ const SourceTab = ({
   const [tokenCache, setTokenCache] = useState<TokenCache>({});
   const pendingCalculationRef = useRef<number | null>(null);
   const appWindow = globalThis as Window & typeof globalThis;
+
+  const selectedFilesArray = [...selectedFiles];
 
   const handleDirectorySelect = async () => {
     setTokenCache({});
@@ -86,7 +95,6 @@ const SourceTab = ({
 
   useEffect(() => {
     try {
-      const configContent = localStorage.getItem('configContent');
       if (configContent) {
         const config = yaml.parse(configContent) as { show_token_count?: boolean };
         setShowTokenCount(config.show_token_count !== false);
@@ -94,7 +102,7 @@ const SourceTab = ({
     } catch (error) {
       console.error('Error parsing config for token count visibility:', error);
     }
-  }, []);
+  }, [configContent]);
 
   useEffect(() => {
     if (pendingCalculationRef.current !== null) {
@@ -102,7 +110,7 @@ const SourceTab = ({
       pendingCalculationRef.current = null;
     }
 
-    if (selectedFiles.length === 0) {
+    if (selectedFiles.size === 0) {
       setTotalTokens(0);
       setIsCalculating(false);
       return undefined;
@@ -116,13 +124,13 @@ const SourceTab = ({
 
     setIsCalculating(true);
 
-    const cachedTotal = selectedFiles.reduce((sum, filePath) => {
+    const cachedTotal = selectedFilesArray.reduce((sum, filePath) => {
       return sum + (tokenCache[filePath]?.tokenCount || 0);
     }, 0);
 
     setTotalTokens(cachedTotal);
 
-    const filesToProcess = selectedFiles.filter((filePath) => !tokenCache[filePath]);
+    const filesToProcess = selectedFilesArray.filter((filePath) => !tokenCache[filePath]);
 
     if (filesToProcess.length === 0) {
       setIsCalculating(false);
@@ -148,7 +156,7 @@ const SourceTab = ({
 
         updateTokenCache(normalizedResults, stats, setTokenCache);
 
-        const newTotal = selectedFiles.reduce((sum, filePath) => {
+        const newTotal = selectedFilesArray.reduce((sum, filePath) => {
           return sum + (normalizedResults[filePath] || tokenCache[filePath]?.tokenCount || 0);
         }, 0);
 
@@ -173,6 +181,7 @@ const SourceTab = ({
         pendingCalculationRef.current = null;
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedFilesArray is derived from selectedFiles
   }, [selectedFiles, tokenCache, rootPath, appWindow]);
 
   useEffect(() => {
@@ -187,38 +196,14 @@ const SourceTab = ({
     };
   }, [appWindow]);
 
-  const hasSelection = selectedFiles.length > 0 || selectedFolders.length > 0;
+  const hasSelection = selectedFiles.size > 0 || selectedFolders.size > 0;
   const isProcessBusy = isAnalyzing || isCalculating;
   const isProcessDisabled = !rootPath || !hasSelection || isProcessBusy;
   const renderProcessButtonContent = () => {
-    const spinnerIcon = (
-      <svg
-        data-testid='process-selected-files-spinner'
-        className='animate-spin -ml-1 mr-2 h-4 w-4 text-white'
-        xmlns='http://www.w3.org/2000/svg'
-        fill='none'
-        viewBox='0 0 24 24'
-      >
-        <circle
-          className='opacity-25'
-          cx='12'
-          cy='12'
-          r='10'
-          stroke='currentColor'
-          strokeWidth='4'
-        ></circle>
-        <path
-          className='opacity-75'
-          fill='currentColor'
-          d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
-        ></path>
-      </svg>
-    );
-
     if (isAnalyzing) {
       return (
         <>
-          {spinnerIcon}
+          <Spinner className='-ml-1 mr-2 h-4 w-4 text-white' data-testid='process-selected-files-spinner' />
           Processing...
         </>
       );
@@ -227,7 +212,7 @@ const SourceTab = ({
     if (isCalculating) {
       return (
         <>
-          {spinnerIcon}
+          <Spinner className='-ml-1 mr-2 h-4 w-4 text-white' data-testid='process-selected-files-spinner' />
           Selecting files...
         </>
       );
@@ -277,6 +262,7 @@ const SourceTab = ({
             selectedFolders={selectedFolders}
             onFileSelect={onFileSelect}
             onFolderSelect={onFolderSelect}
+            onBatchSelect={onBatchSelect}
           />
         </div>
       </div>
@@ -350,9 +336,7 @@ const SourceTab = ({
                   appWindow.clearTimeout(pendingCalculationRef.current);
                   pendingCalculationRef.current = null;
                 }
-                if (appWindow.refreshDirectoryTree) {
-                  await appWindow.refreshDirectoryTree();
-                }
+                await onRefreshTree();
               }}
               className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
               title='Refresh the file list'
@@ -376,8 +360,7 @@ const SourceTab = ({
 
             <button
               onClick={() => {
-                selectedFiles.forEach((filePath) => onFileSelect(filePath, false));
-                selectedFolders.forEach((folderPath) => onFolderSelect(folderPath, false));
+                onBatchSelect([...selectedFiles], [...selectedFolders], false);
                 setTotalTokens(0);
                 if (pendingCalculationRef.current !== null) {
                   appWindow.clearTimeout(pendingCalculationRef.current);
@@ -411,7 +394,7 @@ const SourceTab = ({
           <div className='flex items-center'>
             <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Files</span>
             <span className='text-lg font-bold text-blue-600 dark:text-blue-400'>
-              {selectedFiles.length}
+              {selectedFiles.size}
             </span>
           </div>
 
@@ -452,26 +435,7 @@ const SourceTab = ({
       {isAnalyzing && (
         <div className='mt-4 p-4 bg-blue-50 rounded-md border border-blue-100 dark:border-blue-800 dark:bg-blue-900/30'>
           <div className='flex items-center justify-center text-blue-700 dark:text-blue-300'>
-            <svg
-              className='animate-spin -ml-1 mr-3 h-5 w-5'
-              xmlns='http://www.w3.org/2000/svg'
-              fill='none'
-              viewBox='0 0 24 24'
-            >
-              <circle
-                className='opacity-25'
-                cx='12'
-                cy='12'
-                r='10'
-                stroke='currentColor'
-                strokeWidth='4'
-              ></circle>
-              <path
-                className='opacity-75'
-                fill='currentColor'
-                d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
-              ></path>
-            </svg>
+            <Spinner className='-ml-1 mr-3 h-5 w-5' />
             Analyzing selected files, please wait...
           </div>
         </div>
