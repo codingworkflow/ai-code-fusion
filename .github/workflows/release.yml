@@ -31,6 +31,9 @@ jobs:
       - name: Prepare build
         run: node scripts/prepare-build.js windows
 
+      - name: Build CSS
+        run: npm run build:css
+
       - name: Build Webpack
         run: npm run build:webpack
 
@@ -101,6 +104,9 @@ jobs:
             fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
           "
 
+      - name: Build CSS
+        run: npm run build:css
+
       - name: Build Webpack
         run: npm run build:webpack
 
@@ -141,6 +147,9 @@ jobs:
 
       - name: Prepare build
         run: node scripts/prepare-build.js mac
+
+      - name: Build CSS
+        run: npm run build:css
 
       - name: Build Webpack
         run: npm run build:webpack

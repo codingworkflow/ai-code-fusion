@@ -6,7 +6,8 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 const ROOT_DIR = path.join(__dirname, '..');
-const RENDERER_DIR = path.join(ROOT_DIR, 'src', 'renderer');
+const RENDERER_SOURCE_DIR = path.join(ROOT_DIR, 'src', 'renderer');
+const RENDERER_BUILD_DIR = path.join(ROOT_DIR, 'dist', 'renderer');
 const DEFAULT_SCREENSHOT_DIR = path.join('dist', 'qa', 'screenshots');
 const SCREENSHOT_DIR = resolveOutputDirectory(process.env.UI_SCREENSHOT_DIR);
 const PORT = Number(process.env.UI_SCREENSHOT_PORT || 4173);
@@ -107,9 +108,18 @@ async function runStep(stepName, action) {
 
 function resolveFilePath(requestUrl) {
   const urlPath = decodeURIComponent(requestUrl.split('?')[0]);
-  const relativePath = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
-  const absolutePath = path.resolve(RENDERER_DIR, relativePath);
-  const relativeToRoot = path.relative(RENDERER_DIR, absolutePath);
+  if (urlPath === '/' || urlPath === '/index.html') {
+    return path.join(RENDERER_SOURCE_DIR, 'index.html');
+  }
+
+  const relativePath = urlPath.replace(/^\/+/, '');
+  const servesRendererBuildOutput = relativePath.startsWith('dist/renderer/');
+  const pathRoot = servesRendererBuildOutput ? RENDERER_BUILD_DIR : RENDERER_SOURCE_DIR;
+  const pathWithinRoot = servesRendererBuildOutput
+    ? relativePath.replace(/^dist\/renderer\//, '')
+    : relativePath;
+  const absolutePath = path.resolve(pathRoot, pathWithinRoot);
+  const relativeToRoot = path.relative(pathRoot, absolutePath);
 
   if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
     return null;
@@ -516,6 +526,30 @@ async function setLocaleAndWait(page, locale) {
   );
 }
 
+async function setCheckboxState(page, selector, shouldBeChecked) {
+  const checkbox = page.locator(selector).first();
+  await checkbox.waitFor({ state: 'visible', timeout: 10000 });
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const currentState = await checkbox.isChecked();
+    if (currentState === shouldBeChecked) {
+      return;
+    }
+
+    if (shouldBeChecked) {
+      await checkbox.check();
+    } else {
+      await checkbox.uncheck();
+    }
+
+    await page.waitForTimeout(75);
+  }
+
+  throw new Error(
+    `Unable to set checkbox "${selector}" to ${shouldBeChecked ? 'checked' : 'unchecked'}`
+  );
+}
+
 async function captureLocaleScreenshots(page) {
   await runStep('Wait for language selector', async () => {
     await page.waitForSelector(UI_SELECTORS.languageSelector, { timeout: 10000 });
@@ -597,8 +631,25 @@ async function captureAppStateScreenshots(page) {
   await runStep('Disable secret filtering in config tab', async () => {
     await page.click(UI_SELECTORS.configTab);
     await page.waitForSelector(UI_SELECTORS.secretScanningToggle, { timeout: 10000 });
-    await page.uncheck(UI_SELECTORS.secretScanningToggle);
-    await page.uncheck(UI_SELECTORS.suspiciousFilesToggle);
+    await setCheckboxState(page, UI_SELECTORS.secretScanningToggle, false);
+    await setCheckboxState(page, UI_SELECTORS.suspiciousFilesToggle, false);
+    await page.waitForFunction(
+      ({ secretSelector, suspiciousSelector }) => {
+        const secretToggle = document.querySelector(secretSelector);
+        const suspiciousToggle = document.querySelector(suspiciousSelector);
+
+        return (
+          secretToggle instanceof HTMLInputElement &&
+          suspiciousToggle instanceof HTMLInputElement &&
+          !secretToggle.checked &&
+          !suspiciousToggle.checked
+        );
+      },
+      {
+        secretSelector: UI_SELECTORS.secretScanningToggle,
+        suspiciousSelector: UI_SELECTORS.suspiciousFilesToggle,
+      }
+    );
     await page.getByRole('button', { name: /save config|saved/i }).click();
     await page.waitForFunction(() => {
       const configContent = localStorage.getItem('configContent') || '';

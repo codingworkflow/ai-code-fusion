@@ -15,9 +15,6 @@
 /build
 
 # Build outputs
-/src/renderer/index.js
-/src/renderer/index.js.map
-/src/renderer/output.css
 /.tmp*
 /temp
 
@@ -70,9 +67,6 @@ $RECYCLE.BIN/
 start/
 start/*
 /signed/
-src/renderer/bundle.js.LICENSE.txt
-src/renderer/bundle.js.map
-src/renderer/bundle.js
 
 # Test artifacts
 /test-results

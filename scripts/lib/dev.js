@@ -29,17 +29,20 @@ async function start() {
 
   try {
     // Build CSS if it doesn't exist
-    const cssFile = path.join(utils.ROOT_DIR, 'src', 'renderer', 'output.css');
+    const cssFile = path.join(utils.ROOT_DIR, 'dist', 'renderer', 'output.css');
     if (!fs.existsSync(cssFile)) {
       log('CSS not found, building...', colors.yellow);
       try {
         // Try direct command execution first
         const { execSync } = require('child_process');
         log('Running tailwindcss directly...', colors.blue);
-        execSync('npx tailwindcss -i ./src/renderer/styles.css -o ./src/renderer/output.css', {
-          stdio: 'inherit',
-          cwd: utils.ROOT_DIR,
-        });
+        execSync(
+          'npx @tailwindcss/cli -i ./src/renderer/styles.css -o ./dist/renderer/output.css',
+          {
+            stdio: 'inherit',
+            cwd: utils.ROOT_DIR,
+          }
+        );
       } catch (err) {
         log(`Error running tailwindcss: ${err.message}`, colors.red);
         throw err;
@@ -47,7 +50,7 @@ async function start() {
     }
 
     // Check if webpack output exists
-    const webpackOutput = path.join(utils.ROOT_DIR, 'src', 'renderer', 'bundle.js');
+    const webpackOutput = path.join(utils.ROOT_DIR, 'dist', 'renderer', 'bundle.js');
     if (!fs.existsSync(webpackOutput)) {
       log('Webpack bundle not found, building...', colors.yellow);
       utils.runNpmScript('build:webpack');
