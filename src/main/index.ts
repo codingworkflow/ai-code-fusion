@@ -68,7 +68,6 @@ let updaterService = createUpdaterService(
 const APP_ROOT = path.resolve(__dirname, '../../..');
 const RENDERER_INDEX_PATH = path.join(APP_ROOT, 'src', 'renderer', 'index.html');
 const ASSETS_DIR = path.join(APP_ROOT, 'src', 'assets');
-const PUBLIC_ASSETS_DIR = path.join(APP_ROOT, 'public', 'assets');
 const createForbiddenAssetResponse = (): Response => new Response('Forbidden', { status: 403 });
 
 // Set environment
@@ -172,9 +171,9 @@ const bootstrapApp = async () => {
       const relativeAssetPath = decodeURIComponent(
         [hostSegment, pathSegment].filter((segment) => segment.length > 0).join('/')
       );
-      const assetPath = path.normalize(path.join(PUBLIC_ASSETS_DIR, relativeAssetPath));
+      const assetPath = path.normalize(path.join(ASSETS_DIR, relativeAssetPath));
 
-      if (!isPathWithinRoot(PUBLIC_ASSETS_DIR, assetPath)) {
+      if (!isPathWithinRoot(ASSETS_DIR, assetPath)) {
         return createForbiddenAssetResponse();
       }
 

@@ -260,21 +260,23 @@ describe('Main Process IPC Handlers', () => {
       const basicResponse = await handler({ url: 'assets://icon.png' });
       expect(basicResponse).toBeDefined();
 
-      const hostPathResponse = await handler({ url: 'assets://public/icon.png' });
-      expect(hostPathResponse).toBeDefined();
-
-      const nestedResponse = await handler({ url: 'assets://host/dir/file.png' });
+      const nestedResponse = await handler({ url: 'assets://icons/512x512.png' });
       expect(nestedResponse).toBeDefined();
 
-      const encodedResponse = await handler({ url: 'assets://host/dir/space%20file.png' });
+      const encodedResponse = await handler({ url: 'assets://icons/space%20file.png' });
       expect(encodedResponse).toBeDefined();
 
-      expect(mockNetFetch).toHaveBeenNthCalledWith(1, expect.stringContaining('icon.png'));
-      expect(mockNetFetch).toHaveBeenNthCalledWith(2, expect.stringContaining('public/icon.png'));
-      expect(mockNetFetch).toHaveBeenNthCalledWith(3, expect.stringContaining('host/dir/file.png'));
       expect(mockNetFetch).toHaveBeenNthCalledWith(
-        4,
-        expect.stringContaining('host/dir/space%20file.png')
+        1,
+        expect.stringContaining('/src/assets/icon.png')
+      );
+      expect(mockNetFetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('/src/assets/icons/512x512.png')
+      );
+      expect(mockNetFetch).toHaveBeenNthCalledWith(
+        3,
+        expect.stringContaining('/src/assets/icons/space%20file.png')
       );
     });
 
@@ -1097,6 +1099,7 @@ describe('Main Process IPC Handlers', () => {
       const result = await handler(null, 'icon.png');
 
       expect(typeof result).toBe('string');
+      expect(result).toContain('/src/assets/');
       expect(result).toContain('icon.png');
     });
 
