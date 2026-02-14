@@ -19,6 +19,25 @@ type DirectoryTreeServiceOptions = {
   onError?: (message: string, error?: unknown) => void;
 };
 
+const appendExcludePatterns = (
+  excludePatterns: FilterPatternBundle,
+  additionalPatterns: string[] | undefined
+): FilterPatternBundle => {
+  if (!Array.isArray(additionalPatterns) || additionalPatterns.length === 0) {
+    return excludePatterns;
+  }
+
+  const mergedPatterns = [...excludePatterns, ...additionalPatterns] as FilterPatternBundle;
+  if (Array.isArray(excludePatterns.includePatterns)) {
+    mergedPatterns.includePatterns = excludePatterns.includePatterns;
+  }
+  if (Array.isArray(excludePatterns.includeExtensions)) {
+    mergedPatterns.includeExtensions = excludePatterns.includeExtensions;
+  }
+
+  return mergedPatterns;
+};
+
 const readPathStats = (itemPath: string): { stats: fs.Stats; isSymbolicLink: boolean } => {
   const lstatFn = fs.lstatSync;
   if (typeof lstatFn === 'function') {
@@ -49,7 +68,7 @@ const parseFilterSettings = (
   onError: (message: string, error?: unknown) => void
 ): { excludePatterns: FilterPatternBundle; config: ConfigObject } => {
   let excludePatterns: FilterPatternBundle = [];
-  let config: ConfigObject = { exclude_patterns: [] };
+  let config: ConfigObject;
 
   try {
     config = (configContent
@@ -60,8 +79,8 @@ const parseFilterSettings = (
     const useCustomIncludes = config.use_custom_includes !== false;
     const useGitignore = config.use_gitignore !== false;
 
-    if (useCustomExcludes && config.exclude_patterns && Array.isArray(config.exclude_patterns)) {
-      excludePatterns = [...excludePatterns, ...config.exclude_patterns];
+    if (useCustomExcludes && Array.isArray(config.exclude_patterns)) {
+      excludePatterns = appendExcludePatterns(excludePatterns, config.exclude_patterns);
     }
 
     if (useCustomIncludes && config.include_extensions && Array.isArray(config.include_extensions)) {
@@ -70,9 +89,7 @@ const parseFilterSettings = (
 
     if (useGitignore) {
       const gitignoreResult = gitignoreParser.parseGitignore(rootPath);
-      if (gitignoreResult.excludePatterns && gitignoreResult.excludePatterns.length > 0) {
-        excludePatterns = [...excludePatterns, ...gitignoreResult.excludePatterns];
-      }
+      excludePatterns = appendExcludePatterns(excludePatterns, gitignoreResult.excludePatterns);
       if (gitignoreResult.includePatterns && gitignoreResult.includePatterns.length > 0) {
         excludePatterns.includePatterns = gitignoreResult.includePatterns;
       }

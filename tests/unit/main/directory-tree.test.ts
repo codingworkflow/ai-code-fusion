@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import yaml from 'yaml';
 
 import { getDirectoryTree } from '../../../src/main/services/directory-tree';
@@ -16,8 +17,13 @@ type FsWithTreeMethods = {
   realpathSync?: ((value: string) => string) & { native?: (value: string) => string };
 };
 
+type MockGitignoreParser = {
+  parseGitignore: jest.Mock;
+};
+
 const fsWithTreeMethods = fs as unknown as FsWithTreeMethods;
 const yamlParse = yaml.parse as jest.Mock;
+const ROOT_PATH = path.join(path.sep, 'mock', 'repo');
 
 const buildMockStats = ({
   isDirectory = false,
@@ -29,6 +35,48 @@ const buildMockStats = ({
   size,
   mtime: new Date('2024-01-01T00:00:00.000Z'),
 });
+
+const createGitignoreParser = (
+  excludePatterns: string[] = [],
+  includePatterns: string[] = []
+): MockGitignoreParser => {
+  return {
+    parseGitignore: jest.fn().mockReturnValue({
+      excludePatterns,
+      includePatterns,
+    }),
+  };
+};
+
+const mockDirectoryEntries = (entriesByDirectory: Record<string, string[]>) => {
+  fsWithTreeMethods.readdirSync.mockImplementation((directoryPath: string) => {
+    return entriesByDirectory[directoryPath] ?? [];
+  });
+};
+
+const mockPathStats = ({
+  directories = [],
+  symlinks = [],
+}: {
+  directories?: string[];
+  symlinks?: string[];
+}) => {
+  const directorySet = new Set(directories);
+  const symlinkSet = new Set(symlinks);
+
+  fsWithTreeMethods.lstatSync?.mockImplementation((candidatePath: string) =>
+    buildMockStats({
+      isDirectory: directorySet.has(candidatePath),
+      isSymbolicLink: symlinkSet.has(candidatePath),
+    })
+  );
+
+  fsWithTreeMethods.statSync.mockImplementation((candidatePath: string) =>
+    buildMockStats({
+      isDirectory: directorySet.has(candidatePath),
+    })
+  );
+};
 
 describe('directory-tree service', () => {
   let originalRealPathSync: FsWithTreeMethods['realpathSync'];
@@ -61,40 +109,26 @@ describe('directory-tree service', () => {
       exclude_patterns: ['**/node_modules/**'],
     });
 
-    const gitignoreParser = {
-      parseGitignore: jest.fn().mockReturnValue({
-        excludePatterns: ['*.log'],
-        includePatterns: ['keep.log'],
-      }),
-    };
+    const srcDirectoryPath = path.join(ROOT_PATH, 'src');
+    const nodeModulesDirectoryPath = path.join(ROOT_PATH, 'node_modules');
+    const gitignoreParser = createGitignoreParser(['*.log'], ['keep.log']);
 
-    fsWithTreeMethods.readdirSync.mockImplementation((directoryPath: string) => {
-      if (directoryPath === '/mock/repo') {
-        return ['src', 'node_modules', 'keep.log', 'drop.log', 'README.md'];
-      }
-      if (directoryPath === '/mock/repo/src') {
-        return ['index.ts', 'helper.js'];
-      }
-      return [];
+    mockDirectoryEntries({
+      [ROOT_PATH]: ['src', 'node_modules', 'keep.log', 'drop.log', 'README.md'],
+      [srcDirectoryPath]: ['index.ts', 'helper.js'],
     });
 
-    const isDirectoryPath = (candidatePath: string): boolean =>
-      candidatePath.endsWith('/src') || candidatePath.endsWith('/node_modules');
-
-    fsWithTreeMethods.lstatSync?.mockImplementation((candidatePath: string) =>
-      buildMockStats({ isDirectory: isDirectoryPath(candidatePath) })
-    );
-    fsWithTreeMethods.statSync.mockImplementation((candidatePath: string) =>
-      buildMockStats({ isDirectory: isDirectoryPath(candidatePath) })
-    );
+    mockPathStats({
+      directories: [srcDirectoryPath, nodeModulesDirectoryPath],
+    });
 
     const result = getDirectoryTree({
-      rootPath: '/mock/repo',
+      rootPath: ROOT_PATH,
       configContent: 'mocked: true',
       gitignoreParser,
     });
 
-    expect(gitignoreParser.parseGitignore).toHaveBeenCalledWith('/mock/repo');
+    expect(gitignoreParser.parseGitignore).toHaveBeenCalledWith(ROOT_PATH);
     expect(result.map((item) => item.name)).toEqual(['src', 'keep.log']);
     expect(result[0]).toEqual(
       expect.objectContaining({
@@ -109,95 +143,71 @@ describe('directory-tree service', () => {
   test('skips symlinks and warns when symlink resolves outside root', () => {
     yamlParse.mockReturnValue({ exclude_patterns: [] });
 
-    const gitignoreParser = {
-      parseGitignore: jest.fn().mockReturnValue({
-        excludePatterns: [],
-        includePatterns: [],
-      }),
-    };
+    const outsideLinkPath = path.join(ROOT_PATH, 'outside-link');
+    const insideLinkPath = path.join(ROOT_PATH, 'inside-link');
+    const outsideTargetPath = path.join(path.sep, 'outside', 'root', 'target');
+    const gitignoreParser = createGitignoreParser();
 
     const realPathMock = jest.fn((candidatePath: string) => {
-      if (candidatePath === '/mock/repo/outside-link') {
-        return '/outside/root/target';
+      if (candidatePath === outsideLinkPath) {
+        return outsideTargetPath;
       }
       return candidatePath;
     });
     realPathMock.native = realPathMock;
     fsWithTreeMethods.realpathSync = realPathMock;
 
-    fsWithTreeMethods.readdirSync.mockImplementation((directoryPath: string) => {
-      if (directoryPath === '/mock/repo') {
-        return ['outside-link', 'inside-link', 'plain.ts'];
-      }
-      return [];
+    mockDirectoryEntries({
+      [ROOT_PATH]: ['outside-link', 'inside-link', 'plain.ts'],
     });
 
-    fsWithTreeMethods.lstatSync?.mockImplementation((candidatePath: string) =>
-      buildMockStats({
-        isSymbolicLink: candidatePath.endsWith('outside-link') || candidatePath.endsWith('inside-link'),
-      })
-    );
-    fsWithTreeMethods.statSync.mockImplementation(() => buildMockStats());
+    mockPathStats({
+      symlinks: [outsideLinkPath, insideLinkPath],
+    });
 
     const warnMock = jest.fn();
     const result = getDirectoryTree({
-      rootPath: '/mock/repo',
+      rootPath: ROOT_PATH,
       gitignoreParser,
       onWarn: warnMock,
     });
 
     expect(result.map((item) => item.name)).toEqual(['plain.ts']);
     expect(warnMock).toHaveBeenCalledWith(
-      expect.stringContaining('Skipping symlink outside current root directory: /mock/repo/outside-link')
+      expect.stringContaining(`Skipping symlink outside current root directory: ${outsideLinkPath}`)
     );
   });
 
   test('prevents recursion loops by tracking canonical directory paths', () => {
     yamlParse.mockReturnValue({ exclude_patterns: [] });
 
-    const gitignoreParser = {
-      parseGitignore: jest.fn().mockReturnValue({
-        excludePatterns: [],
-        includePatterns: [],
-      }),
-    };
+    const firstDirectoryPath = path.join(ROOT_PATH, 'a');
+    const secondDirectoryPath = path.join(ROOT_PATH, 'b');
+    const sharedCanonicalPath = path.join(ROOT_PATH, 'shared-canonical');
+    const gitignoreParser = createGitignoreParser();
 
     const realPathMock = jest.fn((candidatePath: string) => {
-      if (candidatePath === '/mock/repo/a' || candidatePath === '/mock/repo/b') {
-        return '/mock/repo/shared-canonical';
+      if (candidatePath === firstDirectoryPath || candidatePath === secondDirectoryPath) {
+        return sharedCanonicalPath;
       }
       return candidatePath;
     });
     realPathMock.native = realPathMock;
     fsWithTreeMethods.realpathSync = realPathMock;
 
-    fsWithTreeMethods.readdirSync.mockImplementation((directoryPath: string) => {
-      if (directoryPath === '/mock/repo') {
-        return ['a', 'b'];
-      }
-      if (directoryPath === '/mock/repo/a') {
-        return ['a.ts'];
-      }
-      if (directoryPath === '/mock/repo/b') {
-        return ['b.ts'];
-      }
-      return [];
+    mockDirectoryEntries({
+      [ROOT_PATH]: ['a', 'b'],
+      [firstDirectoryPath]: ['a.ts'],
+      [secondDirectoryPath]: ['b.ts'],
     });
 
-    fsWithTreeMethods.lstatSync?.mockImplementation((candidatePath: string) =>
-      buildMockStats({
-        isDirectory: candidatePath.endsWith('/a') || candidatePath.endsWith('/b'),
-      })
-    );
-    fsWithTreeMethods.statSync.mockImplementation((candidatePath: string) =>
-      buildMockStats({
-        isDirectory: candidatePath.endsWith('/a') || candidatePath.endsWith('/b'),
-      })
-    );
+    mockPathStats({
+      directories: [firstDirectoryPath, secondDirectoryPath],
+    });
 
     const warnMock = jest.fn();
     const result = getDirectoryTree({
-      rootPath: '/mock/repo',
+      rootPath: ROOT_PATH,
       gitignoreParser,
       onWarn: warnMock,
     });
@@ -205,7 +215,7 @@ describe('directory-tree service', () => {
     expect(result.map((item) => item.name)).toEqual(['a']);
     expect(warnMock).toHaveBeenCalledWith(
       expect.stringContaining(
-        'Skipping previously visited directory to avoid recursion loops: /mock/repo/b'
+        `Skipping previously visited directory to avoid recursion loops: ${secondDirectoryPath}`
       )
     );
   });
@@ -215,40 +225,23 @@ describe('directory-tree service', () => {
       throw new Error('parse failure');
     });
 
-    const gitignoreParser = {
-      parseGitignore: jest.fn().mockReturnValue({
-        excludePatterns: ['*.tmp'],
-        includePatterns: [],
-      }),
-    };
+    const gitDirectoryPath = path.join(ROOT_PATH, '.git');
+    const srcDirectoryPath = path.join(ROOT_PATH, 'src');
+    const gitignoreParser = createGitignoreParser(['*.tmp']);
 
-    fsWithTreeMethods.readdirSync.mockImplementation((directoryPath: string) => {
-      if (directoryPath === '/mock/repo') {
-        return ['.git', 'src'];
-      }
-      if (directoryPath === '/mock/repo/.git') {
-        return ['config'];
-      }
-      if (directoryPath === '/mock/repo/src') {
-        return ['index.ts'];
-      }
-      return [];
+    mockDirectoryEntries({
+      [ROOT_PATH]: ['.git', 'src'],
+      [gitDirectoryPath]: ['config'],
+      [srcDirectoryPath]: ['index.ts'],
     });
 
-    fsWithTreeMethods.lstatSync?.mockImplementation((candidatePath: string) =>
-      buildMockStats({
-        isDirectory: candidatePath.endsWith('/.git') || candidatePath.endsWith('/src'),
-      })
-    );
-    fsWithTreeMethods.statSync.mockImplementation((candidatePath: string) =>
-      buildMockStats({
-        isDirectory: candidatePath.endsWith('/.git') || candidatePath.endsWith('/src'),
-      })
-    );
+    mockPathStats({
+      directories: [gitDirectoryPath, srcDirectoryPath],
+    });
 
     const errorMock = jest.fn();
     const result = getDirectoryTree({
-      rootPath: '/mock/repo',
+      rootPath: ROOT_PATH,
       configContent: 'invalid yaml',
       gitignoreParser,
       onError: errorMock,
