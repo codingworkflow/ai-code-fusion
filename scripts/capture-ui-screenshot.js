@@ -334,13 +334,15 @@ const MOCK_VISIBLE_FILE_COUNT_WITH_SECRET_FILTER = countMockFiles(MOCK_FILTERED_
 const SCREENSHOT_NAME = sanitizeScreenshotName(process.env.UI_SCREENSHOT_NAME);
 const SCREENSHOT_BASE_NAME = path.parse(SCREENSHOT_NAME).name;
 const SCREENSHOT_PATH = resolveOutputPath(SCREENSHOT_NAME);
+const LOCALE_SCREENSHOT_PATHS = Object.fromEntries(
+  SUPPORTED_LOCALES.map((locale) => [
+    locale,
+    resolveOutputPath(`${SCREENSHOT_BASE_NAME}-locale-${locale}.png`),
+  ])
+);
 
 const SCREENSHOTS = {
   configDefault: SCREENSHOT_PATH,
-  localeEn: resolveOutputPath(`${SCREENSHOT_BASE_NAME}-locale-en.png`),
-  localeEs: resolveOutputPath(`${SCREENSHOT_BASE_NAME}-locale-es.png`),
-  localeFr: resolveOutputPath(`${SCREENSHOT_BASE_NAME}-locale-fr.png`),
-  localeDe: resolveOutputPath(`${SCREENSHOT_BASE_NAME}-locale-de.png`),
   sourceTab: resolveOutputPath(`${SCREENSHOT_BASE_NAME}-source.png`),
   sourceSelected: resolveOutputPath(`${SCREENSHOT_BASE_NAME}-source-selected.png`),
   sourceSelectedResized: resolveOutputPath(`${SCREENSHOT_BASE_NAME}-source-selected-resized.png`),
@@ -366,13 +368,6 @@ const UI_SELECTORS = {
   fileTreeScrollContainer: '.file-tree .overflow-auto',
   processSelectedFilesButton: '[data-testid="process-selected-files-button"]',
   processedContent: '#processed-content',
-};
-
-const LOCALE_SCREENSHOT_KEYS = {
-  en: 'localeEn',
-  es: 'localeEs',
-  fr: 'localeFr',
-  de: 'localeDe',
 };
 
 async function setupMockElectronApi(page) {
@@ -532,8 +527,7 @@ async function captureLocaleScreenshots(page) {
     });
 
     await runStep(`Capture locale screenshot (${locale})`, async () => {
-      const screenshotKey = LOCALE_SCREENSHOT_KEYS[locale];
-      await page.screenshot({ path: SCREENSHOTS[screenshotKey], fullPage: true });
+      await page.screenshot({ path: LOCALE_SCREENSHOT_PATHS[locale], fullPage: true });
     });
   }
 
@@ -761,10 +755,7 @@ async function captureScreenshot() {
     await captureAppStateScreenshots(page);
     const screenshotPaths = [
       SCREENSHOTS.configDefault,
-      SCREENSHOTS.localeEn,
-      SCREENSHOTS.localeEs,
-      SCREENSHOTS.localeFr,
-      SCREENSHOTS.localeDe,
+      ...SUPPORTED_LOCALES.map((locale) => LOCALE_SCREENSHOT_PATHS[locale]),
       SCREENSHOTS.sourceTab,
       SCREENSHOTS.sourceSelected,
       SCREENSHOTS.sourceSelectedResized,
