@@ -84,7 +84,7 @@ const AppContent = () => {
                   alt={t('app.name')}
                   className='h-8 w-8'
                   onError={(event: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                    console.error('Failed to load ../assets/icon.png');
+                    console.error('Failed to load application icon');
                     const image = event.currentTarget;
                     image.style.display = 'none';
                     const fallbackIcon = image.nextElementSibling as HTMLElement | null;

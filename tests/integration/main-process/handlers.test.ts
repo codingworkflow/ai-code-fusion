@@ -260,10 +260,10 @@ describe('Main Process IPC Handlers', () => {
       const basicResponse = await handler({ url: 'assets://icon.png' });
       expect(basicResponse).toBeDefined();
 
-      const nestedResponse = await handler({ url: 'assets://icons/512x512.png' });
+      const nestedResponse = await handler({ url: 'assets://icons/png/512x512.png' });
       expect(nestedResponse).toBeDefined();
 
-      const encodedResponse = await handler({ url: 'assets://icons/space%20file.png' });
+      const encodedResponse = await handler({ url: 'assets://icons/png/space%20file.png' });
       expect(encodedResponse).toBeDefined();
 
       expect(mockNetFetch).toHaveBeenNthCalledWith(
@@ -272,11 +272,11 @@ describe('Main Process IPC Handlers', () => {
       );
       expect(mockNetFetch).toHaveBeenNthCalledWith(
         2,
-        expect.stringContaining('assets/icons/512x512.png')
+        expect.stringContaining('assets/icons/png/512x512.png')
       );
       expect(mockNetFetch).toHaveBeenNthCalledWith(
         3,
-        expect.stringContaining('assets/icons/space%20file.png')
+        expect.stringContaining('assets/icons/png/space%20file.png')
       );
     });
 
