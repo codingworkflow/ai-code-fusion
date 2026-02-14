@@ -245,6 +245,11 @@ const test = base.extend<E2EFixtures>({
   page: async ({ electronApp }, use) => {
     const page = await electronApp.firstWindow();
     await page.waitForLoadState('domcontentloaded');
+    await page.evaluate(() => {
+      localStorage.setItem('app.locale', 'en');
+    });
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
     await expect(page.getByRole('heading', { name: 'AI Code Fusion' })).toBeVisible();
     await use(page);
   },
@@ -322,4 +327,18 @@ test('saves processed output to disk through the native save flow', async ({ pag
   const savedContent = fs.readFileSync(savePath, 'utf8');
   expect(savedContent).toContain('src/App.tsx');
   expect(savedContent).toContain('APP_MARKER_V1');
+});
+
+test('persists selected language across reloads', async ({ page }) => {
+  const languageSelector = page.getByTestId('language-selector');
+  await expect(languageSelector).toHaveValue('en');
+
+  await languageSelector.selectOption('es');
+  await expect(languageSelector).toHaveValue('es');
+  await expect(page.getByRole('tab', { name: 'Inicio' })).toBeVisible();
+
+  await page.reload();
+  await page.waitForLoadState('domcontentloaded');
+  await expect(page.getByTestId('language-selector')).toHaveValue('es');
+  await expect(page.getByRole('tab', { name: 'Inicio' })).toBeVisible();
 });

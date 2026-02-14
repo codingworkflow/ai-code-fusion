@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { TabId } from '../../types/ipc';
 
@@ -8,10 +9,11 @@ type TabBarProps = {
 };
 
 const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
+  const { t } = useTranslation();
   const tabs = [
-    { id: 'config', label: 'Start' },
-    { id: 'source', label: 'Select Files' },
-    { id: 'processed', label: 'Processed Output' },
+    { id: 'config', labelKey: 'tabs.config' },
+    { id: 'source', labelKey: 'tabs.source' },
+    { id: 'processed', labelKey: 'tabs.processed' },
   ] as const;
 
   return (
@@ -30,8 +32,9 @@ const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
           }`}
           onClick={() => onTabChange(tab.id)}
           data-tab={tab.id}
+          data-testid={`tab-${tab.id}`}
         >
-          {tab.label}
+          {t(tab.labelKey)}
         </button>
       ))}
     </div>

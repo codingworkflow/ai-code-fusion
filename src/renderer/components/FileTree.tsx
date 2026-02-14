@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import type { DirectoryTreeItem, SelectionHandler } from '../../types/ipc';
 
@@ -40,6 +41,7 @@ const FileTreeItemComponent = ({
   onFileSelect,
   onFolderSelect,
 }: FileTreeItemProps) => {
+  const { t } = useTranslation();
   const isFile = item.type === 'file';
   const isFolder = item.type === 'directory';
   const checkboxIsSelected = getSelectionStatus(item, selectedFiles, selectedFolders);
@@ -115,7 +117,7 @@ const FileTreeItemComponent = ({
             type='button'
             className='mr-1 size-5 shrink-0 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none'
             onClick={handleToggle}
-            aria-label={isOpen ? 'Collapse folder' : 'Expand folder'}
+            aria-label={isOpen ? t('fileTree.collapseFolder') : t('fileTree.expandFolder')}
           >
             <span className='block text-center'>{isOpen ? '▼' : '▶'}</span>
           </button>
@@ -148,7 +150,11 @@ const FileTreeItemComponent = ({
                   }
                 }}
                 aria-expanded={isOpen}
-                aria-label={`${isOpen ? 'Collapse' : 'Expand'} folder ${item.name}`}
+                aria-label={
+                  isOpen
+                    ? t('fileTree.collapseFolderWithName', { name: item.name })
+                    : t('fileTree.expandFolderWithName', { name: item.name })
+                }
               >
                 <span className='shrink-0 text-yellow-500' aria-hidden='true'>
                   {isOpen ? '📂' : '📁'}
@@ -243,6 +249,7 @@ const FileTreeComponent = ({
   onFolderSelect,
   onBatchSelect,
 }: FileTreeProps) => {
+  const { t } = useTranslation();
   const totalFiles = useMemo(() => countTotalFiles(items), [items]);
 
   const selectAllChecked = useMemo(() => {
@@ -292,11 +299,11 @@ const FileTreeComponent = ({
             htmlFor='select-all-checkbox'
             className='cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300'
           >
-            Select All
+            {t('fileTree.selectAll')}
           </label>
         </div>
         <span className='text-xs font-medium text-gray-500 dark:text-gray-400'>
-          <span className='font-medium'>{selectedFiles.size}</span> of {totalFiles} files selected
+          {t('fileTree.selectedCount', { selected: selectedFiles.size, total: totalFiles })}
         </span>
       </div>
 
@@ -317,8 +324,8 @@ const FileTreeComponent = ({
                 d='M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z'
               ></path>
             </svg>
-            <p>No files to display</p>
-            <p className='mt-2 text-sm'>Select a directory to view files</p>
+            <p>{t('fileTree.emptyTitle')}</p>
+            <p className='mt-2 text-sm'>{t('fileTree.emptyHint')}</p>
           </div>
         ) : (
           items.map((item) => (

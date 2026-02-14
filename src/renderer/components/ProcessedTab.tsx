@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import Spinner from './icons/Spinner';
 
@@ -11,6 +12,7 @@ type ProcessedTabProps = {
 };
 
 const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps) => {
+  const { t } = useTranslation();
   const [isSaving, setIsSaving] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -68,12 +70,12 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
                 onClick={handleRefresh}
                 className='inline-flex items-center border border-transparent bg-green-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2'
                 disabled={isRefreshing}
-                title='Reload selected files and regenerate output with latest content'
+                title={t('processed.refreshCodeTitle')}
               >
                 {isRefreshing ? (
                   <>
                     <Spinner className='-ml-1 mr-2 h-4 w-4' />
-                    Reprocessing...
+                    {t('processed.reprocessing')}
                   </>
                 ) : (
                   <>
@@ -91,7 +93,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
                         d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
                       />
                     </svg>
-                    Refresh Code
+                    {t('processed.refreshCode')}
                   </>
                 )}
               </button>
@@ -100,7 +102,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
             {/* Stats in the center */}
             <div className='flex items-center'>
               <div className='flex items-center'>
-                <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Files</span>
+                <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>{t('common.files')}</span>
                 <span className='text-lg font-bold text-blue-600 dark:text-blue-400'>
                   {processedResult.processedFiles}
                 </span>
@@ -109,7 +111,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
               <div className='text-gray-400 mx-3'>|</div>
 
               <div className='flex items-center'>
-                <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Tokens</span>
+                <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>{t('common.tokens')}</span>
                 <span className='text-lg font-bold text-green-600 dark:text-green-400'>
                   {processedResult.totalTokens.toLocaleString()}
                 </span>
@@ -119,7 +121,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
                 <>
                   <div className='text-gray-400 mx-3'>|</div>
                   <div className='flex items-center'>
-                    <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>Skipped</span>
+                    <span className='text-sm text-gray-500 dark:text-gray-400 mr-2'>{t('processed.skipped')}</span>
                     <span className='text-lg font-bold text-amber-600 dark:text-amber-400'>
                       {processedResult.skippedFiles}
                     </span>
@@ -134,7 +136,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
                 className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
               >
                 {isCopied ? (
-                  '✓ Copied'
+                  t('processed.copied')
                 ) : (
                   <>
                     <svg
@@ -146,7 +148,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
                       <path d='M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z' />
                       <path d='M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z' />
                     </svg>
-                    Copy Content
+                    {t('processed.copyContent')}
                   </>
                 )}
               </button>
@@ -157,7 +159,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
                 } focus:outline-none`}
               >
                 {isSaving ? (
-                  '✓ Saving...'
+                  t('processed.saving')
                 ) : (
                   <>
                     <svg
@@ -174,7 +176,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
                         d='M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4'
                       />
                     </svg>
-                    Save to File
+                    {t('processed.saveToFile')}
                   </>
                 )}
               </button>
@@ -187,10 +189,10 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
                 htmlFor='processed-content'
                 className='block text-sm font-medium text-gray-700 dark:text-gray-300'
               >
-                Processed Content
+                {t('processed.processedContent')}
               </label>
               <div className='text-xs text-gray-500 dark:text-gray-400'>
-                Content is ready to be saved
+                {t('processed.contentReady')}
               </div>
             </div>
             <div
@@ -206,7 +208,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
           {/* Files by Token Count section added to ProcessedTab */}
           <div className='mt-6'>
             <h3 className='mb-2 text-base font-medium text-gray-900 dark:text-gray-100'>
-              Files by Token Count
+              {t('processed.filesByTokenCount')}
             </h3>
             <div className='rounded-md border border-gray-200 dark:border-gray-700 shadow-sm'>
               <div className='h-[35vh] min-h-48 max-h-[45vh] overflow-y-auto overflow-x-hidden'>
@@ -214,10 +216,10 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
                   <thead className='sticky top-0 bg-gray-50 dark:bg-gray-800'>
                     <tr>
                       <th className='px-3 py-1 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400'>
-                        File Path
+                        {t('processed.filePath')}
                       </th>
                       <th className='px-3 py-1 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400'>
-                        Tokens
+                        {t('common.tokens')}
                       </th>
                     </tr>
                   </thead>
@@ -242,7 +244,7 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
                           colSpan={2}
                           className='px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400'
                         >
-                          No file data available
+                          {t('processed.noFileData')}
                         </td>
                       </tr>
                     )}
@@ -269,10 +271,10 @@ const ProcessedTab = ({ processedResult, onSave, onRefresh }: ProcessedTabProps)
             ></path>
           </svg>
           <p className='mb-2 font-medium text-gray-500 dark:text-gray-400'>
-            No processed content yet
+            {t('processed.noProcessedContent')}
           </p>
           <p className='px-6 text-center text-sm text-gray-400 dark:text-gray-500'>
-            Go to the Source tab to select files, then analyze and process them.
+            {t('processed.noProcessedContentHint')}
           </p>
         </div>
       )}

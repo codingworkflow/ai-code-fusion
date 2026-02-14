@@ -1,4 +1,11 @@
 import '@testing-library/jest-dom';
+import '../src/renderer/i18n';
+import i18n from '../src/renderer/i18n';
+
+beforeEach(async () => {
+  window.localStorage.setItem('app.locale', 'en');
+  await i18n.changeLanguage('en');
+});
 
 // Add a dummy test to avoid Jest warning about no tests
 describe('Setup validation', () => {
@@ -131,6 +138,7 @@ jest.mock('fs', () => ({
 // Mock console methods to reduce test noise
 global.console = {
   ...console,
+  info: jest.fn(),
   error: jest.fn(),
   warn: jest.fn(),
   log: jest.fn(),

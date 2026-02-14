@@ -1,16 +1,18 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useDarkMode } from '../context/DarkModeContext';
 
 const DarkModeToggle = () => {
+  const { t } = useTranslation();
   const { darkMode, toggleDarkMode } = useDarkMode();
 
   return (
     <button
       onClick={toggleDarkMode}
       className='p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700'
-      title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-      aria-label={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+      title={darkMode ? t('darkMode.switchToLight') : t('darkMode.switchToDark')}
+      aria-label={darkMode ? t('darkMode.switchToLight') : t('darkMode.switchToDark')}
     >
       {darkMode ? (
         // Sun icon for light mode

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import yaml from 'yaml';
 
 import { normalizeExportFormat } from '../../utils/export-format';
@@ -81,7 +82,7 @@ const getProviderValidationErrors = (providerFields: {
   providerModel: string;
   providerApiKey: string;
   providerBaseUrl: string;
-}): string[] => {
+}, translate: (key: string) => string): string[] => {
   if (!hasProviderInput(providerFields)) {
     return [];
   }
@@ -90,28 +91,28 @@ const getProviderValidationErrors = (providerFields: {
   const { providerId, providerModel, providerApiKey, providerBaseUrl } = providerFields;
 
   if (!providerId) {
-    errors.push('Select a provider.');
+    errors.push(translate('config.validation.selectProvider'));
   }
 
   if (!providerModel.trim()) {
-    errors.push('Model is required.');
+    errors.push(translate('config.validation.modelRequired'));
   }
 
   const selectedProviderOption = PROVIDER_OPTIONS.find(
     (providerOption) => providerOption.id === providerId
   );
   if (selectedProviderOption?.requiresApiKey && !providerApiKey.trim()) {
-    errors.push('API key is required for this provider.');
+    errors.push(translate('config.validation.apiKeyRequired'));
   }
 
   if (providerBaseUrl.trim()) {
     try {
       const parsedUrl = new URL(providerBaseUrl.trim());
       if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        errors.push('Base URL must use http or https.');
+        errors.push(translate('config.validation.baseUrlProtocol'));
       }
     } catch {
-      errors.push('Base URL must be a valid URL.');
+      errors.push(translate('config.validation.baseUrlValid'));
     }
   }
 
@@ -206,6 +207,7 @@ const initialFormState: ConfigFormState = {
 };
 
 const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
+  const { t } = useTranslation();
   const { rootPath, selectDirectory, switchTab } = useApp();
   const [formState, dispatch] = useReducer(configFormReducer, initialFormState);
   const [isSaved, setIsSaved] = useState(false);
@@ -274,14 +276,14 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
             providerApiKey: state.providerApiKey,
             providerBaseUrl: state.providerBaseUrl,
           };
-          const validationErrors = getProviderValidationErrors(providerFields);
+          const validationErrors = getProviderValidationErrors(providerFields, t);
           hasProviderValidationErrors = validationErrors.length > 0;
 
           if (hasProviderValidationErrors) {
             setProviderValidationErrors(validationErrors);
             setProviderTestResult({
               ok: false,
-              message: 'Fix provider settings before saving.',
+              message: t('config.providerFixBeforeSaving'),
             });
           }
 
@@ -326,7 +328,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
         console.error('Error updating config:', error);
       }
     },
-    [aiSurfacesEnabled, configContent, onConfigChange]
+    [aiSurfacesEnabled, configContent, onConfigChange, t]
   );
 
   // Auto-save on checkbox/select changes (not text fields - those save on blur/button)
@@ -354,7 +356,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
     if (!aiSurfacesEnabled) {
       setProviderTestResult({
         ok: false,
-        message: 'Provider connection testing is disabled outside dev mode.',
+        message: t('config.providerTestDisabled'),
       });
       return;
     }
@@ -365,25 +367,25 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
       providerApiKey: formState.providerApiKey,
       providerBaseUrl: formState.providerBaseUrl,
     };
-    const validationErrors = getProviderValidationErrors(providerFields);
+    const validationErrors = getProviderValidationErrors(providerFields, t);
     if (validationErrors.length > 0) {
       setProviderValidationErrors(validationErrors);
       setProviderTestResult({
         ok: false,
-        message: 'Fix provider settings before testing the connection.',
+        message: t('config.providerFixBeforeTesting'),
       });
       return;
     }
 
     if (!formState.providerId) {
-      setProviderValidationErrors(['Select a provider.']);
+      setProviderValidationErrors([t('config.validation.selectProvider')]);
       return;
     }
 
     if (!appWindow.electronAPI?.testProviderConnection) {
       setProviderTestResult({
         ok: false,
-        message: 'Provider connection testing is unavailable in this build.',
+        message: t('config.providerUnavailable'),
       });
       return;
     }
@@ -405,9 +407,9 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
     } catch (error) {
       setProviderTestResult({
         ok: false,
-        message: `Connection test failed: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
+        message: t('config.connectionTestFailed', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+        }),
       });
     } finally {
       setIsTestingProviderConnection(false);
@@ -435,12 +437,13 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
             className='grow border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 cursor-pointer'
             value={rootPath}
             readOnly
-            placeholder='Select a root folder'
+            placeholder={t('config.selectRootFolderPlaceholder')}
             onClick={handleFolderSelect}
-            title='Click to browse for a directory'
+            title={t('config.browseDirectoryTitle')}
           />
           <button
             onClick={handleFolderSelect}
+            data-testid='select-folder-button'
             className='ml-2 inline-flex items-center border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
           >
             <svg
@@ -457,7 +460,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                 d='M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z'
               />
             </svg>
-            Select Folder
+            {t('config.selectFolder')}
           </button>
         </div>
       </div>
@@ -468,7 +471,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
             {/* File Filtering section */}
             <div className='rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 p-4'>
               <h4 className='mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300'>
-                File Filtering
+                {t('config.fileFilteringTitle')}
               </h4>
 
               <div className='space-y-2'>
@@ -484,7 +487,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     htmlFor='use-custom-includes'
                     className='ml-2 block text-sm text-gray-700 dark:text-gray-300'
                   >
-                    Filter by file extensions
+                    {t('config.filterByExtensions')}
                   </label>
                 </div>
 
@@ -500,7 +503,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     htmlFor='use-custom-excludes'
                     className='ml-2 block text-sm text-gray-700 dark:text-gray-300'
                   >
-                    Use exclude patterns
+                    {t('config.useExcludePatterns')}
                   </label>
                 </div>
 
@@ -516,7 +519,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     htmlFor='use-gitignore'
                     className='ml-2 block text-sm text-gray-700 dark:text-gray-300'
                   >
-                    Apply .gitignore rules
+                    {t('config.applyGitignoreRules')}
                   </label>
                 </div>
 
@@ -532,7 +535,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     htmlFor='enable-secret-scanning'
                     className='ml-2 block text-sm text-gray-700 dark:text-gray-300'
                   >
-                    Scan content for secrets
+                    {t('config.scanSecrets')}
                   </label>
                 </div>
 
@@ -548,7 +551,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     htmlFor='exclude-suspicious-files'
                     className='ml-2 block text-sm text-gray-700 dark:text-gray-300'
                   >
-                    Exclude suspicious files
+                    {t('config.excludeSuspiciousFiles')}
                   </label>
                 </div>
               </div>
@@ -557,7 +560,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
             {/* Output Formatting section */}
             <div className='rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 p-4'>
               <h4 className='mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300'>
-                Output Formatting
+                {t('config.outputFormattingTitle')}
               </h4>
 
               <div className='space-y-2'>
@@ -573,7 +576,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     htmlFor='include-tree-view'
                     className='ml-2 block text-sm text-gray-700 dark:text-gray-300'
                   >
-                    Include file tree in output
+                    {t('config.includeFileTree')}
                   </label>
                 </div>
 
@@ -589,7 +592,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     htmlFor='show-token-count'
                     className='ml-2 block text-sm text-gray-700 dark:text-gray-300'
                   >
-                    Display token counts
+                    {t('config.displayTokenCounts')}
                   </label>
                 </div>
 
@@ -598,16 +601,17 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     htmlFor='export-format'
                     className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
                   >
-                    Export format
+                    {t('config.exportFormat')}
                   </label>
                   <select
                     id='export-format'
                     value={formState.exportFormat}
                     onChange={(event) => setField('exportFormat', normalizeExportFormat(event.target.value))}
+                    data-testid='export-format-select'
                     className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
                   >
-                    <option value='markdown'>Markdown</option>
-                    <option value='xml'>XML</option>
+                    <option value='markdown'>{t('config.exportFormatMarkdown')}</option>
+                    <option value='xml'>{t('config.exportFormatXml')}</option>
                   </select>
                 </div>
               </div>
@@ -617,10 +621,10 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
           {aiSurfacesEnabled && (
             <div className='rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 p-4 mt-4'>
               <h4 className='mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300'>
-                Provider Setup Assistant
+                {t('config.providerSetupTitle')}
               </h4>
               <p className='mb-3 text-xs text-gray-500 dark:text-gray-400'>
-                Configure a model provider and run a connection test before saving.
+                {t('config.providerSetupDescription')}
               </p>
 
               <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
@@ -629,7 +633,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     htmlFor='provider-id'
                     className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
                   >
-                    Provider
+                    {t('config.provider')}
                   </label>
                   <select
                     id='provider-id'
@@ -643,7 +647,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     }}
                     className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
                   >
-                    <option value=''>Select provider</option>
+                    <option value=''>{t('config.selectProvider')}</option>
                     {PROVIDER_OPTIONS.map((providerOption) => (
                       <option key={providerOption.id} value={providerOption.id}>
                         {providerOption.label}
@@ -657,13 +661,13 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     htmlFor='provider-model'
                     className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
                   >
-                    Model
+                    {t('config.model')}
                   </label>
                   <input
                     id='provider-model'
                     type='text'
                     value={formState.providerModel}
-                    placeholder='e.g. gpt-4o-mini'
+                    placeholder={t('config.modelPlaceholder')}
                     onChange={(event) => {
                       setField('providerModel', event.target.value);
                       resetProviderFeedback();
@@ -677,7 +681,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     htmlFor='provider-base-url'
                     className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
                   >
-                    Base URL (optional)
+                    {t('config.baseUrlOptional')}
                   </label>
                   <input
                     id='provider-base-url'
@@ -700,13 +704,13 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     htmlFor='provider-api-key'
                     className='mb-1 block text-sm text-gray-700 dark:text-gray-300'
                   >
-                    API key (optional for Ollama)
+                    {t('config.apiKeyOptionalOllama')}
                   </label>
                   <input
                     id='provider-api-key'
                     type='password'
                     value={formState.providerApiKey}
-                    placeholder='Enter provider API key'
+                    placeholder={t('config.apiKeyPlaceholder')}
                     onChange={(event) => {
                       setField('providerApiKey', event.target.value);
                       resetProviderFeedback();
@@ -722,7 +726,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                   disabled={isTestingProviderConnection}
                   className='inline-flex items-center border border-transparent bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:bg-gray-400 focus:outline-none'
                 >
-                  {isTestingProviderConnection ? 'Testing...' : 'Test Connection'}
+                  {isTestingProviderConnection ? t('config.testing') : t('config.testConnection')}
                 </button>
 
                 {providerTestResult && (
@@ -749,8 +753,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
           )}
 
           <p className='mt-3 text-xs text-gray-500 dark:text-gray-400'>
-            Changes are automatically saved and will be applied when switching to the Source tab.
-            Token count estimates help with optimizing context for large repositories.
+            {t('config.autoSaveHint')}
           </p>
         </div>
       </div>
@@ -761,16 +764,16 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
             onClick={() => saveConfig(formState)}
             className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
           >
-            {isSaved ? '✓ Saved' : 'Save Config'}
+            {isSaved ? t('config.savedConfig') : t('config.saveConfig')}
           </button>
         </div>
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
           <div>
             <h4 className='mb-2 text-xs font-medium text-gray-700 dark:text-gray-300'>
-              Only process files with these extensions
+              {t('config.includeExtensionsTitle')}
             </h4>
             <p className='text-xs text-gray-500 dark:text-gray-400 mb-1'>
-              One extension per line (include the dot)
+              {t('config.includeExtensionsHint')}
             </p>
             <textarea
               className='h-44 w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
@@ -785,10 +788,10 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
           </div>
           <div>
             <h4 className='mb-2 text-xs font-medium text-gray-700 dark:text-gray-300'>
-              Exclude Patterns
+              {t('config.excludePatternsTitle')}
             </h4>
             <p className='text-xs text-gray-500 dark:text-gray-400 mb-1'>
-              One pattern per line (using glob pattern)
+              {t('config.excludePatternsHint')}
             </p>
             <textarea
               className='h-44 w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
@@ -804,7 +807,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
       </div>
 
       <div className='mt-4 text-xs text-gray-500 dark:text-gray-400'>
-        <p>Configure which file types to include and patterns to exclude in the analysis.</p>
+        <p>{t('config.configSummary')}</p>
       </div>
     </div>
   );

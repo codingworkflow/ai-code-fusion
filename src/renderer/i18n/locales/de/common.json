@@ -1,0 +1,127 @@
+{
+  "app": {
+    "name": "AI Code Fusion",
+    "github": "Auf GitHub ansehen",
+    "dismissError": "Fehler schließen"
+  },
+  "languageSelector": {
+    "label": "Sprache",
+    "en": "Englisch",
+    "es": "Spanisch",
+    "fr": "Französisch",
+    "de": "Deutsch"
+  },
+  "darkMode": {
+    "switchToLight": "Zum hellen Modus wechseln",
+    "switchToDark": "Zum dunklen Modus wechseln"
+  },
+  "tabs": {
+    "config": "Start",
+    "source": "Dateien auswählen",
+    "processed": "Verarbeitete Ausgabe"
+  },
+  "common": {
+    "files": "Dateien",
+    "tokens": "Tokens"
+  },
+  "config": {
+    "selectRootFolderPlaceholder": "Stammordner auswählen",
+    "browseDirectoryTitle": "Klicken, um ein Verzeichnis auszuwählen",
+    "selectFolder": "Ordner auswählen",
+    "fileFilteringTitle": "Dateifilter",
+    "filterByExtensions": "Nach Dateiendungen filtern",
+    "useExcludePatterns": "Ausschlussmuster verwenden",
+    "applyGitignoreRules": ".gitignore-Regeln anwenden",
+    "scanSecrets": "Inhalte auf Geheimnisse prüfen",
+    "excludeSuspiciousFiles": "Verdächtige Dateien ausschließen",
+    "outputFormattingTitle": "Ausgabeformatierung",
+    "includeFileTree": "Dateibaum in Ausgabe einfügen",
+    "displayTokenCounts": "Token-Anzahlen anzeigen",
+    "exportFormat": "Exportformat",
+    "exportFormatMarkdown": "Markdown",
+    "exportFormatXml": "XML",
+    "providerSetupTitle": "Einrichtungsassistent für Anbieter",
+    "providerSetupDescription": "Konfiguriere einen Modellanbieter und führe vor dem Speichern einen Verbindungstest aus.",
+    "provider": "Anbieter",
+    "selectProvider": "Anbieter auswählen",
+    "model": "Modell",
+    "modelPlaceholder": "z. B. gpt-4o-mini",
+    "baseUrlOptional": "Basis-URL (optional)",
+    "apiKeyOptionalOllama": "API-Schlüssel (optional für Ollama)",
+    "apiKeyPlaceholder": "API-Schlüssel des Anbieters eingeben",
+    "testing": "Teste...",
+    "testConnection": "Verbindung testen",
+    "autoSaveHint": "Änderungen werden automatisch gespeichert und beim Wechsel zum Quell-Tab angewendet. Token-Schätzungen helfen, den Kontext für große Repositories zu optimieren.",
+    "saveConfig": "Konfiguration speichern",
+    "savedConfig": "✓ Gespeichert",
+    "includeExtensionsTitle": "Nur Dateien mit diesen Endungen verarbeiten",
+    "includeExtensionsHint": "Eine Endung pro Zeile (mit Punkt)",
+    "excludePatternsTitle": "Ausschlussmuster",
+    "excludePatternsHint": "Ein Muster pro Zeile (Glob-Syntax)",
+    "configSummary": "Konfiguriere, welche Dateitypen einbezogen und welche Muster in der Analyse ausgeschlossen werden.",
+    "providerTestDisabled": "Der Anbieter-Verbindungstest ist außerhalb des Entwicklungsmodus deaktiviert.",
+    "providerFixBeforeTesting": "Korrigiere die Anbieter-Einstellungen, bevor du die Verbindung testest.",
+    "providerUnavailable": "Der Anbieter-Verbindungstest ist in diesem Build nicht verfügbar.",
+    "providerFixBeforeSaving": "Korrigiere die Anbieter-Einstellungen vor dem Speichern.",
+    "connectionTestFailed": "Verbindungstest fehlgeschlagen: {{message}}",
+    "validation": {
+      "selectProvider": "Wähle einen Anbieter aus.",
+      "modelRequired": "Modell ist erforderlich.",
+      "apiKeyRequired": "Für diesen Anbieter ist ein API-Schlüssel erforderlich.",
+      "baseUrlProtocol": "Die Basis-URL muss http oder https verwenden.",
+      "baseUrlValid": "Die Basis-URL muss gültig sein."
+    }
+  },
+  "source": {
+    "processSelectedFiles": "Ausgewählte Dateien verarbeiten",
+    "processingSelectedFiles": "Verarbeite...",
+    "selectingFiles": "Dateien werden ausgewählt...",
+    "selectFilesAndFolders": "Dateien und Ordner auswählen",
+    "loadingDirectory": "Verzeichnisinhalt wird geladen...",
+    "selectRootFolderPlaceholder": "Stammordner auswählen",
+    "browseDirectoryTitle": "Klicken, um ein Verzeichnis auszuwählen",
+    "changeFolder": "Ordner ändern",
+    "refreshFileList": "Dateiliste aktualisieren",
+    "refreshFileListTitle": "Dateiliste aktualisieren",
+    "clearSelection": "Auswahl löschen",
+    "clearSelectionTitle": "Alle ausgewählten Dateien löschen",
+    "analyzingWait": "Ausgewählte Dateien werden analysiert, bitte warten..."
+  },
+  "processed": {
+    "refreshCode": "Code aktualisieren",
+    "refreshCodeTitle": "Ausgewählte Dateien neu laden und Ausgabe mit aktuellem Inhalt neu erzeugen",
+    "reprocessing": "Erneut verarbeiten...",
+    "skipped": "Übersprungen",
+    "copied": "✓ Kopiert",
+    "copyContent": "Inhalt kopieren",
+    "saving": "✓ Speichere...",
+    "saveToFile": "In Datei speichern",
+    "processedContent": "Verarbeiteter Inhalt",
+    "contentReady": "Inhalt ist zum Speichern bereit",
+    "filesByTokenCount": "Dateien nach Token-Anzahl",
+    "filePath": "Dateipfad",
+    "noFileData": "Keine Dateidaten verfügbar",
+    "noProcessedContent": "Noch kein verarbeiteter Inhalt",
+    "noProcessedContentHint": "Wechsle zum Quell-Tab, wähle Dateien aus und analysiere/verarbeite sie dann."
+  },
+  "fileTree": {
+    "collapseFolder": "Ordner einklappen",
+    "expandFolder": "Ordner ausklappen",
+    "collapseFolderWithName": "Ordner {{name}} einklappen",
+    "expandFolderWithName": "Ordner {{name}} ausklappen",
+    "selectAll": "Alle auswählen",
+    "selectedCount": "{{selected}} von {{total}} Dateien ausgewählt",
+    "emptyTitle": "Keine Dateien zum Anzeigen",
+    "emptyHint": "Wähle ein Verzeichnis, um Dateien anzuzeigen"
+  },
+  "errors": {
+    "selectRootAndFiles": "Bitte wähle ein Stammverzeichnis und mindestens eine Datei aus.",
+    "noValidFiles": "Keine gültigen Dateien zur Analyse ausgewählt. Bitte wähle Dateien innerhalb des aktuellen Verzeichnisses aus.",
+    "electronApiUnavailable": "Electron-API ist nicht verfügbar.",
+    "processingFailed": "Beim Verarbeiten des Repositories ist ein Fehler aufgetreten. Details in der Konsole.",
+    "noFilesSelectedForProcessing": "Es sind keine Dateien zur Verarbeitung ausgewählt. Wechsle zum Quell-Tab und wähle Dateien aus.",
+    "refreshFailed": "Beim Aktualisieren des Inhalts ist ein Fehler aufgetreten. Details in der Konsole.",
+    "noProcessedContentToSave": "Kein verarbeiteter Inhalt zum Speichern vorhanden.",
+    "saveFailed": "Beim Speichern der Datei ist ein Fehler aufgetreten. Details in der Konsole."
+  }
+}
