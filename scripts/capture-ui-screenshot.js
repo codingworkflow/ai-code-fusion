@@ -45,6 +45,16 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
 };
 
+const STATIC_FILE_ROUTES = new Map([
+  ['/', path.join(RENDERER_SOURCE_DIR, 'index.html')],
+  ['/index.html', path.join(RENDERER_SOURCE_DIR, 'index.html')],
+  ['/icon.png', path.join(RENDERER_SOURCE_DIR, 'icon.png')],
+  ['/dist/renderer/output.css', path.join(RENDERER_BUILD_DIR, 'output.css')],
+  ['/dist/renderer/bundle.js', path.join(RENDERER_BUILD_DIR, 'bundle.js')],
+  ['/dist/renderer/bundle.js.map', path.join(RENDERER_BUILD_DIR, 'bundle.js.map')],
+  ['/dist/renderer/bundle.js.LICENSE.txt', path.join(RENDERER_BUILD_DIR, 'bundle.js.LICENSE.txt')],
+]);
+
 function ensureError(error) {
   if (error instanceof Error) {
     return error;
@@ -107,25 +117,16 @@ async function runStep(stepName, action) {
 }
 
 function resolveFilePath(requestUrl) {
-  const urlPath = decodeURIComponent(requestUrl.split('?')[0]);
-  if (urlPath === '/' || urlPath === '/index.html') {
-    return path.join(RENDERER_SOURCE_DIR, 'index.html');
-  }
+  const rawPath = typeof requestUrl === 'string' ? requestUrl : '/';
+  let urlPath;
 
-  const relativePath = urlPath.replace(/^\/+/, '');
-  const servesRendererBuildOutput = relativePath.startsWith('dist/renderer/');
-  const pathRoot = servesRendererBuildOutput ? RENDERER_BUILD_DIR : RENDERER_SOURCE_DIR;
-  const pathWithinRoot = servesRendererBuildOutput
-    ? relativePath.replace(/^dist\/renderer\//, '')
-    : relativePath;
-  const absolutePath = path.resolve(pathRoot, pathWithinRoot);
-  const relativeToRoot = path.relative(pathRoot, absolutePath);
-
-  if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+  try {
+    urlPath = decodeURIComponent(rawPath.split('?')[0]);
+  } catch {
     return null;
   }
 
-  return absolutePath;
+  return STATIC_FILE_ROUTES.get(urlPath) ?? null;
 }
 
 function createStaticServer() {
