@@ -1,14 +1,14 @@
 const path = require('path');
 
-// Source and destination paths
-const srcPath = path.resolve(__dirname, 'src/renderer');
-const entryFile = path.resolve(srcPath, 'index.tsx');
+const rendererSourcePath = path.resolve(__dirname, 'src/renderer');
+const rendererBuildPath = path.resolve(__dirname, 'dist/renderer');
+const entryFile = path.resolve(rendererSourcePath, 'index.tsx');
 
 module.exports = {
   entry: entryFile,
   output: {
-    filename: 'bundle.js', // Output to bundle.js to avoid webpack processing its own output
-    path: srcPath, // Same directory for simplicity
+    filename: 'bundle.js',
+    path: rendererBuildPath,
   },
   // Increase the node options to allow more stack space
   node: {

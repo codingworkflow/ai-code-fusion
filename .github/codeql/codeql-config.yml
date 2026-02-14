@@ -4,7 +4,3 @@ paths-ignore:
   - 'build/**'
   - 'coverage/**'
   - 'dist/**'
-  - 'src/renderer/bundle.js'
-  - 'src/renderer/bundle.js.map'
-  - 'src/renderer/bundle.js.LICENSE.txt'
-  - 'src/renderer/output.css'

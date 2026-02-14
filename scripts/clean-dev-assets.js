@@ -9,10 +9,10 @@ const { rimraf } = require('rimraf');
 
 // Asset paths relative to project root
 const assetPaths = [
-  'src/renderer/bundle.js',
-  'src/renderer/bundle.js.map',
-  'src/renderer/bundle.js.LICENSE.txt',
-  'src/renderer/output.css',
+  'dist/renderer/bundle.js',
+  'dist/renderer/bundle.js.map',
+  'dist/renderer/bundle.js.LICENSE.txt',
+  'dist/renderer/output.css',
 ];
 
 async function cleanDevAssets() {

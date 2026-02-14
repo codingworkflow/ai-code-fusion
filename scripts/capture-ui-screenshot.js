@@ -6,7 +6,8 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 const ROOT_DIR = path.join(__dirname, '..');
-const RENDERER_DIR = path.join(ROOT_DIR, 'src', 'renderer');
+const RENDERER_SOURCE_DIR = path.join(ROOT_DIR, 'src', 'renderer');
+const RENDERER_BUILD_DIR = path.join(ROOT_DIR, 'dist', 'renderer');
 const DEFAULT_SCREENSHOT_DIR = path.join('dist', 'qa', 'screenshots');
 const SCREENSHOT_DIR = resolveOutputDirectory(process.env.UI_SCREENSHOT_DIR);
 const PORT = Number(process.env.UI_SCREENSHOT_PORT || 4173);
@@ -43,6 +44,16 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
 };
+
+const STATIC_FILE_ROUTES = new Map([
+  ['/', path.join(RENDERER_SOURCE_DIR, 'index.html')],
+  ['/index.html', path.join(RENDERER_SOURCE_DIR, 'index.html')],
+  ['/icon.png', path.join(RENDERER_SOURCE_DIR, 'icon.png')],
+  ['/dist/renderer/output.css', path.join(RENDERER_BUILD_DIR, 'output.css')],
+  ['/dist/renderer/bundle.js', path.join(RENDERER_BUILD_DIR, 'bundle.js')],
+  ['/dist/renderer/bundle.js.map', path.join(RENDERER_BUILD_DIR, 'bundle.js.map')],
+  ['/dist/renderer/bundle.js.LICENSE.txt', path.join(RENDERER_BUILD_DIR, 'bundle.js.LICENSE.txt')],
+]);
 
 function ensureError(error) {
   if (error instanceof Error) {
@@ -106,16 +117,16 @@ async function runStep(stepName, action) {
 }
 
 function resolveFilePath(requestUrl) {
-  const urlPath = decodeURIComponent(requestUrl.split('?')[0]);
-  const relativePath = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
-  const absolutePath = path.resolve(RENDERER_DIR, relativePath);
-  const relativeToRoot = path.relative(RENDERER_DIR, absolutePath);
+  const rawPath = typeof requestUrl === 'string' ? requestUrl : '/';
+  let urlPath;
 
-  if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+  try {
+    urlPath = decodeURIComponent(rawPath.split('?')[0]);
+  } catch {
     return null;
   }
 
-  return absolutePath;
+  return STATIC_FILE_ROUTES.get(urlPath) ?? null;
 }
 
 function createStaticServer() {
@@ -516,6 +527,30 @@ async function setLocaleAndWait(page, locale) {
   );
 }
 
+async function setCheckboxState(page, selector, shouldBeChecked) {
+  const checkbox = page.locator(selector).first();
+  await checkbox.waitFor({ state: 'visible', timeout: 10000 });
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const currentState = await checkbox.isChecked();
+    if (currentState === shouldBeChecked) {
+      return;
+    }
+
+    if (shouldBeChecked) {
+      await checkbox.check();
+    } else {
+      await checkbox.uncheck();
+    }
+
+    await page.waitForTimeout(75);
+  }
+
+  throw new Error(
+    `Unable to set checkbox "${selector}" to ${shouldBeChecked ? 'checked' : 'unchecked'}`
+  );
+}
+
 async function captureLocaleScreenshots(page) {
   await runStep('Wait for language selector', async () => {
     await page.waitForSelector(UI_SELECTORS.languageSelector, { timeout: 10000 });
@@ -597,8 +632,25 @@ async function captureAppStateScreenshots(page) {
   await runStep('Disable secret filtering in config tab', async () => {
     await page.click(UI_SELECTORS.configTab);
     await page.waitForSelector(UI_SELECTORS.secretScanningToggle, { timeout: 10000 });
-    await page.uncheck(UI_SELECTORS.secretScanningToggle);
-    await page.uncheck(UI_SELECTORS.suspiciousFilesToggle);
+    await setCheckboxState(page, UI_SELECTORS.secretScanningToggle, false);
+    await setCheckboxState(page, UI_SELECTORS.suspiciousFilesToggle, false);
+    await page.waitForFunction(
+      ({ secretSelector, suspiciousSelector }) => {
+        const secretToggle = document.querySelector(secretSelector);
+        const suspiciousToggle = document.querySelector(suspiciousSelector);
+
+        return (
+          secretToggle instanceof HTMLInputElement &&
+          suspiciousToggle instanceof HTMLInputElement &&
+          !secretToggle.checked &&
+          !suspiciousToggle.checked
+        );
+      },
+      {
+        secretSelector: UI_SELECTORS.secretScanningToggle,
+        suspiciousSelector: UI_SELECTORS.suspiciousFilesToggle,
+      }
+    );
     await page.getByRole('button', { name: /save config|saved/i }).click();
     await page.waitForFunction(() => {
       const configContent = localStorage.getItem('configContent') || '';
