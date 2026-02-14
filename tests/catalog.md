@@ -53,6 +53,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | `tests/unit/main/feature-flags.test.ts`                | `src/main/feature-flags.ts`                    | OpenFeature normalization, env/remote merge rules, secure remote fetch behavior                                                                        |
 | `tests/unit/main/path-security.test.ts`                | `src/main/security/path-guard.ts`              | Root-path authorization, temp-root boundaries, symlink-aware realpath resolution                                                                       |
 | `tests/unit/main/provider-connection.test.ts`          | `src/main/services/provider-connection.ts`     | Provider defaults, URL validation/normalization, request construction, timeout/error handling                                                          |
+| `tests/unit/shared/provider-registry.test.ts`          | `src/shared/provider-registry.ts`              | Shared provider contract IDs, default base URLs, API-key requirement flags, and supported-provider guards                                              |
 | `tests/unit/main/directory-tree.test.ts`               | `src/main/services/directory-tree.ts`          | Exclude/include pattern merge, symlink skip policy, canonical recursion-loop guard, parse-failure fallback                                             |
 | `tests/unit/main/repository-processing.test.ts`        | `src/main/services/repository-processing.ts`   | Repository output assembly, tree/header/footer behavior, XML token flag handling, path-boundary and missing-file skips                                 |
 
@@ -118,6 +119,7 @@ Stress benchmark outputs:
   - `tests/unit/main/feature-flags.test.ts`
   - `tests/unit/main/path-security.test.ts`
   - `tests/unit/main/provider-connection.test.ts`
+  - `tests/unit/shared/provider-registry.test.ts`
   - `tests/unit/main/directory-tree.test.ts`
   - `tests/unit/main/repository-processing.test.ts`
   - `tests/stress/main-process/ipc-latency.stress.test.ts`

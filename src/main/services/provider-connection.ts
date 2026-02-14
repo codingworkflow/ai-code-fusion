@@ -1,24 +1,13 @@
-import type {
-  ProviderConnectionOptions,
-  ProviderConnectionResult,
-  ProviderId,
-} from '../../types/ipc';
+import {
+  isSupportedProviderId as isRegistryProviderId,
+  PROVIDER_DEFAULT_BASE_URLS,
+  providerRequiresApiKey,
+  type ProviderId,
+} from '../../shared/provider-registry';
+
+import type { ProviderConnectionOptions, ProviderConnectionResult } from '../../types/ipc';
 
 const PROVIDER_CONNECTION_TIMEOUT_MS = 8000;
-
-const SUPPORTED_PROVIDER_IDS = new Set<ProviderId>([
-  'openai',
-  'anthropic',
-  'ollama',
-  'openai-compatible',
-]);
-
-const PROVIDER_DEFAULT_BASE_URLS: Record<ProviderId, string> = {
-  openai: 'https://api.openai.com/v1',
-  anthropic: 'https://api.anthropic.com/v1',
-  ollama: 'http://127.0.0.1:11434',
-  'openai-compatible': 'http://127.0.0.1:8080/v1',
-};
 
 export type ProviderConnectionRequest = {
   url: string;
@@ -58,7 +47,7 @@ const trimToUndefined = (value: unknown): string | undefined => {
 };
 
 export const isSupportedProviderId = (candidate: unknown): candidate is ProviderId => {
-  return typeof candidate === 'string' && SUPPORTED_PROVIDER_IDS.has(candidate as ProviderId);
+  return isRegistryProviderId(candidate);
 };
 
 const stripTrailingSlashes = (value: string): string => {
@@ -88,8 +77,7 @@ export const getProviderValidationErrors = (options: ProviderConnectionOptions):
   }
 
   const apiKey = trimToUndefined(options.apiKey);
-  const providerRequiresApiKey = options.providerId !== 'ollama';
-  if (providerRequiresApiKey && !apiKey) {
+  if (providerRequiresApiKey(options.providerId) && !apiKey) {
     errors.push('API key is required for this provider.');
   }
 
