@@ -33,18 +33,10 @@ async function start() {
     if (!fs.existsSync(cssFile)) {
       log('CSS not found, building...', colors.yellow);
       try {
-        // Try direct command execution first
-        const { execSync } = require('child_process');
-        log('Running tailwindcss directly...', colors.blue);
-        execSync(
-          'npx @tailwindcss/cli -i ./src/renderer/styles.css -o ./dist/renderer/output.css',
-          {
-            stdio: 'inherit',
-            cwd: utils.ROOT_DIR,
-          }
-        );
+        log('Running build:css script...', colors.blue);
+        utils.runNpmScript('build:css');
       } catch (err) {
-        log(`Error running tailwindcss: ${err.message}`, colors.red);
+        log(`Error running build:css: ${err.message}`, colors.red);
         throw err;
       }
     }

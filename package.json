@@ -47,7 +47,7 @@
     "e2e:playwright": "playwright test -c playwright.config.ts",
     "e2e:playwright:ci": "playwright test -c playwright.config.ts",
     "e2e:playwright:headed": "playwright test -c playwright.config.ts --headed",
-    "predocs:screenshots": "npm run build:ts && npm run build:webpack",
+    "predocs:screenshots": "npm run build:ts && npm run build:css && npm run build:webpack",
     "docs:screenshots": "node scripts/generate-doc-screenshots.js",
     "security": "node scripts/index.js security",
     "security:actions-freshness": "node scripts/audit-actions-freshness.js --report actions-freshness-report.md --json actions-freshness-report.json",
