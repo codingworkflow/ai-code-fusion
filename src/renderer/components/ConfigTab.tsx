@@ -328,9 +328,6 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
             ok: false,
             message: 'Fix provider settings before saving.',
           });
-        }
-
-        if (hasProviderValidationErrors) {
           if (config.provider) {
             delete config.provider;
           }
