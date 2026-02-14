@@ -89,6 +89,13 @@ npm run build:linux
 npm run build:mac
 ```
 
+## Renderer Structure
+
+- `src/renderer/public/`: static HTML shell (`index.html`)
+- `src/renderer/styles/`: renderer stylesheet sources
+- `src/renderer/components/`, `context/`, `i18n/`: runtime renderer code
+- `src/assets/`: canonical app icons and static media assets
+
 ## Dev Container
 
 This repo includes `.devcontainer/` for a reproducible local environment.

@@ -66,7 +66,7 @@ let updaterService = createUpdaterService(
 );
 
 const APP_ROOT = path.resolve(__dirname, '../../..');
-const RENDERER_INDEX_PATH = path.join(APP_ROOT, 'src', 'renderer', 'index.html');
+const RENDERER_INDEX_PATH = path.join(APP_ROOT, 'src', 'renderer', 'public', 'index.html');
 const ASSETS_DIR = path.join(APP_ROOT, 'src', 'assets');
 const createForbiddenAssetResponse = (): Response => new Response('Forbidden', { status: 403 });
 
