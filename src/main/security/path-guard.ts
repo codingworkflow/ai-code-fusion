@@ -2,6 +2,36 @@ import fs from 'fs';
 import os from 'node:os';
 import path from 'path';
 
+const isWithinResolvedRoot = (resolvedRootPath: string, resolvedCandidatePath: string): boolean => {
+  const relativePath = path.relative(resolvedRootPath, resolvedCandidatePath);
+  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+};
+
+const resolveFromExistingAncestor = (
+  resolvedPath: string,
+  realpathFn: (candidate: string) => string
+): string => {
+  let currentPath = resolvedPath;
+  const pendingSegments: string[] = [];
+
+  while (true) {
+    try {
+      const realCurrentPath = realpathFn(currentPath);
+      return pendingSegments.length > 0
+        ? path.join(realCurrentPath, ...pendingSegments.reverse())
+        : realCurrentPath;
+    } catch {
+      const parentPath = path.dirname(currentPath);
+      if (parentPath === currentPath) {
+        return resolvedPath;
+      }
+
+      pendingSegments.push(path.basename(currentPath));
+      currentPath = parentPath;
+    }
+  }
+};
+
 export const resolveRealPath = (inputPath: string): string => {
   const resolvedPath = path.resolve(inputPath);
   const realpathFn = fs.realpathSync?.native ?? fs.realpathSync;
@@ -13,7 +43,7 @@ export const resolveRealPath = (inputPath: string): string => {
         ? realPathResult
         : resolvedPath;
     } catch {
-      return resolvedPath;
+      return resolveFromExistingAncestor(resolvedPath, realpathFn);
     }
   }
 
@@ -27,9 +57,7 @@ export const isPathWithinRoot = (rootPath: string, candidatePath: string): boole
 
   const resolvedRootPath = resolveRealPath(rootPath);
   const resolvedCandidatePath = resolveRealPath(candidatePath);
-  const relativePath = path.relative(resolvedRootPath, resolvedCandidatePath);
-
-  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+  return isWithinResolvedRoot(resolvedRootPath, resolvedCandidatePath);
 };
 
 export const resolveAuthorizedPath = (
@@ -56,9 +84,5 @@ export const isPathWithinTempRoot = (
     return false;
   }
 
-  const resolvedTempRootPath = resolveRealPath(tempRootPath);
-  const resolvedCandidatePath = resolveRealPath(candidatePath);
-  const relativePath = path.relative(resolvedTempRootPath, resolvedCandidatePath);
-
-  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+  return isPathWithinRoot(tempRootPath, candidatePath);
 };
