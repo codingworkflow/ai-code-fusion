@@ -84,6 +84,27 @@ describe('repository-processing service', () => {
     }
   });
 
+  test('keeps nested tree structure stable when a path prefix appears as a file entry', () => {
+    const { rootPath, cleanup } = createTempRepository();
+    try {
+      const result = processRepository({
+        rootPath,
+        filesInfo: [
+          { path: 'a/b', tokens: 1 },
+          { path: 'a/b/c.txt', tokens: 1 },
+        ],
+        options: { includeTreeView: true },
+      });
+
+      expect(result.content).toContain('## File Structure');
+      expect(result.content).toContain('└── a');
+      expect(result.content).toContain('    └── b');
+      expect(result.content).toContain('        └── c.txt');
+    } finally {
+      cleanup();
+    }
+  });
+
   test('keeps xml token attributes enabled by default', () => {
     const { rootPath, createFile, cleanup } = createTempRepository();
     try {

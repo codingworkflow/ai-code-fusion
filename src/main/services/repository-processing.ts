@@ -48,6 +48,12 @@ const resolveRepositoryProcessingOptions = (
 
 const upsertPathPart = (tree: PathTree, part: string, isLeaf: boolean): PathTree | null => {
   const existing = tree[part];
+  if (existing === null && !isLeaf) {
+    const promotedPathNode: PathTree = {};
+    tree[part] = promotedPathNode;
+    return promotedPathNode;
+  }
+
   if (existing !== undefined) {
     return existing;
   }
@@ -64,9 +70,15 @@ const addFilePathToTree = (pathTree: PathTree, filePath: string): void => {
   for (const [index, part] of parts.entries()) {
     const isLeaf = index === parts.length - 1;
     const nextLevel = upsertPathPart(currentLevel, part, isLeaf);
-    if (isLeaf || nextLevel === null) {
+
+    if (isLeaf) {
       continue;
     }
+
+    if (nextLevel === null) {
+      break;
+    }
+
     currentLevel = nextLevel;
   }
 };

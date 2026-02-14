@@ -27,11 +27,6 @@ type AnalyzeRepositoryInput = {
   onInfo?: (message: string) => void;
 };
 
-const EMPTY_GITIGNORE_PATTERNS: GitignorePatterns = {
-  excludePatterns: [],
-  includePatterns: [],
-};
-
 export const analyzeRepository = ({
   rootPath,
   configContent,
@@ -42,8 +37,10 @@ export const analyzeRepository = ({
 }: AnalyzeRepositoryInput): AnalyzeRepositoryResult => {
   const config = (yaml.parse(configContent) || {}) as ConfigObject;
   const localTokenCounter = new TokenCounter();
-
-  let gitignorePatterns = EMPTY_GITIGNORE_PATTERNS;
+  let gitignorePatterns: GitignorePatterns = {
+    excludePatterns: [],
+    includePatterns: [],
+  };
   if (config.use_gitignore !== false) {
     gitignorePatterns = gitignoreParser.parseGitignore(rootPath);
   }
