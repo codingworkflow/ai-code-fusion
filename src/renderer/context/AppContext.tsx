@@ -102,6 +102,8 @@ const sanitizeConfigForStorage = (configContent: string): string => {
   }
 };
 
+const INITIAL_CONFIG_PLACEHOLDER = '# Loading configuration...';
+
 const normalizePathForBoundaryCheck = (inputPath: string): string => {
   const normalizedSlashes = inputPath.replaceAll('\\', '/');
   const driveMatch = /^[A-Za-z]:/.exec(normalizedSlashes);
@@ -159,7 +161,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     includeTreeView: false,
     exportFormat: 'markdown',
   });
-  const [configContent, setConfigContent] = useState('# Loading configuration...');
+  const [configContent, setConfigContent] = useState(INITIAL_CONFIG_PLACEHOLDER);
   const [appError, setAppError] = useState<AppError | null>(null);
   const appWindow = globalThis as Window & typeof globalThis;
   const electronAPI = appWindow.electronAPI;
@@ -210,6 +212,9 @@ export const AppProvider = ({ children }: AppProviderProps) => {
 
   // Save config to localStorage whenever it changes
   useEffect(() => {
+    if (configContent === INITIAL_CONFIG_PLACEHOLDER) {
+      return;
+    }
     localStorage.setItem('configContent', sanitizeConfigForStorage(configContent));
   }, [configContent]);
 
@@ -238,9 +243,8 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     setActiveTab(tab);
 
     try {
-      const savedConfig = localStorage.getItem('configContent');
-      if (savedConfig) {
-        const config = (yaml.parse(savedConfig) || {}) as ConfigObject;
+      if (configContent) {
+        const config = (yaml.parse(configContent) || {}) as ConfigObject;
         setProcessingOptions({
           showTokenCount: config.show_token_count !== false,
           includeTreeView: config.include_tree_view === true,
@@ -255,7 +259,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       analysisResultRef.current = null;
       setProcessedResult(null);
     }
-  }, []);
+  }, [configContent]);
 
   // When switching from config to source, refresh tree with latest config
   const prevTabRef = useRef<TabId>('config');
@@ -529,9 +533,8 @@ export const AppProvider = ({ children }: AppProviderProps) => {
 
       const options: ProcessingOptions = { ...processingOptions };
       try {
-        const configStr = localStorage.getItem('configContent');
-        if (configStr) {
-          const config = (yaml.parse(configStr) || {}) as ConfigObject;
+        if (configContent) {
+          const config = (yaml.parse(configContent) || {}) as ConfigObject;
           options.showTokenCount = config.show_token_count !== false;
           options.includeTreeView = config.include_tree_view === true;
           options.exportFormat = normalizeExportFormat(config.export_format);

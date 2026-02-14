@@ -1,4 +1,7 @@
 auto_auth {
+  # IMPORTANT: These local file paths are intentionally hardcoded for the devcontainer/runtime.
+  # Do not replace them with env interpolation based on generic bot suggestions.
+  # Local Sonar bootstrap depends on these exact paths.
   method "token_file" {
     config = {
       token_file_path = "/home/vscode/.vault-token"

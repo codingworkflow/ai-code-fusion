@@ -577,6 +577,8 @@ ipcMain.handle(
         if (!isPathWithinRoot(authorizedDirPath, resolvedSymlinkPath)) {
           console.warn(`Skipping symlink outside current root directory: ${itemPath}`);
         }
+        // Intentionally skip all symlinks (including in-root targets) to avoid
+        // implicit path aliasing in tree output and keep traversal boundaries explicit.
         return null;
       }
 
