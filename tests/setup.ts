@@ -70,6 +70,11 @@ window.electronAPI = {
   }),
 };
 
+window.devUtils = {
+  clearLocalStorage: jest.fn().mockReturnValue(true),
+  isDev: true,
+};
+
 if (!window.matchMedia) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
