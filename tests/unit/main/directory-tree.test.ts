@@ -146,11 +146,13 @@ describe('directory-tree service', () => {
     const outsideLinkPath = path.join(ROOT_PATH, 'outside-link');
     const insideLinkPath = path.join(ROOT_PATH, 'inside-link');
     const outsideTargetPath = path.join(path.sep, 'outside', 'root', 'target');
+    const resolvedOutsideLinkPath = path.resolve(outsideLinkPath);
+    const resolvedOutsideTargetPath = path.resolve(outsideTargetPath);
     const gitignoreParser = createGitignoreParser();
 
     const realPathMock = jest.fn((candidatePath: string) => {
-      if (candidatePath === outsideLinkPath) {
-        return outsideTargetPath;
+      if (candidatePath === resolvedOutsideLinkPath) {
+        return resolvedOutsideTargetPath;
       }
       return candidatePath;
     });
@@ -184,11 +186,17 @@ describe('directory-tree service', () => {
     const firstDirectoryPath = path.join(ROOT_PATH, 'a');
     const secondDirectoryPath = path.join(ROOT_PATH, 'b');
     const sharedCanonicalPath = path.join(ROOT_PATH, 'shared-canonical');
+    const resolvedFirstDirectoryPath = path.resolve(firstDirectoryPath);
+    const resolvedSecondDirectoryPath = path.resolve(secondDirectoryPath);
+    const resolvedSharedCanonicalPath = path.resolve(sharedCanonicalPath);
     const gitignoreParser = createGitignoreParser();
 
     const realPathMock = jest.fn((candidatePath: string) => {
-      if (candidatePath === firstDirectoryPath || candidatePath === secondDirectoryPath) {
-        return sharedCanonicalPath;
+      if (
+        candidatePath === resolvedFirstDirectoryPath ||
+        candidatePath === resolvedSecondDirectoryPath
+      ) {
+        return resolvedSharedCanonicalPath;
       }
       return candidatePath;
     });
