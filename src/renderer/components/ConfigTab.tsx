@@ -47,6 +47,9 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
   useEffect(() => {
     try {
       const config = parseConfigContent(configContent);
+      if (!config) {
+        return;
+      }
       dispatch({ type: 'LOAD_FROM_CONFIG', config, aiSurfacesEnabled });
       setProviderValidationErrors([]);
       setProviderTestResult(null);
@@ -59,7 +62,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
   const saveConfig = useCallback(
     (state: ConfigFormState) => {
       try {
-        const config = parseConfigContent(configContent);
+        const config = parseConfigContent(configContent) ?? {};
         applyBaseConfigState(config, state);
 
         const providerResult = applyProviderConfigState(config, state, aiSurfacesEnabled, t);

@@ -124,16 +124,15 @@ export const configFormReducer = (state: ConfigFormState, action: ConfigFormActi
   }
 };
 
-export const parseConfigContent = (configContent: string): ConfigObject => {
+export const parseConfigContent = (configContent: string): ConfigObject | null => {
   try {
     const parsedConfig = yaml.parse(configContent) as ConfigObject;
     if (!parsedConfig || typeof parsedConfig !== 'object') {
       return {};
     }
     return parsedConfig;
-  } catch (error) {
-    console.error('Error parsing config content, using empty config:', error);
-    return {};
+  } catch {
+    return null;
   }
 };
 
