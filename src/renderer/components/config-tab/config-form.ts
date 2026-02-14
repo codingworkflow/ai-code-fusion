@@ -29,12 +29,16 @@ export type ConfigFormState = {
   providerBaseUrl: string;
 };
 
+type SetFieldAction = {
+  [K in keyof ConfigFormState]: {
+    type: 'SET_FIELD';
+    field: K;
+    value: ConfigFormState[K];
+  };
+}[keyof ConfigFormState];
+
 export type ConfigFormAction =
-  | {
-      type: 'SET_FIELD';
-      field: keyof ConfigFormState;
-      value: ConfigFormState[keyof ConfigFormState];
-    }
+  | SetFieldAction
   | { type: 'LOAD_FROM_CONFIG'; config: ConfigObject; aiSurfacesEnabled: boolean };
 
 export const initialFormState: ConfigFormState = {
