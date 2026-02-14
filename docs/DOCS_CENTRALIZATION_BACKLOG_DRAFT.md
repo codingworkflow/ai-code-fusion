@@ -41,15 +41,14 @@ Out of scope (for this draft):
 Proposed structure:
 
 ```text
-/docs
-  /projects
-    /ai-code-fusion
-      ...synced docs...
-    /project-b
-      ...synced docs...
-  /shared
-    /standards
-    /templates
+/projects
+  /ai-code-fusion
+    ...synced docs...
+  /project-b
+    ...synced docs...
+/shared
+  /standards
+  /templates
 ```
 
 Content flow:
@@ -66,6 +65,7 @@ Recommended first implementation:
 1. PR-based sync into central repo (auditable and easy rollback).
 2. Per-project ownership over its own subtree (`/projects/<repo-name>/`).
 3. Central owners review shared-nav/search/config changes.
+4. Sync trigger policy: auto-run on push to each project default branch, with `workflow_dispatch` for manual reruns/backfills.
 
 Future optimization:
 
@@ -83,7 +83,7 @@ Future optimization:
 
 1. Create central docs repository and baseline site config.
 2. Add central CI: docs lint, link check, build, deploy.
-3. Add sync workflow template for project repos -> central repo PR.
+3. Add sync workflow template for project repos -> central repo PR, including trigger policy (`push` to default branch + `workflow_dispatch`).
 4. Onboard `ai-code-fusion` docs into `/projects/ai-code-fusion/`.
 5. Onboard at least one additional project to validate multi-project pattern.
 6. Document ownership/governance model for shared vs project-specific docs.
