@@ -17,9 +17,11 @@ const resolveFromExistingAncestor = (
   while (true) {
     try {
       const realCurrentPath = realpathFn(currentPath);
-      return pendingSegments.length > 0
-        ? path.join(realCurrentPath, ...pendingSegments.reverse())
-        : realCurrentPath;
+      if (pendingSegments.length > 0) {
+        const restoredSegments = [...pendingSegments].reverse();
+        return path.join(realCurrentPath, ...restoredSegments);
+      }
+      return realCurrentPath;
     } catch {
       const parentPath = path.dirname(currentPath);
       if (parentPath === currentPath) {
