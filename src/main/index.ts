@@ -1,5 +1,4 @@
 import fs from 'fs';
-import os from 'node:os';
 import { pathToFileURL } from 'node:url';
 import path from 'path';
 
@@ -22,6 +21,12 @@ import { TokenCounter } from '../utils/token-counter';
 
 import { getErrorMessage } from './errors';
 import { initializeUpdaterFeatureFlags } from './feature-flags';
+import {
+  isPathWithinRoot,
+  isPathWithinTempRoot,
+  resolveAuthorizedPath,
+  resolveRealPath,
+} from './security/path-guard';
 import { createUpdaterService, resolveUpdaterRuntimeOptions } from './updater';
 
 import type {
@@ -49,6 +54,8 @@ const tokenCounter = new TokenCounter();
 // Keep a global reference of the window object to avoid garbage collection
 let mainWindow: BrowserWindow | null = null;
 let authorizedRootPath: string | null = null;
+const resolveAuthorizedPathForCurrentRoot = (candidatePath: string): string | null =>
+  resolveAuthorizedPath(authorizedRootPath, candidatePath);
 
 let updaterService = createUpdaterService(
   autoUpdater,
@@ -68,13 +75,6 @@ const createForbiddenAssetResponse = (): Response => new Response('Forbidden', {
 // Set environment
 const isDevelopment = process.env.NODE_ENV === 'development';
 const e2eUserDataPath = process.env.ELECTRON_USER_DATA_PATH;
-const isPathWithinTempRoot = (candidatePath: string): boolean => {
-  const tempRootPath = path.resolve(os.tmpdir());
-  const resolvedCandidatePath = path.resolve(candidatePath);
-  const relativePath = path.relative(tempRootPath, resolvedCandidatePath);
-
-  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
-};
 
 if (
   process.env.NODE_ENV === 'test' &&
@@ -222,24 +222,6 @@ ipcMain.handle('updater:check', async () => {
 
 type FilterPatternBundle = string[] & { includePatterns?: string[]; includeExtensions?: string[] };
 
-const resolveRealPath = (inputPath: string): string => {
-  const resolvedPath = path.resolve(inputPath);
-  const realpathFn = fs.realpathSync?.native ?? fs.realpathSync;
-
-  if (typeof realpathFn === 'function') {
-    try {
-      const realPathResult = realpathFn(resolvedPath);
-      return typeof realPathResult === 'string' && realPathResult.length > 0
-        ? realPathResult
-        : resolvedPath;
-    } catch {
-      return resolvedPath;
-    }
-  }
-
-  return resolvedPath;
-};
-
 const readPathStats = (itemPath: string): { stats: fs.Stats; isSymbolicLink: boolean } => {
   const lstatFn = fs.lstatSync;
   if (typeof lstatFn === 'function') {
@@ -261,19 +243,6 @@ const readPathStats = (itemPath: string): { stats: fs.Stats; isSymbolicLink: boo
     stats: fs.statSync(itemPath),
     isSymbolicLink: false,
   };
-};
-
-const resolveAuthorizedPath = (candidatePath: string): string | null => {
-  if (!authorizedRootPath || !candidatePath) {
-    return null;
-  }
-
-  const resolvedCandidatePath = path.resolve(candidatePath);
-  if (!isPathWithinRoot(authorizedRootPath, resolvedCandidatePath)) {
-    return null;
-  }
-
-  return resolvedCandidatePath;
 };
 
 const SUPPORTED_PROVIDER_IDS = new Set<ProviderId>([
@@ -491,7 +460,7 @@ ipcMain.handle('dialog:selectDirectory', async () => {
 ipcMain.handle(
   'fs:getDirectoryTree',
   async (_event, dirPath: string, configContent?: string | null) => {
-    const authorizedDirPath = resolveAuthorizedPath(dirPath);
+    const authorizedDirPath = resolveAuthorizedPathForCurrentRoot(dirPath);
     if (!authorizedDirPath) {
       console.warn(`Rejected unauthorized directory tree request: ${dirPath}`);
       return [];
@@ -653,18 +622,6 @@ ipcMain.handle(
   }
 );
 
-const isPathWithinRoot = (rootPath: string, candidatePath: string): boolean => {
-  if (!rootPath || !candidatePath) {
-    return false;
-  }
-
-  const resolvedRootPath = resolveRealPath(rootPath);
-  const resolvedCandidatePath = resolveRealPath(candidatePath);
-  const relativePath = path.relative(resolvedRootPath, resolvedCandidatePath);
-
-  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
-};
-
 // Analyze repository
 ipcMain.handle(
   'repo:analyze',
@@ -673,7 +630,7 @@ ipcMain.handle(
     { rootPath, configContent, selectedFiles }: AnalyzeRepositoryOptions
   ): Promise<AnalyzeRepositoryResult> => {
     try {
-      const authorizedAnalyzeRoot = resolveAuthorizedPath(rootPath);
+      const authorizedAnalyzeRoot = resolveAuthorizedPathForCurrentRoot(rootPath);
       if (!authorizedAnalyzeRoot) {
         throw new Error('Unauthorized root path. Please select the directory again.');
       }
@@ -922,7 +879,7 @@ ipcMain.handle(
     { rootPath, filesInfo, treeView, options = {} }: ProcessRepositoryOptions
   ): Promise<ProcessRepositoryResult> => {
     try {
-      const authorizedProcessRoot = resolveAuthorizedPath(rootPath);
+      const authorizedProcessRoot = resolveAuthorizedPathForCurrentRoot(rootPath);
       if (!authorizedProcessRoot) {
         throw new Error('Unauthorized root path. Please select the directory again.');
       }
@@ -1071,7 +1028,7 @@ ipcMain.handle(
         return { results: {}, stats: {} };
       }
 
-      const authorizedTokensRoot = resolveAuthorizedPath(rootPath);
+      const authorizedTokensRoot = resolveAuthorizedPathForCurrentRoot(rootPath);
       if (!authorizedTokensRoot) {
         console.warn(`Rejected unauthorized token count request for root: ${rootPath}`);
         return { results: {}, stats: {} };
