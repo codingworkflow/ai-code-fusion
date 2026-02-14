@@ -5,7 +5,28 @@ import type { ConfigObject } from '../../../types/ipc';
 export const INITIAL_CONFIG_PLACEHOLDER = '# Loading configuration...';
 
 const redactApiKeyLines = (configContent: string): string => {
-  return configContent.replace(/^(\s*api_key\s*:\s*).+$/gim, '$1[redacted]');
+  const usesWindowsLineEndings = configContent.includes('\r\n');
+  const normalizedContent = usesWindowsLineEndings
+    ? configContent.replaceAll('\r\n', '\n')
+    : configContent;
+  const redactedContent = normalizedContent
+    .split('\n')
+    .map((line) => {
+      const trimmedLine = line.trimStart().toLowerCase();
+      if (!trimmedLine.startsWith('api_key:')) {
+        return line;
+      }
+
+      const separatorIndex = line.indexOf(':');
+      if (separatorIndex === -1) {
+        return line;
+      }
+
+      return `${line.slice(0, separatorIndex + 1)} [redacted]`;
+    })
+    .join('\n');
+
+  return usesWindowsLineEndings ? redactedContent.replaceAll('\n', '\r\n') : redactedContent;
 };
 
 export const sanitizeConfigForStorage = (configContent: string): string => {
