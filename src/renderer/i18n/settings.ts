@@ -9,6 +9,14 @@ export const isSupportedLocale = (value: string | null | undefined): value is Su
   return value !== null && value !== undefined && SUPPORTED_LOCALES.includes(value as SupportedLocale);
 };
 
+const getBrowserWindow = (): Window | undefined => {
+  if (globalThis.window === undefined) {
+    return undefined;
+  }
+
+  return globalThis.window;
+};
+
 const normalizeLocale = (value: string): SupportedLocale | null => {
   if (isSupportedLocale(value)) {
     return value;
@@ -23,11 +31,12 @@ const normalizeLocale = (value: string): SupportedLocale | null => {
 };
 
 export const getInitialLocale = (): SupportedLocale => {
-  if (typeof window === 'undefined') {
+  const browserWindow = getBrowserWindow();
+  if (!browserWindow) {
     return DEFAULT_LOCALE;
   }
 
-  const storedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+  const storedLocale = browserWindow.localStorage.getItem(LOCALE_STORAGE_KEY);
   if (storedLocale) {
     const normalizedStoredLocale = normalizeLocale(storedLocale);
     if (normalizedStoredLocale) {
@@ -36,8 +45,8 @@ export const getInitialLocale = (): SupportedLocale => {
   }
 
   const languageCandidates = [
-    ...(window.navigator.languages || []),
-    window.navigator.language,
+    ...(browserWindow.navigator.languages || []),
+    browserWindow.navigator.language,
   ].filter(Boolean);
 
   for (const candidate of languageCandidates) {
@@ -51,9 +60,10 @@ export const getInitialLocale = (): SupportedLocale => {
 };
 
 export const persistLocale = (locale: SupportedLocale): void => {
-  if (typeof window === 'undefined') {
+  const browserWindow = getBrowserWindow();
+  if (!browserWindow) {
     return;
   }
 
-  window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+  browserWindow.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
 };

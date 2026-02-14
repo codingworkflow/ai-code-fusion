@@ -2,12 +2,12 @@ const RENDERER_FEATURE_FLAGS = {
   aiSurfaces: true,
 } as const;
 
-const isDevMode = (): boolean => {
-  if (typeof window === 'undefined') {
-    return false;
-  }
+const getBrowserWindow = (): Window | undefined => {
+  return globalThis.window;
+};
 
-  return window.devUtils?.isDev === true;
+const isDevMode = (): boolean => {
+  return getBrowserWindow()?.devUtils?.isDev === true;
 };
 
 export const isAiSurfacesEnabled = (): boolean => {

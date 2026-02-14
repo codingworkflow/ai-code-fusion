@@ -11,6 +11,8 @@ const DEFAULT_SCREENSHOT_DIR = path.join('dist', 'qa', 'screenshots');
 const SCREENSHOT_DIR = resolveOutputDirectory(process.env.UI_SCREENSHOT_DIR);
 const PORT = Number(process.env.UI_SCREENSHOT_PORT || 4173);
 const DEFAULT_SCREENSHOT_NAME = `ui-${process.platform}-${process.arch}.png`;
+const DEFAULT_LOCALE = 'en';
+const SUPPORTED_LOCALES = ['en', 'es', 'fr', 'de'];
 const FIXED_MTIME = 1700000000000;
 
 function loadSecretScannerHelpers() {
@@ -332,6 +334,12 @@ const MOCK_VISIBLE_FILE_COUNT_WITH_SECRET_FILTER = countMockFiles(MOCK_FILTERED_
 const SCREENSHOT_NAME = sanitizeScreenshotName(process.env.UI_SCREENSHOT_NAME);
 const SCREENSHOT_BASE_NAME = path.parse(SCREENSHOT_NAME).name;
 const SCREENSHOT_PATH = resolveOutputPath(SCREENSHOT_NAME);
+const LOCALE_SCREENSHOT_PATHS = Object.fromEntries(
+  SUPPORTED_LOCALES.map((locale) => [
+    locale,
+    resolveOutputPath(`${SCREENSHOT_BASE_NAME}-locale-${locale}.png`),
+  ])
+);
 
 const SCREENSHOTS = {
   configDefault: SCREENSHOT_PATH,
@@ -343,6 +351,7 @@ const SCREENSHOTS = {
 
 const UI_SELECTORS = {
   appRoot: '#app',
+  languageSelector: '#language-selector',
   configTab: '[data-tab="config"]',
   sourceTab: '[data-tab="source"]',
   processedTabActive: '[data-tab="processed"][aria-selected="true"]',
@@ -368,6 +377,7 @@ async function setupMockElectronApi(page) {
       sessionStorage.clear();
       localStorage.setItem('rootPath', mockRootPath);
       localStorage.setItem('configContent', mockConfig);
+      localStorage.setItem('app.locale', 'en');
 
       const cloneTree = (treeItems) => JSON.parse(JSON.stringify(treeItems));
       const delay = (durationMs) =>
@@ -488,6 +498,44 @@ async function setupMockElectronApi(page) {
   );
 }
 
+async function setLocaleAndWait(page, locale) {
+  await page.selectOption(UI_SELECTORS.languageSelector, locale);
+  await page.waitForFunction(
+    ({ languageSelector, expectedLocale }) => {
+      const localeSelector = document.querySelector(languageSelector);
+      if (!(localeSelector instanceof HTMLSelectElement)) {
+        return false;
+      }
+
+      return (
+        localeSelector.value === expectedLocale &&
+        localStorage.getItem('app.locale') === expectedLocale
+      );
+    },
+    { languageSelector: UI_SELECTORS.languageSelector, expectedLocale: locale }
+  );
+}
+
+async function captureLocaleScreenshots(page) {
+  await runStep('Wait for language selector', async () => {
+    await page.waitForSelector(UI_SELECTORS.languageSelector, { timeout: 10000 });
+  });
+
+  for (const locale of SUPPORTED_LOCALES) {
+    await runStep(`Switch locale to ${locale}`, async () => {
+      await setLocaleAndWait(page, locale);
+    });
+
+    await runStep(`Capture locale screenshot (${locale})`, async () => {
+      await page.screenshot({ path: LOCALE_SCREENSHOT_PATHS[locale], fullPage: true });
+    });
+  }
+
+  await runStep(`Reset locale to ${DEFAULT_LOCALE}`, async () => {
+    await setLocaleAndWait(page, DEFAULT_LOCALE);
+  });
+}
+
 async function captureAppStateScreenshots(page) {
   await runStep('Disable animations for stable screenshots', async () => {
     await page.addStyleTag({
@@ -513,6 +561,8 @@ async function captureAppStateScreenshots(page) {
   await runStep('Capture config tab screenshot', async () => {
     await page.screenshot({ path: SCREENSHOTS.configDefault, fullPage: true });
   });
+
+  await captureLocaleScreenshots(page);
 
   await runStep('Switch to source tab', async () => {
     await page.click(UI_SELECTORS.sourceTab);
@@ -703,7 +753,16 @@ async function captureScreenshot() {
       await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'networkidle' });
     });
     await captureAppStateScreenshots(page);
-    Object.values(SCREENSHOTS).forEach((screenshotPath) => {
+    const screenshotPaths = [
+      SCREENSHOTS.configDefault,
+      ...SUPPORTED_LOCALES.map((locale) => LOCALE_SCREENSHOT_PATHS[locale]),
+      SCREENSHOTS.sourceTab,
+      SCREENSHOTS.sourceSelected,
+      SCREENSHOTS.sourceSelectedResized,
+      SCREENSHOTS.processedTab,
+    ];
+
+    screenshotPaths.forEach((screenshotPath) => {
       console.log(`UI screenshot captured: ${screenshotPath}`);
     });
   } finally {
