@@ -15,7 +15,7 @@ import {
   wrapXmlCdata,
 } from '../utils/export-format';
 import { FileAnalyzer, isBinaryFile } from '../utils/file-analyzer';
-import { getRelativePath, shouldExclude } from '../utils/filter-utils';
+import { getRelativePath } from '../utils/filter-utils';
 import { GitignoreParser } from '../utils/gitignore-parser';
 import { TokenCounter } from '../utils/token-counter';
 
@@ -25,8 +25,8 @@ import {
   isPathWithinRoot,
   isPathWithinTempRoot,
   resolveAuthorizedPath,
-  resolveRealPath,
 } from './security/path-guard';
+import { getDirectoryTree } from './services/directory-tree';
 import { testProviderConnection } from './services/provider-connection';
 import { createUpdaterService, resolveUpdaterRuntimeOptions } from './updater';
 
@@ -36,7 +36,6 @@ import type {
   ConfigObject,
   CountFilesTokensOptions,
   CountFilesTokensResult,
-  DirectoryTreeItem,
   FileInfo,
   ProviderConnectionOptions,
   ProviderConnectionResult,
@@ -220,31 +219,6 @@ ipcMain.handle('updater:check', async () => {
 
 // IPC Event Handlers
 
-type FilterPatternBundle = string[] & { includePatterns?: string[]; includeExtensions?: string[] };
-
-const readPathStats = (itemPath: string): { stats: fs.Stats; isSymbolicLink: boolean } => {
-  const lstatFn = fs.lstatSync;
-  if (typeof lstatFn === 'function') {
-    try {
-      const lstatResult = lstatFn(itemPath);
-      if (lstatResult && typeof lstatResult.isDirectory === 'function') {
-        return {
-          stats: lstatResult,
-          isSymbolicLink:
-            typeof lstatResult.isSymbolicLink === 'function' && lstatResult.isSymbolicLink(),
-        };
-      }
-    } catch {
-      // Fall back to statSync when lstatSync fails (e.g., transient ENOENT in mocked/fs race scenarios).
-    }
-  }
-
-  return {
-    stats: fs.statSync(itemPath),
-    isSymbolicLink: false,
-  };
-};
-
 ipcMain.handle(
   'provider:testConnection',
   async (_event, options: ProviderConnectionOptions): Promise<ProviderConnectionResult> => {
@@ -282,159 +256,17 @@ ipcMain.handle(
       return [];
     }
 
-    // IMPORTANT: This function applies exclude patterns to the directory tree,
-    // preventing node_modules, .git, and other large directories from being included
-    // in the UI tree view. This is critical for performance with large repositories.
-
-    // Parse config to get settings and exclude patterns
-    let excludePatterns: FilterPatternBundle = [];
-    let config: ConfigObject = { exclude_patterns: [] };
-    try {
-      config = (configContent
-        ? (yaml.parse(configContent) as ConfigObject)
-        : ({ exclude_patterns: [] } as ConfigObject)) || { exclude_patterns: [] };
-
-      // Check if we should use custom excludes (default to true if not specified)
-      const useCustomExcludes = config.use_custom_excludes !== false;
-
-      // Check if we should use custom includes (default to true if not specified)
-      const useCustomIncludes = config.use_custom_includes !== false;
-
-      // Check if we should use gitignore (default to true if not specified)
-      const useGitignore = config.use_gitignore !== false;
-
-      // Start with empty excludePatterns array (no hardcoded patterns)
-      // Add custom exclude patterns if enabled
-      if (useCustomExcludes && config.exclude_patterns && Array.isArray(config.exclude_patterns)) {
-        excludePatterns = [...excludePatterns, ...config.exclude_patterns];
-      }
-
-      // Store include extensions for filtering later (if enabled)
-      if (
-        useCustomIncludes &&
-        config.include_extensions &&
-        Array.isArray(config.include_extensions)
-      ) {
-        excludePatterns.includeExtensions = config.include_extensions;
-      }
-
-      // Add gitignore patterns if enabled
-      if (useGitignore) {
-        const gitignoreResult = gitignoreParser.parseGitignore(authorizedDirPath);
-        if (gitignoreResult.excludePatterns && gitignoreResult.excludePatterns.length > 0) {
-          excludePatterns = [...excludePatterns, ...gitignoreResult.excludePatterns];
-        }
-
-        // Handle negated patterns (these will be processed later to override excludes)
-        if (gitignoreResult.includePatterns && gitignoreResult.includePatterns.length > 0) {
-          // We'll store includePatterns separately to process later
-          excludePatterns.includePatterns = gitignoreResult.includePatterns;
-        }
-      }
-    } catch (error) {
-      console.error('Error parsing config:', error);
-      // Fall back to only hiding .git folder
-      excludePatterns = ['**/.git/**'];
-      config = { exclude_patterns: [] };
-    }
-
-    // Use the shared shouldExclude function from filter-utils
-    const localShouldExclude = (itemPath: string) => {
-      return shouldExclude(itemPath, authorizedDirPath, excludePatterns, config);
-    };
-
-    const visitedDirectoryRealPaths = new Set<string>();
-
-    const processEntry = (
-      dir: string,
-      item: string,
-      walkFn: (d: string) => DirectoryTreeItem[]
-    ): DirectoryTreeItem | null => {
-      const itemPath = path.join(dir, item);
-
-      if (localShouldExclude(itemPath)) {
-        return null;
-      }
-
-      const { stats, isSymbolicLink } = readPathStats(itemPath);
-      if (isSymbolicLink) {
-        const resolvedSymlinkPath = resolveRealPath(itemPath);
-        if (!isPathWithinRoot(authorizedDirPath, resolvedSymlinkPath)) {
-          console.warn(`Skipping symlink outside current root directory: ${itemPath}`);
-        }
-        // Intentionally skip all symlinks (including in-root targets) to avoid
-        // implicit path aliasing in tree output and keep traversal boundaries explicit.
-        return null;
-      }
-
-      if (!isPathWithinRoot(authorizedDirPath, itemPath)) {
-        console.warn(`Skipping path outside current root directory: ${itemPath}`);
-        return null;
-      }
-
-      if (stats.isDirectory()) {
-        const children = walkFn(itemPath);
-        if (children.length === 0) {
-          return null;
-        }
-        return {
-          name: item,
-          path: itemPath,
-          type: 'directory',
-          size: stats.size,
-          lastModified: stats.mtime,
-          children,
-          itemCount: children.length,
-        };
-      }
-
-      return {
-        name: item,
-        path: itemPath,
-        type: 'file',
-        size: stats.size,
-        lastModified: stats.mtime,
-        extension: path.extname(item).toLowerCase(),
-      };
-    };
-
-    const sortTreeItems = (a: DirectoryTreeItem, b: DirectoryTreeItem): number => {
-      if (a.type === 'directory' && b.type === 'file') return -1;
-      if (a.type === 'file' && b.type === 'directory') return 1;
-      return a.name.localeCompare(b.name);
-    };
-
-    const walkDirectory = (dir: string): DirectoryTreeItem[] => {
-      const realDirectoryPath = resolveRealPath(dir);
-      if (visitedDirectoryRealPaths.has(realDirectoryPath)) {
-        console.warn(`Skipping previously visited directory to avoid recursion loops: ${dir}`);
-        return [];
-      }
-      visitedDirectoryRealPaths.add(realDirectoryPath);
-
-      const items = fs.readdirSync(dir);
-      const result: DirectoryTreeItem[] = [];
-
-      for (const item of items) {
-        try {
-          const entry = processEntry(dir, item, walkDirectory);
-          if (entry) {
-            result.push(entry);
-          }
-        } catch (err) {
-          console.error(`Error processing ${path.join(dir, item)}:`, err);
-        }
-      }
-
-      return result.sort(sortTreeItems);
-    };
-
-    try {
-      return walkDirectory(authorizedDirPath);
-    } catch (error) {
-      console.error('Error getting directory tree:', error);
-      return [];
-    }
+    return getDirectoryTree({
+      rootPath: authorizedDirPath,
+      configContent,
+      gitignoreParser,
+      onWarn: (message: string) => {
+        console.warn(message);
+      },
+      onError: (message: string, error?: unknown) => {
+        console.error(message, error);
+      },
+    });
   }
 );
 
