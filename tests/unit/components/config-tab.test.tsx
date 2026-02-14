@@ -1,5 +1,18 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+
+// Mock useApp from AppContext
+const mockSelectDirectory = jest.fn().mockResolvedValue(true);
+const mockSwitchTab = jest.fn();
+
+jest.mock('../../../src/renderer/context/AppContext', () => ({
+  useApp: () => ({
+    rootPath: '/mock/saved/path',
+    selectDirectory: mockSelectDirectory,
+    switchTab: mockSwitchTab,
+  }),
+}));
+
 import ConfigTab from '../../../src/renderer/components/ConfigTab';
 
 // Mock the list formatter
@@ -64,10 +77,8 @@ window.electronAPI = {
   }),
 };
 
-// Mock alert and custom events
-window.alert = jest.fn();
+// Mock custom events
 window.dispatchEvent = jest.fn();
-window.switchToTab = jest.fn();
 
 describe('ConfigTab', () => {
   const mockConfigContent = '# Test configuration\ninclude_extensions:\n  - .js\n  - .jsx';
@@ -87,7 +98,7 @@ describe('ConfigTab', () => {
   test('renders inputs and checkboxes correctly', () => {
     render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
 
-    // Check folder input
+    // Check folder input - reads rootPath from context
     const folderInput = screen.getByPlaceholderText('Select a root folder');
     expect(folderInput).toBeInTheDocument();
     expect(folderInput).toHaveValue('/mock/saved/path');
@@ -174,31 +185,39 @@ describe('ConfigTab', () => {
     expect(screen.getByLabelText('Export format')).toHaveValue('xml');
   });
 
-  test('calls selectDirectory when folder button is clicked', async () => {
+  test('calls selectDirectory from context when folder button is clicked', async () => {
     render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
 
     const selectFolderButton = screen.getByText('Select Folder');
 
-    act(() => {
+    await act(async () => {
       fireEvent.click(selectFolderButton);
     });
 
     await waitFor(() => {
-      expect(window.electronAPI.selectDirectory).toHaveBeenCalled();
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('rootPath', '/mock/directory');
+      expect(mockSelectDirectory).toHaveBeenCalled();
+      expect(mockSwitchTab).toHaveBeenCalledWith('source');
     });
   });
 
   test('shows provider validation errors but still saves non-provider config', async () => {
     render(<ConfigTab configContent={mockConfigContent} onConfigChange={mockOnConfigChange} />);
 
+    // Flush initial auto-save timer and isSaved reset from mount
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
     mockOnConfigChange.mockClear();
 
     const providerSelect = screen.getByLabelText('Provider');
-    const saveButton = screen.getByRole('button', { name: /save config/i });
 
     act(() => {
       fireEvent.change(providerSelect, { target: { value: 'openai' } });
+    });
+
+    // Re-query save button after re-render and click it
+    const saveButton = screen.getByRole('button', { name: /save config/i });
+    act(() => {
       fireEvent.click(saveButton);
       jest.advanceTimersByTime(100);
     });

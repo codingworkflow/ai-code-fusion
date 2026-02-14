@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import yaml from 'yaml';
 
 import { normalizeExportFormat } from '../../utils/export-format';
 import { yamlArrayToPlainText } from '../../utils/formatters/list-formatter';
+import { useApp } from '../context/AppContext';
 
 import type {
   ConfigObject,
@@ -14,19 +15,6 @@ import type {
 type ConfigTabProps = {
   configContent: string;
   onConfigChange: (config: string) => void;
-};
-
-type ConfigStateSetters = {
-  setFileExtensions: React.Dispatch<React.SetStateAction<string>>;
-  setExcludePatterns: React.Dispatch<React.SetStateAction<string>>;
-  setUseCustomExcludes: React.Dispatch<React.SetStateAction<boolean>>;
-  setUseCustomIncludes: React.Dispatch<React.SetStateAction<boolean>>;
-  setUseGitignore: React.Dispatch<React.SetStateAction<boolean>>;
-  setEnableSecretScanning: React.Dispatch<React.SetStateAction<boolean>>;
-  setExcludeSuspiciousFiles: React.Dispatch<React.SetStateAction<boolean>>;
-  setIncludeTreeView: React.Dispatch<React.SetStateAction<boolean>>;
-  setShowTokenCount: React.Dispatch<React.SetStateAction<boolean>>;
-  setExportFormat: React.Dispatch<React.SetStateAction<ExportFormat>>;
 };
 
 const PROVIDER_OPTIONS: Array<{
@@ -129,132 +117,99 @@ const getProviderValidationErrors = (providerFields: {
   return errors;
 };
 
-// Helper functions for extension and pattern handling to reduce complexity
-const processExtensions = (
-  config: ConfigObject,
-  setFileExtensions: React.Dispatch<React.SetStateAction<string>>
-) => {
-  setFileExtensions(
-    config?.include_extensions && Array.isArray(config.include_extensions)
-      ? yamlArrayToPlainText(config.include_extensions)
-      : ''
-  );
+// Config form state managed by useReducer
+type ConfigFormState = {
+  useCustomExcludes: boolean;
+  useCustomIncludes: boolean;
+  useGitignore: boolean;
+  enableSecretScanning: boolean;
+  excludeSuspiciousFiles: boolean;
+  includeTreeView: boolean;
+  showTokenCount: boolean;
+  exportFormat: ExportFormat;
+  fileExtensions: string;
+  excludePatterns: string;
+  providerId: ProviderId | '';
+  providerModel: string;
+  providerApiKey: string;
+  providerBaseUrl: string;
 };
 
-const processPatterns = (
-  config: ConfigObject,
-  setExcludePatterns: React.Dispatch<React.SetStateAction<string>>
-) => {
-  setExcludePatterns(
-    config?.exclude_patterns && Array.isArray(config.exclude_patterns)
-      ? yamlArrayToPlainText(config.exclude_patterns)
-      : ''
-  );
+type ConfigFormAction =
+  | { type: 'SET_FIELD'; field: keyof ConfigFormState; value: ConfigFormState[keyof ConfigFormState] }
+  | { type: 'LOAD_FROM_CONFIG'; config: ConfigObject };
+
+const configFormReducer = (state: ConfigFormState, action: ConfigFormAction): ConfigFormState => {
+  switch (action.type) {
+    case 'SET_FIELD':
+      return { ...state, [action.field]: action.value };
+    case 'LOAD_FROM_CONFIG': {
+      const config = action.config;
+      const providerConfig = config?.provider ?? {};
+      return {
+        ...state,
+        fileExtensions:
+          config?.include_extensions && Array.isArray(config.include_extensions)
+            ? yamlArrayToPlainText(config.include_extensions)
+            : '',
+        excludePatterns:
+          config?.exclude_patterns && Array.isArray(config.exclude_patterns)
+            ? yamlArrayToPlainText(config.exclude_patterns)
+            : '',
+        useCustomExcludes: config?.use_custom_excludes !== false,
+        useCustomIncludes: config?.use_custom_includes !== false,
+        useGitignore: config?.use_gitignore !== false,
+        enableSecretScanning: config?.enable_secret_scanning !== false,
+        excludeSuspiciousFiles: config?.exclude_suspicious_files !== false,
+        includeTreeView: config?.include_tree_view === true,
+        showTokenCount: config?.show_token_count !== false,
+        exportFormat: normalizeExportFormat(config?.export_format),
+        providerId: isSupportedProviderId(providerConfig.id) ? providerConfig.id : '',
+        providerModel: typeof providerConfig.model === 'string' ? providerConfig.model : '',
+        providerApiKey: typeof providerConfig.api_key === 'string' ? providerConfig.api_key : '',
+        providerBaseUrl: typeof providerConfig.base_url === 'string' ? providerConfig.base_url : '',
+      };
+    }
+    default:
+      return state;
+  }
 };
 
-// Helper function to update config-related states
-const updateConfigStates = (config: ConfigObject, stateSetters: ConfigStateSetters) => {
-  const {
-    setFileExtensions,
-    setExcludePatterns,
-    setUseCustomExcludes,
-    setUseCustomIncludes,
-    setUseGitignore,
-    setEnableSecretScanning,
-    setExcludeSuspiciousFiles,
-    setIncludeTreeView,
-    setShowTokenCount,
-    setExportFormat,
-  } = stateSetters;
-
-  // Process extensions and patterns
-  processExtensions(config, setFileExtensions);
-  processPatterns(config, setExcludePatterns);
-
-  // Set checkbox states
-  if (config?.use_custom_excludes !== undefined) {
-    setUseCustomExcludes(config.use_custom_excludes !== false);
-  }
-
-  if (config?.use_custom_includes !== undefined) {
-    setUseCustomIncludes(config.use_custom_includes !== false);
-  }
-
-  if (config?.use_gitignore !== undefined) {
-    setUseGitignore(config.use_gitignore !== false);
-  }
-
-  if (config?.enable_secret_scanning !== undefined) {
-    setEnableSecretScanning(config.enable_secret_scanning !== false);
-  }
-
-  if (config?.exclude_suspicious_files !== undefined) {
-    setExcludeSuspiciousFiles(config.exclude_suspicious_files !== false);
-  }
-
-  if (config?.include_tree_view !== undefined) {
-    setIncludeTreeView(config.include_tree_view === true);
-  }
-
-  if (config?.show_token_count !== undefined) {
-    setShowTokenCount(config.show_token_count === true);
-  }
-
-  if (config?.export_format !== undefined) {
-    setExportFormat(normalizeExportFormat(config.export_format));
-  }
+const initialFormState: ConfigFormState = {
+  useCustomExcludes: true,
+  useCustomIncludes: true,
+  useGitignore: true,
+  enableSecretScanning: true,
+  excludeSuspiciousFiles: true,
+  includeTreeView: true,
+  showTokenCount: true,
+  exportFormat: 'markdown',
+  fileExtensions: '',
+  excludePatterns: '',
+  providerId: '',
+  providerModel: '',
+  providerApiKey: '',
+  providerBaseUrl: '',
 };
 
 const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
+  const { rootPath, selectDirectory, switchTab } = useApp();
+  const [formState, dispatch] = useReducer(configFormReducer, initialFormState);
   const [isSaved, setIsSaved] = useState(false);
-  const [useCustomExcludes, setUseCustomExcludes] = useState(true);
-  const [useCustomIncludes, setUseCustomIncludes] = useState(true);
-  const [useGitignore, setUseGitignore] = useState(true);
-  const [enableSecretScanning, setEnableSecretScanning] = useState(true);
-  const [excludeSuspiciousFiles, setExcludeSuspiciousFiles] = useState(true);
-  const [includeTreeView, setIncludeTreeView] = useState(true);
-  const [showTokenCount, setShowTokenCount] = useState(true);
-  const [exportFormat, setExportFormat] = useState<ExportFormat>('markdown');
-  const [fileExtensions, setFileExtensions] = useState('');
-  const [excludePatterns, setExcludePatterns] = useState('');
-  const [providerId, setProviderId] = useState<ProviderId | ''>('');
-  const [providerModel, setProviderModel] = useState('');
-  const [providerApiKey, setProviderApiKey] = useState('');
-  const [providerBaseUrl, setProviderBaseUrl] = useState('');
   const [providerValidationErrors, setProviderValidationErrors] = useState<string[]>([]);
   const [providerTestResult, setProviderTestResult] = useState<ProviderConnectionResult | null>(
     null
   );
   const [isTestingProviderConnection, setIsTestingProviderConnection] = useState(false);
+  const formStateRef = useRef(formState);
+  formStateRef.current = formState;
   const appWindow = globalThis as Window & typeof globalThis;
 
-  // Extract and set file extensions and exclude patterns sections
+  // Load form state from config prop
   useEffect(() => {
     try {
-      // Parse the YAML config
       const config = (yaml.parse(configContent) || {}) as ConfigObject;
-
-      // Use helper function to update states
-      updateConfigStates(config, {
-        setFileExtensions,
-        setExcludePatterns,
-        setUseCustomExcludes,
-        setUseCustomIncludes,
-        setUseGitignore,
-        setEnableSecretScanning,
-        setExcludeSuspiciousFiles,
-        setIncludeTreeView,
-        setShowTokenCount,
-        setExportFormat,
-      });
-
-      const providerConfig = config?.provider ?? {};
-      setProviderId(isSupportedProviderId(providerConfig.id) ? providerConfig.id : '');
-      setProviderModel(typeof providerConfig.model === 'string' ? providerConfig.model : '');
-      setProviderApiKey(typeof providerConfig.api_key === 'string' ? providerConfig.api_key : '');
-      setProviderBaseUrl(
-        typeof providerConfig.base_url === 'string' ? providerConfig.base_url : ''
-      );
+      dispatch({ type: 'LOAD_FROM_CONFIG', config });
       setProviderValidationErrors([]);
       setProviderTestResult(null);
     } catch (error) {
@@ -262,128 +217,111 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
     }
   }, [configContent]);
 
-  // Auto-save function whenever options change or manual save
-  const saveConfig = useCallback(() => {
-    try {
-      let config: ConfigObject;
-
+  // Save config from form state - accepts explicit state to keep identity stable
+  const saveConfig = useCallback(
+    (state: ConfigFormState) => {
       try {
-        // Parse the current config
-        config = yaml.parse(configContent) as ConfigObject;
-        // If parsing returns null or undefined, use empty object
-        if (!config) {
+        let config: ConfigObject;
+
+        try {
+          config = yaml.parse(configContent) as ConfigObject;
+          if (!config) {
+            config = {};
+          }
+        } catch (error) {
+          console.error('Error parsing config content, using empty config:', error);
           config = {};
         }
-      } catch (error) {
-        console.error('Error parsing config content, using empty config:', error);
-        config = {};
-      }
 
-      // Update with current values
-      config.use_custom_excludes = useCustomExcludes;
-      config.use_custom_includes = useCustomIncludes;
-      config.use_gitignore = useGitignore;
-      config.enable_secret_scanning = enableSecretScanning;
-      config.exclude_suspicious_files = excludeSuspiciousFiles;
-      config.include_tree_view = includeTreeView;
-      config.show_token_count = showTokenCount;
-      config.export_format = exportFormat;
+        config.use_custom_excludes = state.useCustomExcludes;
+        config.use_custom_includes = state.useCustomIncludes;
+        config.use_gitignore = state.useGitignore;
+        config.enable_secret_scanning = state.enableSecretScanning;
+        config.exclude_suspicious_files = state.excludeSuspiciousFiles;
+        config.include_tree_view = state.includeTreeView;
+        config.show_token_count = state.showTokenCount;
+        config.export_format = state.exportFormat;
 
-      // Process file extensions from the textarea
-      config.include_extensions = fileExtensions
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
+        config.include_extensions = state.fileExtensions
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0);
 
-      // Process exclude patterns from the textarea
-      config.exclude_patterns = excludePatterns
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
+        config.exclude_patterns = state.excludePatterns
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0);
 
-      const providerFields = {
-        providerId,
-        providerModel,
-        providerApiKey,
-        providerBaseUrl,
-      };
-      const validationErrors = getProviderValidationErrors(providerFields);
-      const hasProviderValidationErrors = validationErrors.length > 0;
+        const providerFields = {
+          providerId: state.providerId,
+          providerModel: state.providerModel,
+          providerApiKey: state.providerApiKey,
+          providerBaseUrl: state.providerBaseUrl,
+        };
+        const validationErrors = getProviderValidationErrors(providerFields);
+        const hasProviderValidationErrors = validationErrors.length > 0;
 
-      if (hasProviderValidationErrors) {
-        setProviderValidationErrors(validationErrors);
-        setProviderTestResult({
-          ok: false,
-          message: 'Fix provider settings before saving.',
-        });
-      }
+        if (hasProviderValidationErrors) {
+          setProviderValidationErrors(validationErrors);
+          setProviderTestResult({
+            ok: false,
+            message: 'Fix provider settings before saving.',
+          });
+        }
 
-      if (hasProviderValidationErrors) {
-        if (config.provider) {
+        if (hasProviderValidationErrors) {
+          if (config.provider) {
+            delete config.provider;
+          }
+        } else if (hasProviderInput(providerFields) && state.providerId) {
+          config.provider = {
+            id: state.providerId,
+            model: state.providerModel.trim(),
+            api_key: trimToUndefined(state.providerApiKey),
+            base_url: trimToUndefined(state.providerBaseUrl),
+          };
+        } else if (config.provider) {
           delete config.provider;
         }
-      } else if (hasProviderInput(providerFields) && providerId) {
-        config.provider = {
-          id: providerId,
-          model: providerModel.trim(),
-          api_key: trimToUndefined(providerApiKey),
-          base_url: trimToUndefined(providerBaseUrl),
-        };
-      } else if (config.provider) {
-        delete config.provider;
-      }
 
-      // Convert back to YAML and save
-      const updatedConfig = yaml.stringify(config);
-      onConfigChange(updatedConfig);
+        const updatedConfig = yaml.stringify(config);
 
-      if (hasProviderValidationErrors) {
-        setIsSaved(false);
-      } else {
-        // Show saved indicator
-        setProviderValidationErrors([]);
-        setIsSaved(true);
-        setTimeout(() => {
+        // Guard against no-op updates to prevent circular effects
+        if (updatedConfig === configContent) {
+          return;
+        }
+
+        onConfigChange(updatedConfig);
+
+        if (hasProviderValidationErrors) {
           setIsSaved(false);
-        }, 1500);
+        } else {
+          setProviderValidationErrors([]);
+          setIsSaved(true);
+          setTimeout(() => {
+            setIsSaved(false);
+          }, 1500);
+        }
+      } catch (error) {
+        console.error('Error updating config:', error);
       }
-    } catch (error) {
-      console.error('Error updating config:', error);
-      alert('Error updating configuration. Please check the YAML syntax.');
-    }
-  }, [
-    configContent,
-    useCustomExcludes,
-    useCustomIncludes,
-    useGitignore,
-    enableSecretScanning,
-    excludeSuspiciousFiles,
-    includeTreeView,
-    showTokenCount,
-    exportFormat,
-    fileExtensions,
-    excludePatterns,
-    providerId,
-    providerModel,
-    providerApiKey,
-    providerBaseUrl,
-    onConfigChange,
-  ]);
+    },
+    [configContent, onConfigChange]
+  );
 
-  // Auto-save whenever any option changes, but with a small delay to prevent
-  // circular updates and rapid toggling
+  // Auto-save on checkbox/select changes (not text fields - those save on blur/button)
   useEffect(() => {
-    const timer = setTimeout(saveConfig, 50);
+    const timer = setTimeout(() => saveConfig(formStateRef.current), 50);
     return () => clearTimeout(timer);
   }, [
-    useCustomExcludes,
-    useCustomIncludes,
-    useGitignore,
-    enableSecretScanning,
-    excludeSuspiciousFiles,
-    includeTreeView,
-    showTokenCount,
-    exportFormat,
+    formState.useCustomExcludes,
+    formState.useCustomIncludes,
+    formState.useGitignore,
+    formState.enableSecretScanning,
+    formState.excludeSuspiciousFiles,
+    formState.includeTreeView,
+    formState.showTokenCount,
+    formState.exportFormat,
     saveConfig,
   ]);
 
@@ -394,10 +332,10 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
 
   const handleTestProviderConnection = async () => {
     const providerFields = {
-      providerId,
-      providerModel,
-      providerApiKey,
-      providerBaseUrl,
+      providerId: formState.providerId,
+      providerModel: formState.providerModel,
+      providerApiKey: formState.providerApiKey,
+      providerBaseUrl: formState.providerBaseUrl,
     };
     const validationErrors = getProviderValidationErrors(providerFields);
     if (validationErrors.length > 0) {
@@ -409,7 +347,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
       return;
     }
 
-    if (!providerId) {
+    if (!formState.providerId) {
       setProviderValidationErrors(['Select a provider.']);
       return;
     }
@@ -427,10 +365,10 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
 
     try {
       const result = await appWindow.electronAPI.testProviderConnection({
-        providerId,
-        model: providerModel.trim(),
-        apiKey: providerApiKey.trim(),
-        baseUrl: trimToUndefined(providerBaseUrl),
+        providerId: formState.providerId,
+        model: formState.providerModel.trim(),
+        apiKey: formState.providerApiKey.trim(),
+        baseUrl: trimToUndefined(formState.providerBaseUrl),
       });
       setProviderTestResult(result);
       if (result.ok) {
@@ -448,67 +386,15 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
     }
   };
 
-  // State to track the current folder path
-  const [folderPath, setFolderPath] = useState<string>(localStorage.getItem('rootPath') || '');
-
-  // Listen for path changes from other components
-  useEffect(() => {
-    // Function to update our path when localStorage changes
-    const checkForPathChanges = () => {
-      const currentPath = localStorage.getItem('rootPath');
-      if (currentPath && currentPath !== folderPath) {
-        setFolderPath(currentPath);
-      }
-    };
-
-    // Check immediately
-    checkForPathChanges();
-
-    // Setup interval to check for changes
-    const pathCheckInterval = setInterval(checkForPathChanges, 500);
-
-    // Listen for custom events
-    const handleRootPathChanged = (event: Event) => {
-      const customEvent = event as CustomEvent<string>;
-      const detail = customEvent.detail;
-      if (detail && detail !== folderPath) {
-        setFolderPath(detail);
-      }
-    };
-
-    appWindow.addEventListener('rootPathChanged', handleRootPathChanged);
-
-    return () => {
-      clearInterval(pathCheckInterval);
-      appWindow.removeEventListener('rootPathChanged', handleRootPathChanged);
-    };
-  }, [folderPath, appWindow]);
-
-  // Handle folder selection
   const handleFolderSelect = async () => {
-    if (appWindow.electronAPI?.selectDirectory) {
-      const dirPath = await appWindow.electronAPI.selectDirectory?.();
-      if (dirPath) {
-        // Store the selected path in localStorage for use across the app
-        localStorage.setItem('rootPath', dirPath);
-        setFolderPath(dirPath);
-
-        // Dispatch a custom event to notify other components
-        appWindow.dispatchEvent(new CustomEvent('rootPathChanged', { detail: dirPath }));
-
-        // Automatically switch to Select Files tab
-        setTimeout(() => {
-          goToSourceTab();
-        }, 500);
-      }
+    const selected = await selectDirectory();
+    if (selected) {
+      switchTab('source');
     }
   };
 
-  const goToSourceTab = () => {
-    // Switch to the Source tab
-    if (appWindow.switchToTab) {
-      appWindow.switchToTab('source');
-    }
+  const setField = <K extends keyof ConfigFormState>(field: K, value: ConfigFormState[K]) => {
+    dispatch({ type: 'SET_FIELD', field, value });
   };
 
   return (
@@ -519,7 +405,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
           <input
             type='text'
             className='grow border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 cursor-pointer'
-            value={folderPath}
+            value={rootPath}
             readOnly
             placeholder='Select a root folder'
             onClick={handleFolderSelect}
@@ -562,8 +448,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                   <input
                     type='checkbox'
                     id='use-custom-includes'
-                    checked={useCustomIncludes}
-                    onChange={(e) => setUseCustomIncludes(e.target.checked)}
+                    checked={formState.useCustomIncludes}
+                    onChange={(e) => setField('useCustomIncludes', e.target.checked)}
                     className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
                   />
                   <label
@@ -578,8 +464,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                   <input
                     type='checkbox'
                     id='use-custom-excludes'
-                    checked={useCustomExcludes}
-                    onChange={(e) => setUseCustomExcludes(e.target.checked)}
+                    checked={formState.useCustomExcludes}
+                    onChange={(e) => setField('useCustomExcludes', e.target.checked)}
                     className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
                   />
                   <label
@@ -594,8 +480,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                   <input
                     type='checkbox'
                     id='use-gitignore'
-                    checked={useGitignore}
-                    onChange={(e) => setUseGitignore(e.target.checked)}
+                    checked={formState.useGitignore}
+                    onChange={(e) => setField('useGitignore', e.target.checked)}
                     className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
                   />
                   <label
@@ -610,8 +496,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                   <input
                     type='checkbox'
                     id='enable-secret-scanning'
-                    checked={enableSecretScanning}
-                    onChange={(e) => setEnableSecretScanning(e.target.checked)}
+                    checked={formState.enableSecretScanning}
+                    onChange={(e) => setField('enableSecretScanning', e.target.checked)}
                     className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
                   />
                   <label
@@ -626,8 +512,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                   <input
                     type='checkbox'
                     id='exclude-suspicious-files'
-                    checked={excludeSuspiciousFiles}
-                    onChange={(e) => setExcludeSuspiciousFiles(e.target.checked)}
+                    checked={formState.excludeSuspiciousFiles}
+                    onChange={(e) => setField('excludeSuspiciousFiles', e.target.checked)}
                     className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
                   />
                   <label
@@ -652,8 +538,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     id='include-tree-view'
                     type='checkbox'
                     className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
-                    checked={includeTreeView}
-                    onChange={(e) => setIncludeTreeView(e.target.checked)}
+                    checked={formState.includeTreeView}
+                    onChange={(e) => setField('includeTreeView', e.target.checked)}
                   />
                   <label
                     htmlFor='include-tree-view'
@@ -668,8 +554,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                     id='show-token-count'
                     type='checkbox'
                     className='size-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
-                    checked={showTokenCount}
-                    onChange={(e) => setShowTokenCount(e.target.checked)}
+                    checked={formState.showTokenCount}
+                    onChange={(e) => setField('showTokenCount', e.target.checked)}
                   />
                   <label
                     htmlFor='show-token-count'
@@ -688,8 +574,8 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                   </label>
                   <select
                     id='export-format'
-                    value={exportFormat}
-                    onChange={(event) => setExportFormat(normalizeExportFormat(event.target.value))}
+                    value={formState.exportFormat}
+                    onChange={(event) => setField('exportFormat', normalizeExportFormat(event.target.value))}
                     className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
                   >
                     <option value='markdown'>Markdown</option>
@@ -718,11 +604,9 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                 </label>
                 <select
                   id='provider-id'
-                  value={providerId}
+                  value={formState.providerId}
                   onChange={(event) => {
-                    setProviderId(
-                      isSupportedProviderId(event.target.value) ? event.target.value : ''
-                    );
+                    setField('providerId', isSupportedProviderId(event.target.value) ? event.target.value : '');
                     resetProviderFeedback();
                   }}
                   className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
@@ -746,10 +630,10 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                 <input
                   id='provider-model'
                   type='text'
-                  value={providerModel}
+                  value={formState.providerModel}
                   placeholder='e.g. gpt-4o-mini'
                   onChange={(event) => {
-                    setProviderModel(event.target.value);
+                    setField('providerModel', event.target.value);
                     resetProviderFeedback();
                   }}
                   className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
@@ -766,13 +650,13 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                 <input
                   id='provider-base-url'
                   type='text'
-                  value={providerBaseUrl}
+                  value={formState.providerBaseUrl}
                   placeholder={
-                    PROVIDER_OPTIONS.find((providerOption) => providerOption.id === providerId)
+                    PROVIDER_OPTIONS.find((providerOption) => providerOption.id === formState.providerId)
                       ?.defaultBaseUrl || 'https://api.openai.com/v1'
                   }
                   onChange={(event) => {
-                    setProviderBaseUrl(event.target.value);
+                    setField('providerBaseUrl', event.target.value);
                     resetProviderFeedback();
                   }}
                   className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
@@ -789,10 +673,10 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
                 <input
                   id='provider-api-key'
                   type='password'
-                  value={providerApiKey}
+                  value={formState.providerApiKey}
                   placeholder='Enter provider API key'
                   onChange={(event) => {
-                    setProviderApiKey(event.target.value);
+                    setField('providerApiKey', event.target.value);
                     resetProviderFeedback();
                   }}
                   className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
@@ -841,7 +725,7 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
       <div className='mb-4'>
         <div className='mb-1 flex items-center justify-end'>
           <button
-            onClick={saveConfig}
+            onClick={() => saveConfig(formState)}
             className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none'
           >
             {isSaved ? '✓ Saved' : 'Save Config'}
@@ -857,13 +741,13 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
             </p>
             <textarea
               className='h-44 w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
-              value={fileExtensions}
+              value={formState.fileExtensions}
               placeholder='.py
 .js
 .jsx
 .ts
 .tsx'
-              onChange={(e) => setFileExtensions(e.target.value)}
+              onChange={(e) => setField('fileExtensions', e.target.value)}
             />
           </div>
           <div>
@@ -875,12 +759,12 @@ const ConfigTab = ({ configContent, onConfigChange }: ConfigTabProps) => {
             </p>
             <textarea
               className='h-44 w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white p-2 font-mono text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
-              value={excludePatterns}
+              value={formState.excludePatterns}
               placeholder='**/.git/**
 **/node_modules/**
 **/dist/**
 **/build/**'
-              onChange={(e) => setExcludePatterns(e.target.value)}
+              onChange={(e) => setField('excludePatterns', e.target.value)}
             />
           </div>
         </div>

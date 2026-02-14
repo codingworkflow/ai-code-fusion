@@ -5,37 +5,38 @@ import type { DirectoryTreeItem, SelectionHandler } from '../../types/ipc';
 type FileTreeItemProps = {
   item: DirectoryTreeItem;
   level?: number;
-  selectedFiles: string[];
-  selectedFolders?: string[];
+  selectedFiles: Set<string>;
+  selectedFolders: Set<string>;
   onFileSelect: SelectionHandler;
   onFolderSelect: SelectionHandler;
 };
 
 type FileTreeProps = {
   items?: DirectoryTreeItem[];
-  selectedFiles: string[];
-  selectedFolders?: string[];
+  selectedFiles: Set<string>;
+  selectedFolders: Set<string>;
   onFileSelect: SelectionHandler;
   onFolderSelect: SelectionHandler;
+  onBatchSelect?: (files: string[], folders: string[], isSelected: boolean) => void;
 };
 
 const getSelectionStatus = (
   item: DirectoryTreeItem,
-  selectedFiles: string[],
-  selectedFolders: string[]
+  selectedFiles: Set<string>,
+  selectedFolders: Set<string>
 ): boolean => {
   if (item.type === 'file') {
-    return selectedFiles.includes(item.path);
+    return selectedFiles.has(item.path);
   }
 
-  return selectedFolders.includes(item.path);
+  return selectedFolders.has(item.path);
 };
 
 const FileTreeItemComponent = ({
   item,
   level = 0,
   selectedFiles,
-  selectedFolders = [],
+  selectedFolders,
   onFileSelect,
   onFolderSelect,
 }: FileTreeItemProps) => {
@@ -81,18 +82,21 @@ const FileTreeItemComponent = ({
 
   return (
     <div className='my-1'>
-      <button
-        type='button'
-        className={`flex items-center py-1 hover:bg-gray-100 dark:hover:bg-gray-700 w-full text-left ${
+      <div
+        role='treeitem'
+        tabIndex={0}
+        className={`flex items-center py-1 hover:bg-gray-100 dark:hover:bg-gray-700 w-full text-left cursor-pointer ${
           checkboxIsSelected ? 'bg-blue-100 dark:bg-blue-900/30' : ''
         }`}
         style={{ paddingLeft: `${paddingLeft}px` }}
         onClick={handleSelect}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
             handleSelect(event);
           }
         }}
+        aria-selected={checkboxIsSelected}
       >
         <div className='mr-2 shrink-0'>
           <input
@@ -163,7 +167,7 @@ const FileTreeItemComponent = ({
             </>
           )}
         </div>
-      </button>
+      </div>
 
       {isFolder && isOpen && item.children && (
         <div className='overflow-hidden transition-all duration-200 max-h-screen opacity-100'>
@@ -234,31 +238,31 @@ const getAllPaths = (itemsToProcess: DirectoryTreeItem[]): { files: string[]; fo
 const FileTreeComponent = ({
   items = [],
   selectedFiles,
-  selectedFolders = [],
+  selectedFolders,
   onFileSelect,
   onFolderSelect,
+  onBatchSelect,
 }: FileTreeProps) => {
   const totalFiles = useMemo(() => countTotalFiles(items), [items]);
 
   const selectAllChecked = useMemo(() => {
     if (totalFiles === 0) return false;
 
-    if (selectedFiles.length > 0 && selectedFiles.length !== totalFiles) {
-      const validFilePaths = new Set<string>();
-      collectFilePaths(items, validFilePaths);
-      const validSelectedFilesCount = selectedFiles.filter((filePath) =>
-        validFilePaths.has(filePath)
-      ).length;
-      if (validSelectedFilesCount === totalFiles) {
-        return true;
-      }
+    const validFilePaths = new Set<string>();
+    collectFilePaths(items, validFilePaths);
+    for (const filePath of validFilePaths) {
+      if (!selectedFiles.has(filePath)) return false;
     }
-
-    return selectedFiles.length === totalFiles;
+    return true;
   }, [items, selectedFiles, totalFiles]);
 
   const handleSelectAllToggle = () => {
     const allPaths = getAllPaths(items);
+
+    if (onBatchSelect) {
+      onBatchSelect(allPaths.files, allPaths.folders, !selectAllChecked);
+      return;
+    }
 
     if (selectAllChecked) {
       allPaths.files.forEach((filePath) => onFileSelect(filePath, false));
@@ -292,11 +296,11 @@ const FileTreeComponent = ({
           </label>
         </div>
         <span className='text-xs font-medium text-gray-500 dark:text-gray-400'>
-          <span className='font-medium'>{selectedFiles.length}</span> of {totalFiles} files selected
+          <span className='font-medium'>{selectedFiles.size}</span> of {totalFiles} files selected
         </span>
       </div>
 
-      <div className='flex-1 min-h-0 overflow-auto p-2'>
+      <div role='tree' className='flex-1 min-h-0 overflow-auto p-2'>
         {items.length === 0 ? (
           <div className='flex flex-col items-center justify-center p-8 text-center text-gray-500 dark:text-gray-400'>
             <svg

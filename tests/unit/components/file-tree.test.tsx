@@ -39,17 +39,20 @@ const mockItems = [
 describe('FileTree Component', () => {
   const mockFileSelect = jest.fn();
   const mockFolderSelect = jest.fn();
+  const mockBatchSelect = jest.fn();
 
   beforeEach(() => {
     mockFileSelect.mockClear();
     mockFolderSelect.mockClear();
+    mockBatchSelect.mockClear();
   });
 
   test('renders the file tree correctly', () => {
     render(
       <FileTree
         items={mockItems}
-        selectedFiles={[]}
+        selectedFiles={new Set()}
+        selectedFolders={new Set()}
         onFileSelect={mockFileSelect}
         onFolderSelect={mockFolderSelect}
       />
@@ -57,17 +60,18 @@ describe('FileTree Component', () => {
 
     // Check if folders are rendered - use more specific role-based queries
     expect(screen.getByRole('button', { name: /expand folder src/i })).toBeInTheDocument();
-    // For files, look for the label or containing element
-    expect(screen.getByRole('button', { name: /package\.json/i })).toBeInTheDocument();
+    // For files, the row is now a treeitem div
+    expect(screen.getByRole('treeitem', { name: /package\.json/i })).toBeInTheDocument();
   });
 
   test('displays correct count of selected files', () => {
-    const selectedFiles = ['/project/src/index.js', '/project/package.json'];
+    const selectedFiles = new Set(['/project/src/index.js', '/project/package.json']);
 
     render(
       <FileTree
         items={mockItems}
         selectedFiles={selectedFiles}
+        selectedFolders={new Set()}
         onFileSelect={mockFileSelect}
         onFolderSelect={mockFolderSelect}
       />
@@ -82,15 +86,16 @@ describe('FileTree Component', () => {
     render(
       <FileTree
         items={mockItems}
-        selectedFiles={[]}
+        selectedFiles={new Set()}
+        selectedFolders={new Set()}
         onFileSelect={mockFileSelect}
         onFolderSelect={mockFolderSelect}
       />
     );
 
-    // Find and click on package.json using a more specific query
-    const packageJsonButton = screen.getByRole('button', { name: /package\.json/i });
-    fireEvent.click(packageJsonButton);
+    // Find and click on package.json treeitem row
+    const packageJsonRow = screen.getByRole('treeitem', { name: /package\.json/i });
+    fireEvent.click(packageJsonRow);
 
     // Verify that onFileSelect was called with the correct path and selected state
     expect(mockFileSelect).toHaveBeenCalledWith('/project/package.json', true);
@@ -100,19 +105,18 @@ describe('FileTree Component', () => {
     render(
       <FileTree
         items={mockItems}
-        selectedFiles={[]}
+        selectedFiles={new Set()}
+        selectedFolders={new Set()}
         onFileSelect={mockFileSelect}
         onFolderSelect={mockFolderSelect}
       />
     );
 
     // First check that the helpers.js element is not visible initially
-    // In React components with CSS transitions, the element might exist but be hidden via CSS
-    const helpersElement = screen.queryByRole('button', { name: /helpers\.js/i });
+    const helpersElement = screen.queryByRole('treeitem', { name: /helpers\.js/i });
     if (helpersElement) {
       expect(helpersElement).not.toBeVisible();
     } else {
-      // If it's not in the DOM at all, that's also acceptable
       expect(helpersElement).toBeNull();
     }
 
@@ -130,16 +134,17 @@ describe('FileTree Component', () => {
     fireEvent.click(utilsExpandButton);
 
     // After expanding utils, verify helpers.js is accessible and visible
-    const helpersButton = screen.getByRole('button', { name: /helpers\.js/i });
-    expect(helpersButton).toBeInTheDocument();
-    expect(helpersButton).toBeVisible();
+    const helpersRow = screen.getByRole('treeitem', { name: /helpers\.js/i });
+    expect(helpersRow).toBeInTheDocument();
+    expect(helpersRow).toBeVisible();
   });
 
-  test('selects all files when "Select All" is clicked', () => {
+  test('selects all files when "Select All" is clicked (per-item fallback)', () => {
     render(
       <FileTree
         items={mockItems}
-        selectedFiles={[]}
+        selectedFiles={new Set()}
+        selectedFolders={new Set()}
         onFileSelect={mockFileSelect}
         onFolderSelect={mockFolderSelect}
       />
@@ -149,26 +154,52 @@ describe('FileTree Component', () => {
     const selectAllCheckbox = screen.getByLabelText('Select All');
     fireEvent.click(selectAllCheckbox);
 
-    // Verify that onFileSelect was called for all files
+    // Without onBatchSelect, falls back to per-item calls
     expect(mockFileSelect).toHaveBeenCalledWith('/project/src/index.js', true);
     expect(mockFileSelect).toHaveBeenCalledWith('/project/src/utils/helpers.js', true);
     expect(mockFileSelect).toHaveBeenCalledWith('/project/package.json', true);
 
-    // Verify that onFolderSelect was called for all folders
     expect(mockFolderSelect).toHaveBeenCalledWith('/project/src', true);
     expect(mockFolderSelect).toHaveBeenCalledWith('/project/src/utils', true);
+  });
+
+  test('selects all files via batch handler when provided', () => {
+    render(
+      <FileTree
+        items={mockItems}
+        selectedFiles={new Set()}
+        selectedFolders={new Set()}
+        onFileSelect={mockFileSelect}
+        onFolderSelect={mockFolderSelect}
+        onBatchSelect={mockBatchSelect}
+      />
+    );
+
+    const selectAllCheckbox = screen.getByLabelText('Select All');
+    fireEvent.click(selectAllCheckbox);
+
+    // With onBatchSelect, a single batch call replaces per-item calls
+    expect(mockBatchSelect).toHaveBeenCalledWith(
+      ['/project/src/index.js', '/project/src/utils/helpers.js', '/project/package.json'],
+      ['/project/src', '/project/src/utils'],
+      true
+    );
+    expect(mockFileSelect).not.toHaveBeenCalled();
+    expect(mockFolderSelect).not.toHaveBeenCalled();
   });
 
   test('deselects all files when "Select All" is toggled off', () => {
     render(
       <FileTree
         items={mockItems}
-        selectedFiles={[
-          '/project/src/index.js',
-          '/project/package.json',
-          '/project/src/utils/helpers.js',
-        ]}
-        selectedFolders={['/project/src', '/project/src/utils']}
+        selectedFiles={
+          new Set([
+            '/project/src/index.js',
+            '/project/package.json',
+            '/project/src/utils/helpers.js',
+          ])
+        }
+        selectedFolders={new Set(['/project/src', '/project/src/utils'])}
         onFileSelect={mockFileSelect}
         onFolderSelect={mockFolderSelect}
       />
@@ -194,7 +225,8 @@ describe('FileTree Component', () => {
     render(
       <FileTree
         items={[]}
-        selectedFiles={[]}
+        selectedFiles={new Set()}
+        selectedFolders={new Set()}
         onFileSelect={mockFileSelect}
         onFolderSelect={mockFolderSelect}
       />
