@@ -13,10 +13,35 @@ const {
 const ROOT_DIR = path.resolve(__dirname, '..');
 const DEFAULT_OUTPUT_PATH = path.join(ROOT_DIR, 'dist', 'qa', 'baseline-selection.json');
 const DEFAULT_WORKFLOW_FILE = 'qa-matrix.yml';
+const MAX_GITHUB_API_PAGE_SIZE = 100;
 
 function ensureDirectoryForFile(filePath) {
   const directoryPath = path.dirname(filePath);
   fs.mkdirSync(directoryPath, { recursive: true });
+}
+
+function isPathWithinRoot(targetPath) {
+  const relativePath = path.relative(ROOT_DIR, targetPath);
+  if (relativePath === '') {
+    return true;
+  }
+
+  return !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
+}
+
+function resolvePathInsideRoot(rawValue, fallbackPath, environmentVariableName) {
+  const normalizedRawValue = String(rawValue || '').trim();
+  const candidatePath = normalizedRawValue.length > 0 ? normalizedRawValue : fallbackPath;
+  const resolvedPath = path.isAbsolute(candidatePath)
+    ? path.normalize(candidatePath)
+    : path.resolve(ROOT_DIR, candidatePath);
+  if (!isPathWithinRoot(resolvedPath)) {
+    throw new Error(
+      `${environmentVariableName} must resolve inside the repository root (${ROOT_DIR}): ${resolvedPath}`
+    );
+  }
+
+  return resolvedPath;
 }
 
 function parseRepositoryFromEnvironment(environment = process.env) {
@@ -83,7 +108,7 @@ function parseMaxCandidateRuns(environment = process.env) {
     return DEFAULT_MAX_CANDIDATE_RUNS;
   }
 
-  return Math.floor(rawValue);
+  return Math.min(MAX_GITHUB_API_PAGE_SIZE, Math.floor(rawValue));
 }
 
 async function githubRequest({ endpoint, token, method = 'GET' }) {
@@ -145,7 +170,11 @@ async function listRunArtifacts({ owner, repo, runId, token }) {
 }
 
 function writeSelectionSummary(selectionSummary, outputPath) {
-  const resolvedPath = path.resolve(outputPath);
+  const resolvedPath = resolvePathInsideRoot(
+    outputPath,
+    DEFAULT_OUTPUT_PATH,
+    'BASELINE_SELECTION_OUTPUT_PATH'
+  );
   ensureDirectoryForFile(resolvedPath);
   fs.writeFileSync(resolvedPath, `${JSON.stringify(selectionSummary, null, 2)}\n`, 'utf8');
   return resolvedPath;
@@ -232,9 +261,7 @@ async function selectBaselineFromGitHub({
 
 async function main() {
   const selectionResult = await selectBaselineFromGitHub();
-  const outputPath = path.resolve(
-    process.env.BASELINE_SELECTION_OUTPUT_PATH || DEFAULT_OUTPUT_PATH
-  );
+  const outputPath = process.env.BASELINE_SELECTION_OUTPUT_PATH || DEFAULT_OUTPUT_PATH;
 
   const summary = {
     generatedAt: new Date().toISOString(),
@@ -270,10 +297,12 @@ if (require.main === module) {
 }
 
 module.exports = {
+  isPathWithinRoot,
   parseGitHubEventPayload,
   parseMaxCandidateRuns,
   parseRepositoryFromEnvironment,
   parseRequiredArtifacts,
+  resolvePathInsideRoot,
   resolveExcludedShas,
   selectBaselineFromGitHub,
 };

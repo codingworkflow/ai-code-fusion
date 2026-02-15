@@ -6,6 +6,7 @@ const {
 const {
   parseMaxCandidateRuns,
   parseRequiredArtifacts,
+  resolvePathInsideRoot,
   selectBaselineFromGitHub,
 } = require('../../../scripts/select-qa-baseline');
 
@@ -107,6 +108,7 @@ describe('select-qa-baseline dry-run', () => {
     expect(parseMaxCandidateRuns({ BASELINE_MAX_CANDIDATE_RUNS: '-4' })).toBe(3);
     expect(parseMaxCandidateRuns({ BASELINE_MAX_CANDIDATE_RUNS: 'not-a-number' })).toBe(3);
     expect(parseMaxCandidateRuns({ BASELINE_MAX_CANDIDATE_RUNS: '4.9' })).toBe(4);
+    expect(parseMaxCandidateRuns({ BASELINE_MAX_CANDIDATE_RUNS: '250' })).toBe(100);
   });
 
   test('parseRequiredArtifacts rejects explicitly empty variable values', () => {
@@ -119,6 +121,26 @@ describe('select-qa-baseline dry-run', () => {
 
   test('parseRequiredArtifacts uses defaults when variable is not configured', () => {
     expect(parseRequiredArtifacts({})).toEqual(REQUIRED_BASELINE_ARTIFACTS);
+  });
+
+  test('resolvePathInsideRoot rejects output paths outside repository root', () => {
+    expect(() =>
+      resolvePathInsideRoot(
+        '../outside/baseline-selection.json',
+        'dist/qa/baseline-selection.json',
+        'BASELINE_SELECTION_OUTPUT_PATH'
+      )
+    ).toThrow('BASELINE_SELECTION_OUTPUT_PATH must resolve inside the repository root');
+  });
+
+  test('resolvePathInsideRoot allows relative output paths inside repository root', () => {
+    const resolvedPath = resolvePathInsideRoot(
+      'dist/qa/custom-baseline-selection.json',
+      'dist/qa/baseline-selection.json',
+      'BASELINE_SELECTION_OUTPUT_PATH'
+    );
+
+    expect(resolvedPath.endsWith('dist/qa/custom-baseline-selection.json')).toBe(true);
   });
 
   test('selectBaselineFromGitHub evaluates mocked run metadata and selects prior main baseline', async () => {
