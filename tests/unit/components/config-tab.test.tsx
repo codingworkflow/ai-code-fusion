@@ -66,7 +66,7 @@ const mockParseYaml = (str: string = '') => {
 };
 
 jest.mock('yaml', () => ({
-  parse: jest.fn(mockParseYaml),
+  parse: jest.fn((str = '') => mockParseYaml(str)),
   stringify: jest.fn().mockReturnValue('mocked yaml string'),
 }));
 
@@ -328,7 +328,7 @@ describe('ConfigTab', () => {
       expect(mockOnConfigChange).toHaveBeenCalled();
     });
 
-    const yamlLib = yaml;
+    const yamlLib = require('yaml');
     const savedConfig = yamlLib.stringify.mock.calls.at(-1)[0];
 
     expect(savedConfig.provider).toEqual(
