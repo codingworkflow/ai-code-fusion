@@ -14,6 +14,7 @@ const mockAutoUpdater = {
   autoInstallOnAppQuit: false,
   channel: undefined,
 };
+
 const mockIpcMain = {
   handle: jest.fn((channel, handler) => {
     mockIpcHandlers[channel] = handler;
@@ -620,7 +621,7 @@ describe('Main Process IPC Handlers', () => {
       const configContent = '';
       const selectedFiles = [
         '/mock/repo/src/index.js',
-        '/mock/repo/image.png', // Binary file
+        '/mock/repo/image.png', // binary file
       ];
 
       // Explicitly set isBinary mock to return true for PNG files
