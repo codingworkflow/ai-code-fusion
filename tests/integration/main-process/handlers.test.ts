@@ -3,22 +3,37 @@ const yaml = require('yaml');
 const FAKE_GITHUB_TOKEN = ['ghp', 'AAAAAAAAAAAAAAAAAAAAAAAA'].join('_');
 
 // Mock electron ipcMain
-const mockIpcHandlers = {};
-const mockProtocolHandlers = {};
-const mockNetFetch = jest.fn();
-const mockAutoUpdater = {
-  checkForUpdates: jest.fn(),
-  setFeedURL: jest.fn(),
-  allowPrerelease: false,
-  autoDownload: true,
-  autoInstallOnAppQuit: false,
-  channel: undefined,
+let mockIpcHandlers: Record<string, unknown>;
+let mockProtocolHandlers: Record<string, unknown>;
+let mockNetFetch: jest.Mock;
+let mockAutoUpdater: {
+  checkForUpdates: jest.Mock;
+  setFeedURL: jest.Mock;
+  allowPrerelease: boolean;
+  autoDownload: boolean;
+  autoInstallOnAppQuit: boolean;
+  channel: string | undefined;
 };
+
 const mockIpcMain = {
   handle: jest.fn((channel, handler) => {
     mockIpcHandlers[channel] = handler;
   }),
 };
+
+beforeEach(() => {
+  mockIpcHandlers = {};
+  mockProtocolHandlers = {};
+  mockNetFetch = jest.fn();
+  mockAutoUpdater = {
+    checkForUpdates: jest.fn(),
+    setFeedURL: jest.fn(),
+    allowPrerelease: false,
+    autoDownload: true,
+    autoInstallOnAppQuit: false,
+    channel: undefined,
+  };
+});
 
 // Mock required dependencies
 jest.mock('electron', () => ({
