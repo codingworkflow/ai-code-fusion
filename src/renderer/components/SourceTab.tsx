@@ -96,11 +96,15 @@ const SourceTab = ({
     }
   };
 
-  const handleDirectorySelect = async () => {
+  const resetTokenCalculation = () => {
     setTokenCache({});
     setTotalTokens(0);
     invalidatePendingCalculation();
     setIsCalculating(false);
+  };
+
+  const handleDirectorySelect = async () => {
+    resetTokenCalculation();
     await onDirectorySelect();
   };
 
@@ -346,10 +350,7 @@ const SourceTab = ({
           <div className='flex space-x-2'>
             <button
               onClick={async () => {
-                setTokenCache({});
-                setTotalTokens(0);
-                invalidatePendingCalculation();
-                setIsCalculating(false);
+                resetTokenCalculation();
                 await onRefreshTree();
               }}
               className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
