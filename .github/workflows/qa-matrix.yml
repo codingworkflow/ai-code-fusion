@@ -151,7 +151,7 @@ jobs:
 
   resolve-ui-baseline:
     name: Resolve UI Baseline
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.qa.result == 'success'
+    if: needs.qa.result == 'success' && ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     needs: qa
     runs-on: ubuntu-latest
     permissions:
@@ -179,12 +179,20 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Resolve required baseline artifacts for this event
+        run: |
+          baseline_required_artifacts="ui-screenshot-linux,ui-screenshot-windows,ui-screenshot-macos,ui-screenshot-manifest-linux,ui-screenshot-manifest-windows,ui-screenshot-manifest-macos"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            baseline_required_artifacts="${baseline_required_artifacts},ui-baseline-promotion-ready"
+          fi
+          echo "BASELINE_REQUIRED_ARTIFACTS=${baseline_required_artifacts}" >> "${GITHUB_ENV}"
+
       - name: Select baseline from previous successful main runs
         id: select_baseline
         run: node scripts/select-qa-baseline.js
         env:
           BASELINE_MAX_CANDIDATE_RUNS: 3
-          BASELINE_REQUIRED_ARTIFACTS: ui-screenshot-linux,ui-screenshot-windows,ui-screenshot-macos,ui-screenshot-manifest-linux,ui-screenshot-manifest-windows,ui-screenshot-manifest-macos
+          BASELINE_REQUIRED_ARTIFACTS: ${{ env.BASELINE_REQUIRED_ARTIFACTS }}
           BASELINE_SELECTION_OUTPUT_PATH: dist/qa/baseline-selection.json
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -224,6 +232,93 @@ jobs:
             dist/qa/baseline/**/*
           if-no-files-found: warn
           retention-days: 30
+
+  compare-ui-baseline:
+    name: Compare UI Baseline
+    if: needs.qa.result == 'success' && needs.resolve-ui-baseline.result == 'success'
+    needs:
+      - qa
+      - resolve-ui-baseline
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository metadata
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download current screenshot artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          merge-multiple: false
+          path: dist/qa/current
+          pattern: ui-screenshot-*
+
+      - name: Download baseline selection artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ui-baseline-selection
+          path: dist/qa/resolved-baseline
+
+      - name: Compare screenshots against selected baseline
+        id: compare_ui_baseline
+        run: node scripts/compare-ui-baseline.js
+        env:
+          UI_BASELINE_ARTIFACTS_ROOT: dist/qa/resolved-baseline/dist/qa/baseline
+          UI_BASELINE_SELECTION_PATH: dist/qa/resolved-baseline/dist/qa/baseline-selection.json
+          UI_CURRENT_ARTIFACTS_ROOT: dist/qa/current
+          UI_DRIFT_DIFF_OUTPUT_DIR: dist/qa/drift-diffs
+          UI_DRIFT_FAIL_THRESHOLD_PCT: ${{ vars.UI_DRIFT_FAIL_THRESHOLD_PCT || '0.5' }}
+          UI_DRIFT_PIXELMATCH_THRESHOLD: ${{ vars.UI_DRIFT_PIXELMATCH_THRESHOLD || '0.1' }}
+          UI_DRIFT_REPORT_PATH: dist/qa/drift-report.json
+          UI_DRIFT_WARN_THRESHOLD_PCT: ${{ vars.UI_DRIFT_WARN_THRESHOLD_PCT || '0.1' }}
+
+      - name: Upload drift report artifacts
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: ui-drift-report
+          path: |
+            dist/qa/drift-report.json
+            dist/qa/drift-diffs/**/*
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Create baseline promotion marker
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.compare_ui_baseline.outputs.status == 'pass'
+        run: |
+          mkdir -p dist/qa
+          cat <<EOF > dist/qa/baseline-promotion-ready.txt
+          run_id=${{ github.run_id }}
+          run_attempt=${{ github.run_attempt }}
+          sha=${{ github.sha }}
+          status=pass
+          compared_images=${{ steps.compare_ui_baseline.outputs.compared_images }}
+          aggregate_drift_pct=${{ steps.compare_ui_baseline.outputs.aggregate_drift_pct }}
+          generated_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          EOF
+
+      - name: Upload baseline promotion marker
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.compare_ui_baseline.outputs.status == 'pass'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: ui-baseline-promotion-ready
+          path: dist/qa/baseline-promotion-ready.txt
+          if-no-files-found: error
+          retention-days: 60
 
   publish-unit-test-results:
     name: Publish Unit Test Results (${{ matrix.os }})
