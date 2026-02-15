@@ -8,6 +8,26 @@ const DEFAULT_SCREENSHOT_DIR = path.join(ROOT_DIR, 'dist', 'qa', 'screenshots');
 const DEFAULT_MANIFEST_PATH = path.join(ROOT_DIR, 'dist', 'qa', 'baseline-manifest.json');
 const SUPPORTED_ARTIFACT_OSES = new Set(['linux', 'windows', 'macos']);
 
+function isPathWithinRoot(targetPath) {
+  const relativePath = path.relative(ROOT_DIR, targetPath);
+  if (relativePath === '') {
+    return true;
+  }
+
+  return !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
+}
+
+function resolvePathInsideRoot(rawValue, fallbackPath, environmentVariableName) {
+  const resolvedPath = path.resolve(rawValue || fallbackPath);
+  if (!isPathWithinRoot(resolvedPath)) {
+    throw new Error(
+      `${environmentVariableName} must resolve inside the repository root (${ROOT_DIR}): ${resolvedPath}`
+    );
+  }
+
+  return resolvedPath;
+}
+
 function normalizeArtifactOs(rawValue) {
   const normalizedValue = String(rawValue || '')
     .trim()
@@ -85,8 +105,16 @@ function writeManifest({
 }
 
 function main() {
-  const screenshotDirectory = path.resolve(process.env.UI_SCREENSHOT_DIR || DEFAULT_SCREENSHOT_DIR);
-  const manifestPath = path.resolve(process.env.UI_BASELINE_MANIFEST_PATH || DEFAULT_MANIFEST_PATH);
+  const screenshotDirectory = resolvePathInsideRoot(
+    process.env.UI_SCREENSHOT_DIR,
+    DEFAULT_SCREENSHOT_DIR,
+    'UI_SCREENSHOT_DIR'
+  );
+  const manifestPath = resolvePathInsideRoot(
+    process.env.UI_BASELINE_MANIFEST_PATH,
+    DEFAULT_MANIFEST_PATH,
+    'UI_BASELINE_MANIFEST_PATH'
+  );
   const artifactOs = normalizeArtifactOs(process.env.QA_ARTIFACT_OS);
 
   const manifest = writeManifest({
@@ -104,15 +132,16 @@ if (require.main === module) {
   try {
     main();
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`Failed to generate UI baseline manifest: ${errorMessage}`);
+    console.error('Failed to generate UI baseline manifest:', error);
     process.exit(1);
   }
 }
 
 module.exports = {
   buildBaselineManifest,
+  isPathWithinRoot,
   listScreenshotFiles,
   normalizeArtifactOs,
+  resolvePathInsideRoot,
   writeManifest,
 };

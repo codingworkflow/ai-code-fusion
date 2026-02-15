@@ -6,8 +6,10 @@ const path = require('path');
 
 const {
   buildBaselineManifest,
+  isPathWithinRoot,
   listScreenshotFiles,
   normalizeArtifactOs,
+  resolvePathInsideRoot,
   writeManifest,
 } = require('../../../scripts/generate-ui-baseline-manifest');
 
@@ -36,6 +38,28 @@ describe('generate-ui-baseline-manifest', () => {
     } finally {
       fs.rmSync(tempDirectory, { recursive: true, force: true });
     }
+  });
+
+  test('listScreenshotFiles throws when screenshot directory is missing or has no png files', () => {
+    const missingDirectory = path.join(os.tmpdir(), 'ui-manifest-missing-dir', `${Date.now()}`);
+    expect(() => listScreenshotFiles(missingDirectory)).toThrow(/Screenshot directory not found/);
+
+    const tempDirectory = createTemporaryDirectory('ui-manifest-no-png-');
+    try {
+      fs.writeFileSync(path.join(tempDirectory, 'readme.txt'), 'a');
+      expect(() => listScreenshotFiles(tempDirectory)).toThrow(/No PNG screenshots found/);
+    } finally {
+      fs.rmSync(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
+  test('resolvePathInsideRoot rejects paths outside repository root', () => {
+    const insidePath = path.join(process.cwd(), 'dist', 'qa', 'screenshots');
+    const outsidePath = path.resolve(process.cwd(), '..', '..', 'outside-repo-path');
+    expect(isPathWithinRoot(insidePath)).toBe(true);
+    expect(() => resolvePathInsideRoot(outsidePath, insidePath, 'UI_SCREENSHOT_DIR')).toThrow(
+      /must resolve inside the repository root/
+    );
   });
 
   test('buildBaselineManifest and writeManifest include run metadata and screenshot map', () => {
