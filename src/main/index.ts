@@ -21,7 +21,11 @@ import { getDirectoryTree } from './services/directory-tree';
 import { testProviderConnection } from './services/provider-connection';
 import { analyzeRepository } from './services/repository-analyzer';
 import { processRepository } from './services/repository-processing';
-import { createUpdaterService, resolveUpdaterRuntimeOptions } from './updater';
+import {
+  createUpdaterService,
+  resolveUpdaterRuntimeOptions,
+  type UpdaterCheckEvent,
+} from './updater';
 
 import type {
   AnalyzeRepositoryOptions,
@@ -47,13 +51,25 @@ let authorizedRootPath: string | null = null;
 const resolveAuthorizedPathForCurrentRoot = (candidatePath: string): string | null =>
   resolveAuthorizedPath(authorizedRootPath, candidatePath);
 
+const logUpdaterCheckEvent = (event: UpdaterCheckEvent) => {
+  if (event.event === 'updater_check_error') {
+    console.warn('[updater-check]', event);
+    return;
+  }
+
+  console.info('[updater-check]', event);
+};
+
 let updaterService = createUpdaterService(
   autoUpdater,
   resolveUpdaterRuntimeOptions({
     currentVersion: app.getVersion(),
     platform: process.platform,
     env: process.env,
-  })
+  }),
+  {
+    onCheckEvent: logUpdaterCheckEvent,
+  }
 );
 
 const APP_ROOT = path.resolve(__dirname, '../../..');
@@ -141,7 +157,10 @@ const initializeUpdater = async () => {
         platform: process.platform,
         env: process.env,
         flagOverrides,
-      })
+      }),
+      {
+        onCheckEvent: logUpdaterCheckEvent,
+      }
     );
   } catch (error) {
     console.warn(`Failed to initialize OpenFeature updater flags: ${getErrorMessage(error)}`);

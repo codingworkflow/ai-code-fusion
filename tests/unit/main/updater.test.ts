@@ -1,6 +1,7 @@
 import {
   createUpdaterService,
   isAlphaVersion,
+  isPrereleaseVersion,
   isUpdaterPlatformSupported,
   resolveUpdaterChannel,
   resolveUpdaterRuntimeOptions,
@@ -11,6 +12,15 @@ describe('updater utilities', () => {
     expect(isAlphaVersion('0.3.0-alpha.1')).toBe(true);
     expect(resolveUpdaterChannel('0.3.0-alpha.1')).toBe('alpha');
     expect(resolveUpdaterChannel('0.3.0')).toBe('stable');
+  });
+
+  test('detects prerelease semver versions without false positives', () => {
+    expect(isPrereleaseVersion('0.3.0-alpha.1')).toBe(true);
+    expect(isPrereleaseVersion('v1.2.3-rc.1+build.8')).toBe(true);
+    expect(isPrereleaseVersion('0.3.0')).toBe(false);
+    expect(isPrereleaseVersion('0.3.0+build.8')).toBe(false);
+    expect(isPrereleaseVersion('release-candidate')).toBe(false);
+    expect(isPrereleaseVersion(undefined)).toBe(false);
   });
 
   test('detects platform support for updater', () => {
@@ -204,5 +214,32 @@ describe('createUpdaterService', () => {
 
     expect(result.state).toBe('error');
     expect(result.errorMessage).toContain('network failed');
+  });
+
+  test('continues updater checks when observer callbacks throw', async () => {
+    const updaterClient = createMockUpdater();
+    updaterClient.checkForUpdates.mockResolvedValue({
+      updateInfo: { version: '0.3.1', releaseName: 'Stable 1' },
+    });
+
+    const runtimeOptions = resolveUpdaterRuntimeOptions({
+      currentVersion: '0.3.0',
+      platform: 'darwin',
+      env: {
+        NODE_ENV: 'production',
+      },
+    });
+
+    const service = createUpdaterService(updaterClient, runtimeOptions, {
+      onCheckEvent: () => {
+        throw new Error('observer failure');
+      },
+    });
+    const result = await service.checkForUpdates();
+
+    expect(result.state).toBe('update-available');
+    expect(result.updateAvailable).toBe(true);
+    expect(result.latestVersion).toBe('0.3.1');
+    expect(updaterClient.checkForUpdates).toHaveBeenCalledTimes(1);
   });
 });

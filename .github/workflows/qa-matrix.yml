@@ -319,6 +319,34 @@ jobs:
           if-no-files-found: error
           retention-days: 60
 
+  updater-smoke:
+    name: Updater Smoke (PR)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.qa.result == 'success'
+    needs: qa
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository metadata
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run updater smoke tests
+        run: npm run test:updater-smoke
+
   publish-unit-test-results:
     name: Publish Unit Test Results (${{ matrix.os }})
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.qa.result == 'success'
