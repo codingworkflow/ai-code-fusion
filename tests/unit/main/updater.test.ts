@@ -1,6 +1,7 @@
 import {
   createUpdaterService,
   isAlphaVersion,
+  isPrereleaseVersion,
   isUpdaterPlatformSupported,
   resolveUpdaterChannel,
   resolveUpdaterRuntimeOptions,
@@ -11,6 +12,15 @@ describe('updater utilities', () => {
     expect(isAlphaVersion('0.3.0-alpha.1')).toBe(true);
     expect(resolveUpdaterChannel('0.3.0-alpha.1')).toBe('alpha');
     expect(resolveUpdaterChannel('0.3.0')).toBe('stable');
+  });
+
+  test('detects prerelease semver versions without false positives', () => {
+    expect(isPrereleaseVersion('0.3.0-alpha.1')).toBe(true);
+    expect(isPrereleaseVersion('v1.2.3-rc.1+build.8')).toBe(true);
+    expect(isPrereleaseVersion('0.3.0')).toBe(false);
+    expect(isPrereleaseVersion('0.3.0+build.8')).toBe(false);
+    expect(isPrereleaseVersion('release-candidate')).toBe(false);
+    expect(isPrereleaseVersion(undefined)).toBe(false);
   });
 
   test('detects platform support for updater', () => {

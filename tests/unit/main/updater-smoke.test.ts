@@ -3,6 +3,15 @@ import { createUpdaterService, resolveUpdaterRuntimeOptions } from '../../../src
 import type { UpdaterCheckEvent } from '../../../src/main/updater';
 
 describe('updater smoke validation', () => {
+  const createRuntimeOptions = (currentVersion: string, platform: NodeJS.Platform) =>
+    resolveUpdaterRuntimeOptions({
+      currentVersion,
+      platform,
+      env: {
+        NODE_ENV: 'production',
+      },
+    });
+
   const createMockUpdater = () => {
     return {
       checkForUpdates: jest.fn(),
@@ -24,6 +33,28 @@ describe('updater smoke validation', () => {
     };
   };
 
+  const createEventContext = (
+    runtimeOptions: ReturnType<typeof resolveUpdaterRuntimeOptions>
+  ): Pick<UpdaterCheckEvent, 'channel' | 'allowPrerelease' | 'owner' | 'repo'> => ({
+    channel: runtimeOptions.channel,
+    allowPrerelease: runtimeOptions.allowPrerelease,
+    owner: runtimeOptions.owner,
+    repo: runtimeOptions.repo,
+  });
+
+  const createConfiguredAndStartedEvents = (
+    eventContext: Pick<UpdaterCheckEvent, 'channel' | 'allowPrerelease' | 'owner' | 'repo'>
+  ) => [
+    {
+      ...eventContext,
+      event: 'updater_check_configured' as const,
+    },
+    {
+      ...eventContext,
+      event: 'updater_check_started' as const,
+    },
+  ];
+
   test('manual alpha updater check accepts prerelease updates and emits observability events', async () => {
     const updaterClient = createMockUpdater();
     updaterClient.checkForUpdates.mockResolvedValue({
@@ -33,13 +64,8 @@ describe('updater smoke validation', () => {
       },
     });
     const eventCollector = createEventCollector();
-    const runtimeOptions = resolveUpdaterRuntimeOptions({
-      currentVersion: '0.3.0-alpha.2',
-      platform: 'win32',
-      env: {
-        NODE_ENV: 'production',
-      },
-    });
+    const runtimeOptions = createRuntimeOptions('0.3.0-alpha.2', 'win32');
+    const eventContext = createEventContext(runtimeOptions);
 
     const service = createUpdaterService(updaterClient, runtimeOptions, {
       onCheckEvent: eventCollector.onCheckEvent,
@@ -55,18 +81,16 @@ describe('updater smoke validation', () => {
       })
     );
     expect(eventCollector.events).toEqual([
-      expect.objectContaining({
-        event: 'updater_check_configured',
-      }),
-      expect.objectContaining({
-        event: 'updater_check_started',
-      }),
-      expect.objectContaining({
+      ...createConfiguredAndStartedEvents(eventContext),
+      {
+        ...eventContext,
         event: 'updater_check_result',
         latestVersion: '0.3.0-alpha.3',
+        releaseName: 'Alpha 3',
+        reason: undefined,
         state: 'update-available',
         updateAvailable: true,
-      }),
+      },
     ]);
   });
 
@@ -79,13 +103,8 @@ describe('updater smoke validation', () => {
       },
     });
     const eventCollector = createEventCollector();
-    const runtimeOptions = resolveUpdaterRuntimeOptions({
-      currentVersion: '0.3.0',
-      platform: 'darwin',
-      env: {
-        NODE_ENV: 'production',
-      },
-    });
+    const runtimeOptions = createRuntimeOptions('0.3.0', 'darwin');
+    const eventContext = createEventContext(runtimeOptions);
 
     const service = createUpdaterService(updaterClient, runtimeOptions, {
       onCheckEvent: eventCollector.onCheckEvent,
@@ -97,26 +116,25 @@ describe('updater smoke validation', () => {
     expect(result.state).toBe('up-to-date');
     expect(result.updateAvailable).toBe(false);
     expect(result.latestVersion).toBeUndefined();
-    expect(eventCollector.events).toContainEqual(
-      expect.objectContaining({
+    expect(eventCollector.events).toEqual([
+      ...createConfiguredAndStartedEvents(eventContext),
+      {
+        ...eventContext,
         event: 'updater_check_result',
+        latestVersion: undefined,
+        releaseName: undefined,
         reason: 'stable_channel_prerelease_rejected',
         state: 'up-to-date',
         updateAvailable: false,
-      })
-    );
+      },
+    ]);
   });
 
   test('linux updater disabled path stays explicit and emits disabled observability event', async () => {
     const updaterClient = createMockUpdater();
     const eventCollector = createEventCollector();
-    const runtimeOptions = resolveUpdaterRuntimeOptions({
-      currentVersion: '0.3.0',
-      platform: 'linux',
-      env: {
-        NODE_ENV: 'production',
-      },
-    });
+    const runtimeOptions = createRuntimeOptions('0.3.0', 'linux');
+    const eventContext = createEventContext(runtimeOptions);
 
     const service = createUpdaterService(updaterClient, runtimeOptions, {
       onCheckEvent: eventCollector.onCheckEvent,
@@ -128,9 +146,11 @@ describe('updater smoke validation', () => {
     expect(result.reason).toContain('unsupported platform');
     expect(updaterClient.checkForUpdates).not.toHaveBeenCalled();
     expect(eventCollector.events).toEqual([
-      expect.objectContaining({
+      {
+        ...eventContext,
         event: 'updater_check_disabled',
-      }),
+        reason: 'Updater is disabled on unsupported platform: linux',
+      },
     ]);
   });
 });

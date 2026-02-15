@@ -52,13 +52,12 @@ const resolveAuthorizedPathForCurrentRoot = (candidatePath: string): string | nu
   resolveAuthorizedPath(authorizedRootPath, candidatePath);
 
 const logUpdaterCheckEvent = (event: UpdaterCheckEvent) => {
-  const serializedEvent = JSON.stringify(event);
   if (event.event === 'updater_check_error') {
-    console.warn(`[updater-check] ${serializedEvent}`);
+    console.warn('[updater-check]', event);
     return;
   }
 
-  console.info(`[updater-check] ${serializedEvent}`);
+  console.info('[updater-check]', event);
 };
 
 let updaterService = createUpdaterService(

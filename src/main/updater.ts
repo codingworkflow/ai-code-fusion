@@ -12,49 +12,43 @@ export interface UpdaterRuntimeOptions extends UpdaterStatus {
   checkOnStart: boolean;
 }
 
-export type UpdaterCheckEvent =
-  | {
-      event: 'updater_check_configured' | 'updater_check_started';
-      channel: UpdaterChannel;
-      allowPrerelease: boolean;
-      owner: string;
-      repo: string;
-    }
-  | {
-      event: 'updater_check_disabled';
-      channel: UpdaterChannel;
-      allowPrerelease: boolean;
-      owner: string;
-      repo: string;
-      reason?: string;
-    }
-  | {
-      event: 'updater_check_result';
-      channel: UpdaterChannel;
-      allowPrerelease: boolean;
-      owner: string;
-      repo: string;
-      state: Exclude<UpdateCheckResult['state'], 'disabled' | 'error'>;
-      updateAvailable: boolean;
-      latestVersion?: string;
-      releaseName?: string;
-      reason?: string;
-    }
-  | {
-      event: 'updater_check_error';
-      channel: UpdaterChannel;
-      allowPrerelease: boolean;
-      owner: string;
-      repo: string;
-      state: 'error';
-      errorMessage: string;
-    };
+type UpdaterCheckEventContext = {
+  channel: UpdaterChannel;
+  allowPrerelease: boolean;
+  owner: string;
+  repo: string;
+};
+
+export type UpdaterCheckEvent = UpdaterCheckEventContext &
+  (
+    | {
+        event: 'updater_check_configured' | 'updater_check_started';
+      }
+    | {
+        event: 'updater_check_disabled';
+        reason?: string;
+      }
+    | {
+        event: 'updater_check_result';
+        state: Exclude<UpdateCheckResult['state'], 'disabled' | 'error'>;
+        updateAvailable: boolean;
+        latestVersion?: string;
+        releaseName?: string;
+        reason?: string;
+      }
+    | {
+        event: 'updater_check_error';
+        state: 'error';
+        errorMessage: string;
+      }
+  );
 
 export interface UpdaterServiceObservers {
   onCheckEvent?: (event: UpdaterCheckEvent) => void;
 }
 
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
+const PRERELEASE_SEMVER_PATTERN = /^v?\d+\.\d+\.\d+-[0-9A-Za-z.-]+(?:\+[0-9A-Za-z.-]+)?$/;
 
 export const parseBooleanEnv = (value: string | undefined): boolean | undefined => {
   if (!value) {
@@ -75,7 +69,7 @@ export const isPrereleaseVersion = (version: string | undefined): boolean => {
     return false;
   }
 
-  return version.includes('-');
+  return PRERELEASE_SEMVER_PATTERN.test(version.trim());
 };
 
 export const resolveUpdaterChannel = (version: string): UpdaterChannel => {
@@ -152,6 +146,12 @@ export const createUpdaterService = (
   observers: UpdaterServiceObservers = {}
 ) => {
   let configured = false;
+  const eventContext: UpdaterCheckEventContext = {
+    channel: runtimeOptions.channel,
+    allowPrerelease: runtimeOptions.allowPrerelease,
+    owner: runtimeOptions.owner,
+    repo: runtimeOptions.repo,
+  };
 
   const baseStatus: UpdaterStatus = {
     enabled: runtimeOptions.enabled,
@@ -182,11 +182,8 @@ export const createUpdaterService = (
 
     configured = true;
     observers.onCheckEvent?.({
+      ...eventContext,
       event: 'updater_check_configured',
-      channel: runtimeOptions.channel,
-      allowPrerelease: runtimeOptions.allowPrerelease,
-      owner: runtimeOptions.owner,
-      repo: runtimeOptions.repo,
     });
   };
 
@@ -195,11 +192,8 @@ export const createUpdaterService = (
   const checkForUpdates = async (): Promise<UpdateCheckResult> => {
     if (!runtimeOptions.enabled) {
       observers.onCheckEvent?.({
+        ...eventContext,
         event: 'updater_check_disabled',
-        channel: runtimeOptions.channel,
-        allowPrerelease: runtimeOptions.allowPrerelease,
-        owner: runtimeOptions.owner,
-        repo: runtimeOptions.repo,
         reason: runtimeOptions.reason,
       });
 
@@ -212,11 +206,8 @@ export const createUpdaterService = (
 
     configure();
     observers.onCheckEvent?.({
+      ...eventContext,
       event: 'updater_check_started',
-      channel: runtimeOptions.channel,
-      allowPrerelease: runtimeOptions.allowPrerelease,
-      owner: runtimeOptions.owner,
-      repo: runtimeOptions.repo,
     });
 
     try {
@@ -241,11 +232,8 @@ export const createUpdaterService = (
       };
 
       observers.onCheckEvent?.({
+        ...eventContext,
         event: 'updater_check_result',
-        channel: runtimeOptions.channel,
-        allowPrerelease: runtimeOptions.allowPrerelease,
-        owner: runtimeOptions.owner,
-        repo: runtimeOptions.repo,
         state,
         updateAvailable,
         latestVersion,
@@ -257,11 +245,8 @@ export const createUpdaterService = (
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       observers.onCheckEvent?.({
+        ...eventContext,
         event: 'updater_check_error',
-        channel: runtimeOptions.channel,
-        allowPrerelease: runtimeOptions.allowPrerelease,
-        owner: runtimeOptions.owner,
-        repo: runtimeOptions.repo,
         state: 'error',
         errorMessage,
       });
