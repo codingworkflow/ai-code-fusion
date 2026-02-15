@@ -31,7 +31,7 @@ describe('repository-processing service', () => {
     try {
       createFile('src/index.js', 'const answer = 42;\n');
       const warnMock = jest.fn();
-      const invalidFileEntry = null as unknown as FileInfo;
+      const invalidFileEntry = {} as unknown as FileInfo;
 
       const result = processRepository({
         rootPath,
