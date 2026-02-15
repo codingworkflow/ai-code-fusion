@@ -6,7 +6,7 @@ on:
       pr_number:
         description: Pull request number to review
         required: true
-        type: string
+        type: number
       model:
         description: Single OpenCode model in provider/model format (used when models is empty)
         required: false
@@ -20,315 +20,31 @@ on:
       max_parallel:
         description: Maximum parallel model reviews
         required: true
-        default: "1"
-        type: choice
-        options:
-          - "1"
-          - "2"
-          - "3"
-          - "4"
+        default: 1
+        type: number
       force_review:
         description: Run review even when the PR is below default size thresholds
-        required: true
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
+        required: false
+        default: false
+        type: boolean
 
 permissions: {}
 
-concurrency:
-  group: opencode-manual-review-${{ inputs.pr_number }}
-  cancel-in-progress: true
-
 jobs:
-  prepare-model-matrix:
-    name: Prepare OpenCode model matrix
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      models_json: ${{ steps.models.outputs.models_json }}
-      model_count: ${{ steps.models.outputs.model_count }}
-    steps:
-      - name: Normalize model input list
-        id: models
-        env:
-          SINGLE_MODEL: ${{ inputs.model || 'zai-coding-plan/glm-4.7' }}
-          MULTI_MODELS: ${{ inputs.models }}
-        run: |
-          set -euo pipefail
-
-          if [ -n "${MULTI_MODELS}" ]; then
-            source_models="${MULTI_MODELS}"
-          else
-            source_models="${SINGLE_MODEL}"
-          fi
-
-          normalized_models="$(
-            printf '%s\n' "${source_models}" \
-              | tr ',;' '\n' \
-              | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
-              | awk 'NF && !seen[$0]++'
-          )"
-
-          if [ -z "${normalized_models}" ]; then
-            echo "No valid model entries were provided."
-            exit 1
-          fi
-
-          models_json="$(printf '%s\n' "${normalized_models}" | jq -R . | jq -cs .)"
-          model_count="$(printf '%s\n' "${normalized_models}" | awk 'NF' | wc -l | tr -d ' ')"
-
-          echo "models_json=${models_json}" >> "${GITHUB_OUTPUT}"
-          echo "model_count=${model_count}" >> "${GITHUB_OUTPUT}"
-
-          {
-            echo "### OpenCode Model Matrix"
-            echo "- Count: ${model_count}"
-            echo "- Models:"
-            while IFS= read -r m; do
-              echo "  - ${m}"
-            done <<< "${normalized_models}"
-          } >> "${GITHUB_STEP_SUMMARY}"
-
   opencode-review:
-    name: OpenCode Manual Review (${{ matrix.model }})
-    needs: prepare-model-matrix
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      max-parallel: ${{ fromJSON(inputs.max_parallel) }}
-      matrix:
-        model: ${{ fromJSON(needs.prepare-model-matrix.outputs.models_json) }}
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
-      id-token: write
-
-    steps:
-      - name: Enforce default branch dispatch
-        env:
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          if [ "${REF_NAME}" != "main" ]; then
-            echo "Manual reviews are only allowed from main. Current ref: ${REF_NAME}"
-            exit 1
-          fi
-
-      - name: Authorize dispatcher (allowlist)
-        env:
-          ACTOR: ${{ github.actor }}
-          ALLOWED_ACTORS: ${{ vars.ALLOWED_ACTORS }}
-        run: |
-          set -euo pipefail
-
-          if [ -z "${ALLOWED_ACTORS}" ]; then
-            echo "Missing required variable: ALLOWED_ACTORS"
-            echo "Set a comma-separated list of owner usernames allowed to dispatch this workflow."
-            exit 1
-          fi
-
-          allowed="false"
-          IFS=',' read -r -a actors <<< "${ALLOWED_ACTORS}"
-          for raw_actor in "${actors[@]}"; do
-            candidate="$(echo "${raw_actor}" | xargs)"
-            if [ -n "${candidate}" ] && [ "${candidate}" = "${ACTOR}" ]; then
-              allowed="true"
-              break
-            fi
-          done
-
-          if [ "${allowed}" != "true" ]; then
-            echo "Actor '${ACTOR}' is not authorized to run this workflow."
-            exit 1
-          fi
-
-      - name: Login to Azure with OIDC
-        uses: Azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Fetch OpenCode model key from Azure Key Vault
-        id: keyvault
-        env:
-          AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
-          ZHIPU_SECRET_NAME: ${{ vars.OPENCODE_ZHIPU_API_KEY_SECRET_NAME }}
-        run: |
-          set -euo pipefail
-
-          zhipu_api_key="$(az keyvault secret show --vault-name "${AZURE_KEY_VAULT_NAME}" --name "${ZHIPU_SECRET_NAME}" --query value -o tsv)"
-          if [ -z "${zhipu_api_key}" ]; then
-            echo "Failed to read OpenCode API key from Azure Key Vault secret '${ZHIPU_SECRET_NAME}'."
-            exit 1
-          fi
-
-          echo "::add-mask::${zhipu_api_key}"
-          echo "zhipu_api_key=${zhipu_api_key}" >> "${GITHUB_OUTPUT}"
-
-      - name: Resolve pull request metadata
-        id: pr
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-        run: |
-          set -euo pipefail
-
-          if ! [[ "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
-            echo "Invalid pr_number input: '${PR_NUMBER}'. Expected a numeric pull request number."
-            exit 1
-          fi
-
-          pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
-          title="$(echo "${pr_json}" | jq -r '.title')"
-          body="$(echo "${pr_json}" | jq -r '.body // ""')"
-          changed_files="$(echo "${pr_json}" | jq -r '.changed_files')"
-          additions="$(echo "${pr_json}" | jq -r '.additions')"
-          deletions="$(echo "${pr_json}" | jq -r '.deletions')"
-          total_changes="$((additions + deletions))"
-
-          echo "changed_files=${changed_files}" >> "${GITHUB_OUTPUT}"
-          echo "total_changes=${total_changes}" >> "${GITHUB_OUTPUT}"
-
-          title_delim="TITLE_$(cat /proc/sys/kernel/random/uuid)"
-          {
-            echo "title<<${title_delim}"
-            echo "${title}"
-            echo "${title_delim}"
-          } >> "${GITHUB_OUTPUT}"
-
-          body_delim="BODY_$(cat /proc/sys/kernel/random/uuid)"
-          {
-            echo "body<<${body_delim}"
-            echo "${body}"
-            echo "${body_delim}"
-          } >> "${GITHUB_OUTPUT}"
-
-      - name: Skip tiny pull requests unless forced
-        if: ${{ inputs.force_review != 'true' && fromJSON(steps.pr.outputs.changed_files) < 5 && fromJSON(steps.pr.outputs.total_changes) < 20 }}
-        run: |
-          echo "Skipping OpenCode review because changed_files < 5 and total_changes < 20."
-          echo "Re-run with force_review=true to review this PR."
-
-      - name: Checkout repository
-        if: ${{ inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20 }}
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Build OpenCode mock event for manual dispatch
-        if: ${{ inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20 }}
-        id: mock
-        env:
-          PR_NUMBER: ${{ inputs.pr_number }}
-          ACTOR: ${{ github.actor }}
-          REPO_OWNER: ${{ github.repository_owner }}
-          REPO_NAME: ${{ github.event.repository.name }}
-        run: |
-          set -euo pipefail
-
-          comment_body="$(cat <<'EOM'
-          /oc Review pull request #PR_NUMBER_PLACEHOLDER.
-
-          Focus on:
-          - Code quality and best practices
-          - Potential bugs or regressions
-          - Performance concerns
-          - Security concerns
-          - Missing or weak test coverage
-
-          Requirements:
-          - Leave exactly one consolidated PR comment.
-          - Review only; do not edit files, create commits, or open additional PRs.
-          - Keep the review factual and specific.
-          EOM
-          )"
-          comment_body="${comment_body/PR_NUMBER_PLACEHOLDER/${PR_NUMBER}}"
-
-          mock_event="$(jq -cn \
-            --arg actor "${ACTOR}" \
-            --arg owner "${REPO_OWNER}" \
-            --arg repo "${REPO_NAME}" \
-            --arg body "${comment_body}" \
-            --argjson pr "${PR_NUMBER}" \
-            '{
-              eventName: "issue_comment",
-              repo: { owner: $owner, repo: $repo },
-              actor: $actor,
-              payload: {
-                issue: { number: $pr, pull_request: {} },
-                comment: { id: 1, body: $body }
-              }
-            }'
-          )"
-
-          delim="MOCK_$(cat /proc/sys/kernel/random/uuid)"
-          {
-            echo "event<<${delim}"
-            echo "${mock_event}"
-            echo "${delim}"
-          } >> "${GITHUB_OUTPUT}"
-
-      - name: Run OpenCode manual pull request review
-        id: opencode_review
-        if: ${{ inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20 }}
-        continue-on-error: true
-        uses: anomalyco/opencode/github@76db218674496f9ca9e91b49e5718eabf6df7cc0
-        env:
-          TOKEN: ${{ github.token }}
-          GITHUB_TOKEN: ${{ github.token }}
-          MOCK_EVENT: ${{ steps.mock.outputs.event }}
-          ZHIPU_API_KEY: ${{ steps.keyvault.outputs.zhipu_api_key }}
-        with:
-          model: ${{ matrix.model }}
-          agent: plan
-          prompt: |
-            REPO: ${{ github.repository }}
-            PR NUMBER: ${{ inputs.pr_number }}
-            MODEL: ${{ matrix.model }}
-            PR TITLE: ${{ steps.pr.outputs.title }}
-            PR BODY:
-            ${{ steps.pr.outputs.body }}
-
-            You are performing a strict pull request review. Review only changed files in this PR.
-            Post exactly one consolidated `gh pr comment` for this model execution.
-
-            Required comment format:
-            - first line: `Model used: <provider/model>`
-            - section `### Executive Summary`
-            - section `### Findings`
-            - section `### Test Coverage Gaps`
-            - section `### Final Verdict`
-
-            Findings requirements:
-            - prioritize by severity: Critical, High, Medium, Low
-            - include concrete evidence with `path:line` references from the diff
-            - classify each finding as one of: Bug, Security, Performance, Testing, Maintainability
-            - explain why it matters and provide a concrete fix
-            - avoid speculative findings without evidence
-
-            If no material issues exist, state exactly `No material issues found` and list any residual risks.
-            Review only; do not modify files, push commits, or open additional PRs.
-            Keep comments factual, specific, and action-oriented.
-          use_github_token: true
-
-      - name: Warn when OpenCode review fails (non-blocking)
-        if: ${{ always() && (inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20) && steps.opencode_review.outcome == 'failure' }}
-        env:
-          PR_NUMBER: ${{ inputs.pr_number }}
-          MODEL: ${{ matrix.model }}
-        run: |
-          echo "::warning::OpenCode manual review failed but is configured as non-blocking. Check the previous step logs."
-          {
-            echo "### OpenCode Manual Review Warning"
-            echo "- PR: #${PR_NUMBER}"
-            echo "- Model: ${MODEL}"
-            echo "- Status: failed (non-blocking via continue-on-error)"
-          } >> "${GITHUB_STEP_SUMMARY}"
+    uses: codingworkflow/codingworkflow-security-policies/.github/workflows/reusable-opencode-review.yml@main
+    secrets: inherit
+    with:
+      pr_number: ${{ inputs.pr_number }}
+      force_review: ${{ inputs.force_review }}
+      model: ${{ inputs.model }}
+      models: ${{ inputs.models }}
+      max_parallel: ${{ inputs.max_parallel }}
+      allowed_actors: ${{ vars.ALLOWED_ACTORS }}
+      azure_client_id: ${{ vars.AZURE_CLIENT_ID }}
+      azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+      azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      azure_key_vault_name: ${{ vars.AZURE_KEY_VAULT_NAME }}
+      zhipu_secret_name: ${{ vars.OPENCODE_ZHIPU_API_KEY_SECRET_NAME }}
+      min_changed_files: 5
+      min_total_changes: 20
