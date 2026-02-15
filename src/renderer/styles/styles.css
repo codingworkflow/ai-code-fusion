@@ -55,9 +55,9 @@
   top: 10px;
   width: 12px;
   height: 1px;
-  background-color: theme('colors.gray.200');
+  background-color: var(--tree-line-h-color, #e5e7eb);
 }
 
 .dark .tree-line::after {
-  background-color: #4b5563;
+  background-color: var(--tree-line-h-color-dark, #4b5563);
 }
