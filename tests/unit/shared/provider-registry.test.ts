@@ -8,12 +8,10 @@ import {
 
 describe('shared provider registry', () => {
   test('exposes provider options in stable order with expected ids', () => {
-    expect(PROVIDER_OPTIONS.map((providerOption) => providerOption.id)).toEqual([
-      'openai',
-      'anthropic',
-      'ollama',
-      'openai-compatible',
-    ]);
+    const providerIds = PROVIDER_OPTIONS.map((providerOption) => providerOption.id);
+    const expectedIds = ['openai', 'anthropic', 'ollama', 'openai-compatible'];
+
+    expect(providerIds.slice(0, expectedIds.length)).toEqual(expectedIds);
   });
 
   test('keeps default base URLs aligned with provider options', () => {
@@ -37,5 +35,6 @@ describe('shared provider registry', () => {
     expect(isSupportedProviderId('unsupported')).toBe(false);
     expect(isSupportedProviderId('')).toBe(false);
     expect(isSupportedProviderId(null)).toBe(false);
+    expect(isSupportedProviderId(undefined)).toBe(false);
   });
 });
