@@ -11,10 +11,8 @@ describe('shared provider registry', () => {
     const providerIds = PROVIDER_OPTIONS.map((providerOption) => providerOption.id);
     const expectedIds = ['openai', 'anthropic', 'ollama', 'openai-compatible'];
 
-    expect(providerIds.length).toBeGreaterThanOrEqual(expectedIds.length);
     expect(providerIds.slice(0, expectedIds.length)).toEqual(expectedIds);
   });
-
 
   test('keeps default base URLs aligned with provider options', () => {
     for (const providerOption of PROVIDER_OPTIONS) {
