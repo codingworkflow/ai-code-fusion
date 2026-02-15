@@ -119,6 +119,7 @@
     "noValidFiles": "No hay archivos válidos para analizar. Selecciona archivos dentro del directorio actual.",
     "electronApiUnavailable": "La API de Electron no está disponible.",
     "processingFailed": "Se produjo un error al procesar el repositorio. Revisa la consola para más detalles.",
+    "directoryLoadFailed": "Se produjo un error al cargar el contenido del directorio. Revisa la consola para más detalles.",
     "noFilesSelectedForProcessing": "No hay archivos seleccionados para procesar. Ve a la pestaña Fuente y selecciona archivos.",
     "refreshFailed": "Se produjo un error al actualizar el contenido. Revisa la consola para más detalles.",
     "noProcessedContentToSave": "No hay contenido procesado para guardar.",

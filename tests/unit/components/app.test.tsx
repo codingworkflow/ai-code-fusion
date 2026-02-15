@@ -68,6 +68,7 @@ jest.mock('../../../src/renderer/components/SourceTab', () => {
     selectedFiles,
     onDirectorySelect,
     onAnalyze,
+    onRefreshTree,
     onFileSelect,
   }) => {
     return (
@@ -83,6 +84,14 @@ jest.mock('../../../src/renderer/components/SourceTab', () => {
           }}
         >
           Analyze
+        </button>
+        <button
+          data-testid='refresh-tree-btn'
+          onClick={() => {
+            Promise.resolve(onRefreshTree()).catch(() => {});
+          }}
+        >
+          Refresh Tree
         </button>
         <div data-testid='selected-files-count'>{selectedFiles.size}</div>
         <button
@@ -106,6 +115,7 @@ jest.mock('../../../src/renderer/components/SourceTab', () => {
     selectedFiles: PropTypes.any.isRequired,
     onDirectorySelect: PropTypes.func.isRequired,
     onAnalyze: PropTypes.func.isRequired,
+    onRefreshTree: PropTypes.func.isRequired,
     onFileSelect: PropTypes.func,
   };
 
@@ -378,6 +388,58 @@ describe('App Component', () => {
     expect(window.electronAPI.selectDirectory).toHaveBeenCalled();
     expect(screen.getByTestId('root-path').textContent).toBe('/mock/directory');
     expect(localStorage.setItem).toHaveBeenCalledWith('rootPath', '/mock/directory');
+  });
+
+  test('shows an error banner when directory loading fails after folder selection', async () => {
+    window.electronAPI.getDirectoryTree.mockRejectedValueOnce(new Error('Directory tree load failed'));
+
+    render(<App />);
+
+    const tabElements = screen.getAllByRole('button');
+    const sourceTab = tabElements.find((el) => el.textContent === 'Source');
+    fireEvent.click(sourceTab);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('select-directory-btn'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/An error occurred while loading directory content. Check the console for details./i)
+      ).toBeInTheDocument();
+    });
+
+    expect(window.electronAPI.selectDirectory).toHaveBeenCalled();
+    expect(window.electronAPI.getDirectoryTree).toHaveBeenCalled();
+  });
+
+  test('shows an error banner when refreshing directory tree fails', async () => {
+    render(<App />);
+
+    const tabElements = screen.getAllByRole('button');
+    const sourceTab = tabElements.find((el) => el.textContent === 'Source');
+    fireEvent.click(sourceTab);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('select-directory-btn'));
+      await Promise.resolve();
+    });
+
+    window.electronAPI.getDirectoryTree.mockRejectedValueOnce(new Error('Refresh tree load failed'));
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('refresh-tree-btn'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/An error occurred while loading directory content. Check the console for details./i)
+      ).toBeInTheDocument();
+    });
+
+    expect(window.electronAPI.getDirectoryTree).toHaveBeenCalledTimes(2);
   });
 
   test('rejects prefix-collision file selection outside root path', () => {

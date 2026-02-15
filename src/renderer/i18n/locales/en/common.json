@@ -119,6 +119,7 @@
     "noValidFiles": "No valid files selected for analysis. Please select files within the current directory.",
     "electronApiUnavailable": "Electron API is not available.",
     "processingFailed": "An error occurred while processing the repository. Check the console for details.",
+    "directoryLoadFailed": "An error occurred while loading directory content. Check the console for details.",
     "noFilesSelectedForProcessing": "No files are selected for processing. Please go to the Source tab and select files.",
     "refreshFailed": "An error occurred while refreshing content. Check the console for details.",
     "noProcessedContentToSave": "No processed content to save.",

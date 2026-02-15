@@ -119,6 +119,7 @@
     "noValidFiles": "Aucun fichier valide sélectionné pour l'analyse. Sélectionnez des fichiers dans le dossier actuel.",
     "electronApiUnavailable": "L'API Electron n'est pas disponible.",
     "processingFailed": "Une erreur s'est produite lors du traitement du dépôt. Consultez la console pour plus de détails.",
+    "directoryLoadFailed": "Une erreur s'est produite lors du chargement du contenu du dossier. Consultez la console pour plus de détails.",
     "noFilesSelectedForProcessing": "Aucun fichier sélectionné pour le traitement. Allez dans l'onglet Source et sélectionnez des fichiers.",
     "refreshFailed": "Une erreur s'est produite lors de l'actualisation du contenu. Consultez la console pour plus de détails.",
     "noProcessedContentToSave": "Aucun contenu traité à enregistrer.",
