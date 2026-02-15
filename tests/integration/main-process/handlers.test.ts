@@ -195,6 +195,18 @@ describe('Main Process IPC Handlers', () => {
     fs.statSync.mockImplementation((itemPath) =>
       buildMockStats({ isDirectory: isDefaultDirectoryPath(itemPath) })
     );
+    if (!fs.promises) {
+      fs.promises = {};
+    }
+    fs.promises.stat = jest.fn().mockImplementation(async (itemPath) => {
+      if (String(itemPath).includes('nonexistent')) {
+        const notFoundError = new Error(`ENOENT: no such file or directory, stat '${itemPath}'`);
+        (notFoundError as NodeJS.ErrnoException).code = 'ENOENT';
+        throw notFoundError;
+      }
+
+      return buildMockStats({ isDirectory: isDefaultDirectoryPath(itemPath) });
+    });
     if (typeof fs.lstatSync !== 'function') {
       fs.lstatSync = jest.fn();
     }

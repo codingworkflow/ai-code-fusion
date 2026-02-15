@@ -251,12 +251,14 @@ describe('SourceTab Component', () => {
 
     await waitFor(() => {
       expect(countFilesTokensMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Tokens').parentElement).toHaveTextContent('120');
     });
 
     await advanceTokenDebounce();
 
     await waitFor(() => {
       expect(countFilesTokensMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('Tokens').parentElement).toHaveTextContent('145');
     });
   });
 
@@ -274,11 +276,15 @@ describe('SourceTab Component', () => {
 
     await waitFor(() => {
       expect(countFilesTokensMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Tokens').parentElement).toHaveTextContent('120');
     });
 
     await advanceTokenDebounce();
 
-    expect(countFilesTokensMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(countFilesTokensMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Tokens').parentElement).toHaveTextContent('120');
+    });
   });
 
   test('handles deleted file by recounting to zero and stabilizing cache state', async () => {

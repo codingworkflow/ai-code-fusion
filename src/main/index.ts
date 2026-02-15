@@ -481,21 +481,28 @@ ipcMain.handle(
       }
 
       const stats: GetFilesStatsResult['stats'] = {};
-      forEachResolvedFile(authorizedStatsRoot, filePaths, {
-        onOutsideRoot: (filePath) => {
-          console.warn(`Skipping file outside current root directory for stats: ${filePath}`);
-        },
-        onMissingFile: (filePath) => {
-          stats[filePath] = { size: 0, mtime: 0 };
-        },
-        onResolvedFile: ({ filePath, fileMetadata }) => {
-          stats[filePath] = fileMetadata;
-        },
-        onError: (filePath, error) => {
-          console.error(`Error reading file stats for ${filePath}:`, error);
-          stats[filePath] = { size: 0, mtime: 0 };
-        },
-      });
+      await Promise.all(
+        filePaths.map(async (filePath) => {
+          const resolvedFilePath = path.resolve(authorizedStatsRoot, filePath);
+          if (!isPathWithinRoot(authorizedStatsRoot, resolvedFilePath)) {
+            console.warn(`Skipping file outside current root directory for stats: ${filePath}`);
+            return;
+          }
+
+          try {
+            const fileStats = await fs.promises.stat(resolvedFilePath);
+            stats[filePath] = {
+              size: fileStats.size,
+              mtime: fileStats.mtime.getTime(),
+            };
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+              console.error(`Error reading file stats for ${filePath}:`, error);
+            }
+            stats[filePath] = { size: 0, mtime: 0 };
+          }
+        })
+      );
 
       return { stats };
     } catch (error) {
