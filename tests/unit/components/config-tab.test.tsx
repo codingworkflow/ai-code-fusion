@@ -22,44 +22,51 @@ jest.mock('../../../src/utils/formatters/list-formatter', () => ({
 }));
 
 // Mock yaml package
-jest.mock('yaml', () => ({
-  parse: jest.fn().mockImplementation((str = '') => {
-    if (str.includes('invalid_yaml')) {
-      throw new Error('Invalid YAML');
-    }
 
-    const exportFormat = str.includes('export_format: xml') ? 'xml' : 'markdown';
-    const includesProvider = str.includes('provider:');
-    if (str && str.includes('include_extensions')) {
-      const baseConfig = {
-        include_extensions: ['.js', '.jsx'],
-        use_custom_excludes: true,
-        use_gitignore: true,
-        use_custom_includes: true,
-        enable_secret_scanning: true,
-        exclude_suspicious_files: true,
-        export_format: exportFormat,
-      };
-      if (includesProvider) {
-        return {
-          ...baseConfig,
-          provider: {
-            id: 'openai',
-            model: 'gpt-4o-mini',
-            api_key: 'test-api-key',
-            base_url: 'https://api.openai.com/v1',
-          },
-        };
-      }
-      return baseConfig;
-    }
-    if (str && str.includes('export_format')) {
-      return {
-        export_format: exportFormat,
-      };
-    }
-    return { export_format: 'markdown' };
-  }),
+const createBaseConfig = (exportFormat: 'markdown' | 'xml') => ({
+  include_extensions: ['.js', '.jsx'],
+  use_custom_excludes: true,
+  use_gitignore: true,
+  use_custom_includes: true,
+  enable_secret_scanning: true,
+  exclude_suspicious_files: true,
+  export_format: exportFormat,
+});
+
+const createProviderConfig = (baseConfig: ReturnType<typeof createBaseConfig>) => ({
+  ...baseConfig,
+  provider: {
+    id: 'openai',
+    model: 'gpt-4o-mini',
+    api_key: 'test-api-key',
+    base_url: 'https://api.openai.com/v1',
+  },
+});
+
+const mockParseYaml = (str: string = '') => {
+  if (str.includes('invalid_yaml')) {
+    throw new Error('Invalid YAML');
+  }
+
+  const exportFormat: 'markdown' | 'xml' = str.includes('export_format: xml') ? 'xml' : 'markdown';
+  const includesProvider = str.includes('provider:');
+
+  if (str && str.includes('include_extensions')) {
+    const baseConfig = createBaseConfig(exportFormat);
+    return includesProvider ? createProviderConfig(baseConfig) : baseConfig;
+  }
+
+  if (str && str.includes('export_format')) {
+    return {
+      export_format: exportFormat,
+    };
+  }
+
+  return { export_format: 'markdown' };
+};
+
+jest.mock('yaml', () => ({
+  parse: jest.fn(mockParseYaml),
   stringify: jest.fn().mockReturnValue('mocked yaml string'),
 }));
 
