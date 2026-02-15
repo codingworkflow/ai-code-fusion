@@ -189,7 +189,10 @@ const SourceTab = ({
 
         setTotalTokens(newTotal);
 
-        if (filesToProcess.length <= batchSize) {
+        const hasRemainingFiles = filesToProcess.length > batchSize;
+        // Continuation is driven by tokenCache updates: each processed batch adds
+        // newly cached file keys, retriggering this effect for the next uncached batch.
+        if (!hasRemainingFiles) {
           setIsCalculating(false);
         }
       } catch (error) {
