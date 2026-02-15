@@ -321,7 +321,7 @@ describe('ConfigTab', () => {
       expect(mockOnConfigChange).toHaveBeenCalled();
     });
 
-    const yamlLib = require('yaml');
+    const yamlLib = yaml;
     const savedConfig = yamlLib.stringify.mock.calls.at(-1)[0];
 
     expect(savedConfig.provider).toEqual(
