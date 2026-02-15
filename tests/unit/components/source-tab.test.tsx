@@ -5,6 +5,7 @@ import SourceTab from '../../../src/renderer/components/SourceTab';
 
 const ROOT_PATH = '/mock/directory';
 const SELECTED_FILE = `${ROOT_PATH}/src/App.tsx`;
+const UPDATED_SELECTED_FILE = `${ROOT_PATH}/src/NewApp.tsx`;
 
 function createTokenCountPromise() {
   let resolvePromise: (value: {
@@ -28,6 +29,35 @@ function createTokenCountPromise() {
 }
 
 describe('SourceTab Component', () => {
+  const defaultDirectoryTree = [
+    {
+      type: 'file' as const,
+      name: 'App.tsx',
+      path: SELECTED_FILE,
+    },
+    {
+      type: 'file' as const,
+      name: 'NewApp.tsx',
+      path: UPDATED_SELECTED_FILE,
+    },
+  ];
+
+  const createProps = (overrides: Partial<React.ComponentProps<typeof SourceTab>> = {}) => ({
+    isActive: true,
+    rootPath: ROOT_PATH,
+    directoryTree: defaultDirectoryTree,
+    selectedFiles: new Set<string>([SELECTED_FILE]),
+    selectedFolders: new Set<string>(),
+    configContent: 'show_token_count: true',
+    onDirectorySelect: jest.fn(),
+    onFileSelect: jest.fn(),
+    onFolderSelect: jest.fn(),
+    onBatchSelect: jest.fn(),
+    onAnalyze: jest.fn().mockResolvedValue({}),
+    onRefreshTree: jest.fn().mockResolvedValue(undefined),
+    ...overrides,
+  });
+
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
@@ -48,27 +78,7 @@ describe('SourceTab Component', () => {
     const countFilesTokensMock = jest.fn().mockReturnValue(tokenCountPromise.promise);
     window.electronAPI.countFilesTokens = countFilesTokensMock;
 
-    render(
-      <SourceTab
-        rootPath={ROOT_PATH}
-        directoryTree={[
-          {
-            type: 'file',
-            name: 'App.tsx',
-            path: SELECTED_FILE,
-          },
-        ]}
-        selectedFiles={new Set([SELECTED_FILE])}
-        selectedFolders={new Set()}
-        configContent={'show_token_count: true'}
-        onDirectorySelect={jest.fn()}
-        onFileSelect={jest.fn()}
-        onFolderSelect={jest.fn()}
-        onBatchSelect={jest.fn()}
-        onAnalyze={jest.fn().mockResolvedValue({})}
-        onRefreshTree={jest.fn().mockResolvedValue(undefined)}
-      />
-    );
+    render(<SourceTab {...createProps({ directoryTree: defaultDirectoryTree.slice(0, 1) })} />);
 
     const processButton = screen.getByTestId('process-selected-files-button');
 
@@ -107,5 +117,88 @@ describe('SourceTab Component', () => {
     });
 
     expect(screen.queryByTestId('process-selected-files-spinner')).not.toBeInTheDocument();
+  });
+
+  test('stale request should not clear calculating state while newer request is in flight', async () => {
+    const staleRequest = createTokenCountPromise();
+    const activeRequest = createTokenCountPromise();
+    const countFilesTokensMock = jest
+      .fn()
+      .mockReturnValueOnce(staleRequest.promise)
+      .mockReturnValueOnce(activeRequest.promise);
+    window.electronAPI.countFilesTokens = countFilesTokensMock;
+
+    const { rerender } = render(<SourceTab {...createProps()} />);
+    const processButton = screen.getByTestId('process-selected-files-button');
+
+    await waitFor(() => {
+      expect(processButton).toBeDisabled();
+      expect(processButton).toHaveTextContent('Selecting files...');
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(countFilesTokensMock).toHaveBeenCalledWith({
+      rootPath: ROOT_PATH,
+      filePaths: [SELECTED_FILE],
+    });
+
+    rerender(<SourceTab {...createProps({ selectedFiles: new Set<string>([UPDATED_SELECTED_FILE]) })} />);
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(countFilesTokensMock).toHaveBeenCalledWith({
+      rootPath: ROOT_PATH,
+      filePaths: [UPDATED_SELECTED_FILE],
+    });
+
+    await waitFor(() => {
+      expect(processButton).toBeDisabled();
+      expect(processButton).toHaveTextContent('Selecting files...');
+    });
+
+    await act(async () => {
+      staleRequest.resolve({
+        results: {
+          [SELECTED_FILE]: 120,
+        },
+        stats: {
+          [SELECTED_FILE]: {
+            mtime: 1700000000000,
+            size: 1024,
+          },
+        },
+      });
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(processButton).toBeDisabled();
+    expect(processButton).toHaveTextContent('Selecting files...');
+
+    await act(async () => {
+      activeRequest.resolve({
+        results: {
+          [UPDATED_SELECTED_FILE]: 48,
+        },
+        stats: {
+          [UPDATED_SELECTED_FILE]: {
+            mtime: 1700000000001,
+            size: 512,
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(processButton).toBeEnabled();
+      expect(processButton).toHaveTextContent('Process Selected Files');
+    });
   });
 });

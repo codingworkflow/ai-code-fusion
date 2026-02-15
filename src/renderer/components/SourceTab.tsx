@@ -8,6 +8,7 @@ import Spinner from './icons/Spinner';
 import type { CountFilesTokensResult, DirectoryTreeItem, SelectionHandler } from '../../types/ipc';
 
 type SourceTabProps = {
+  isActive: boolean;
   rootPath: string;
   directoryTree: DirectoryTreeItem[];
   selectedFiles: Set<string>;
@@ -62,6 +63,7 @@ const getProcessButtonClass = (rootPath: string, hasSelection: boolean, isBusy: 
 };
 
 const SourceTab = ({
+  isActive,
   rootPath,
   directoryTree,
   selectedFiles,
@@ -81,17 +83,24 @@ const SourceTab = ({
   const [isCalculating, setIsCalculating] = useState(false);
   const [tokenCache, setTokenCache] = useState<TokenCache>({});
   const pendingCalculationRef = useRef<number | null>(null);
+  const calculationEpochRef = useRef(0);
   const appWindow = globalThis as Window & typeof globalThis;
 
   const selectedFilesArray = [...selectedFiles];
 
-  const handleDirectorySelect = async () => {
-    setTokenCache({});
-    setTotalTokens(0);
+  const invalidatePendingCalculation = () => {
+    calculationEpochRef.current += 1;
     if (pendingCalculationRef.current !== null) {
       appWindow.clearTimeout(pendingCalculationRef.current);
       pendingCalculationRef.current = null;
     }
+  };
+
+  const handleDirectorySelect = async () => {
+    setTokenCache({});
+    setTotalTokens(0);
+    invalidatePendingCalculation();
+    setIsCalculating(false);
     await onDirectorySelect();
   };
 
@@ -107,9 +116,17 @@ const SourceTab = ({
   }, [configContent]);
 
   useEffect(() => {
+    calculationEpochRef.current += 1;
+    const effectEpoch = calculationEpochRef.current;
+
     if (pendingCalculationRef.current !== null) {
       appWindow.clearTimeout(pendingCalculationRef.current);
       pendingCalculationRef.current = null;
+    }
+
+    if (!isActive) {
+      setIsCalculating(false);
+      return undefined;
     }
 
     if (selectedFiles.size === 0) {
@@ -156,7 +173,15 @@ const SourceTab = ({
           }
         }
 
+        if (effectEpoch !== calculationEpochRef.current) {
+          return;
+        }
+
         updateTokenCache(normalizedResults, stats, setTokenCache);
+
+        if (effectEpoch !== calculationEpochRef.current) {
+          return;
+        }
 
         const newTotal = selectedFilesArray.reduce((sum, filePath) => {
           return sum + (normalizedResults[filePath] || tokenCache[filePath]?.tokenCount || 0);
@@ -164,16 +189,14 @@ const SourceTab = ({
 
         setTotalTokens(newTotal);
 
-        if (filesToProcess.length > batchSize) {
-          pendingCalculationRef.current = appWindow.setTimeout(() => {
-            appWindow.dispatchEvent(new Event('tokenCalculationContinue'));
-          }, 10);
-        } else {
+        if (filesToProcess.length <= batchSize) {
           setIsCalculating(false);
         }
       } catch (error) {
         console.error('Error calculating tokens:', error);
-        setIsCalculating(false);
+        if (effectEpoch === calculationEpochRef.current) {
+          setIsCalculating(false);
+        }
       }
     }, 300);
 
@@ -184,19 +207,7 @@ const SourceTab = ({
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedFilesArray is derived from selectedFiles
-  }, [selectedFiles, tokenCache, rootPath, appWindow]);
-
-  useEffect(() => {
-    const handleContinue = () => {
-      setTokenCache((prevCache) => ({ ...prevCache }));
-    };
-
-    appWindow.addEventListener('tokenCalculationContinue', handleContinue);
-
-    return () => {
-      appWindow.removeEventListener('tokenCalculationContinue', handleContinue);
-    };
-  }, [appWindow]);
+  }, [isActive, selectedFiles, tokenCache, rootPath, appWindow]);
 
   const hasSelection = selectedFiles.size > 0 || selectedFolders.size > 0;
   const isProcessBusy = isAnalyzing || isCalculating;
@@ -334,10 +345,8 @@ const SourceTab = ({
               onClick={async () => {
                 setTokenCache({});
                 setTotalTokens(0);
-                if (pendingCalculationRef.current !== null) {
-                  appWindow.clearTimeout(pendingCalculationRef.current);
-                  pendingCalculationRef.current = null;
-                }
+                invalidatePendingCalculation();
+                setIsCalculating(false);
                 await onRefreshTree();
               }}
               className='inline-flex items-center border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
@@ -364,10 +373,7 @@ const SourceTab = ({
               onClick={() => {
                 onBatchSelect([...selectedFiles], [...selectedFolders], false);
                 setTotalTokens(0);
-                if (pendingCalculationRef.current !== null) {
-                  appWindow.clearTimeout(pendingCalculationRef.current);
-                  pendingCalculationRef.current = null;
-                }
+                invalidatePendingCalculation();
                 setIsCalculating(false);
               }}
               className='inline-flex items-center border border-transparent bg-gray-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800'
