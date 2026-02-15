@@ -149,6 +149,82 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  resolve-ui-baseline:
+    name: Resolve UI Baseline
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.qa.result == 'success'
+    needs: qa
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      baseline_created_at: ${{ steps.select_baseline.outputs.baseline_created_at }}
+      baseline_head_sha: ${{ steps.select_baseline.outputs.baseline_head_sha }}
+      baseline_path: ${{ steps.export_baseline_path.outputs.baseline_path }}
+      baseline_run_id: ${{ steps.select_baseline.outputs.baseline_run_id }}
+      baseline_skip_reason: ${{ steps.select_baseline.outputs.baseline_skip_reason }}
+      baseline_status: ${{ steps.select_baseline.outputs.status }}
+
+    steps:
+      - name: Checkout repository metadata
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Select baseline from previous successful main runs
+        id: select_baseline
+        run: node scripts/select-qa-baseline.js
+        env:
+          BASELINE_MAX_CANDIDATE_RUNS: 3
+          BASELINE_REQUIRED_ARTIFACTS: ui-screenshot-linux,ui-screenshot-windows,ui-screenshot-macos,ui-screenshot-manifest-linux,ui-screenshot-manifest-windows,ui-screenshot-manifest-macos
+          BASELINE_SELECTION_OUTPUT_PATH: dist/qa/baseline-selection.json
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Download baseline artifacts
+        if: steps.select_baseline.outputs.status == 'selected'
+        run: |
+          baseline_run_id="${{ steps.select_baseline.outputs.baseline_run_id }}"
+          baseline_dir="dist/qa/baseline/${baseline_run_id}"
+          mkdir -p "${baseline_dir}"
+          gh run download "${baseline_run_id}" \
+            --name ui-screenshot-linux \
+            --name ui-screenshot-windows \
+            --name ui-screenshot-macos \
+            --name ui-screenshot-manifest-linux \
+            --name ui-screenshot-manifest-windows \
+            --name ui-screenshot-manifest-macos \
+            --dir "${baseline_dir}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Export baseline path
+        id: export_baseline_path
+        run: |
+          if [ "${{ steps.select_baseline.outputs.status }}" = "selected" ]; then
+            echo "baseline_path=dist/qa/baseline/${{ steps.select_baseline.outputs.baseline_run_id }}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "baseline_path=" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Upload baseline selection artifact
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: ui-baseline-selection
+          path: |
+            dist/qa/baseline-selection.json
+            dist/qa/baseline/**/*
+          if-no-files-found: warn
+          retention-days: 30
+
   publish-unit-test-results:
     name: Publish Unit Test Results (${{ matrix.os }})
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.qa.result == 'success'
