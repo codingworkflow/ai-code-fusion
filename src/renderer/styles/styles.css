@@ -1,4 +1,6 @@
-@import 'tailwindcss';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 .file-tree {
   font-family:
@@ -14,7 +16,7 @@
 }
 
 /* Animated transitions for folder open/close */
-.transition-all {
+.file-tree-transition {
   transition-property: all;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -39,11 +41,11 @@
   top: 0;
   bottom: 0;
   width: 1px;
-  background-color: #e5e7eb;
+  background-color: var(--tree-line-color, #e5e7eb);
 }
 
 .dark .tree-line::before {
-  background-color: #4b5563;
+  background-color: var(--tree-line-color-dark, #4b5563);
 }
 
 .tree-line::after {
@@ -53,9 +55,9 @@
   top: 10px;
   width: 12px;
   height: 1px;
-  background-color: #e5e7eb;
+  background-color: var(--tree-line-h-color, #e5e7eb);
 }
 
 .dark .tree-line::after {
-  background-color: #4b5563;
+  background-color: var(--tree-line-h-color-dark, #4b5563);
 }
