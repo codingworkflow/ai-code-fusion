@@ -85,8 +85,12 @@ describe('repository-processing service', () => {
   });
 
   test('keeps nested tree structure stable when a path prefix appears as a file entry', () => {
-    const { rootPath, cleanup } = createTempRepository();
+    const { rootPath, createFile, cleanup } = createTempRepository();
     try {
+      // Create actual files corresponding to the paths used in filesInfo
+      createFile('a/b', 'prefix file\n');
+      createFile('a/b/c.txt', 'child file\n');
+
       const result = processRepository({
         rootPath,
         filesInfo: [
