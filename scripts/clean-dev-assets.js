@@ -3,7 +3,6 @@
  * It removes CSS output files and bundled JS files.
  */
 
-const fs = require('fs');
 const path = require('path');
 const { rimraf } = require('rimraf');
 

@@ -19,7 +19,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 // Root directory of the project
 const ROOT_DIR = path.join(__dirname, '..');
