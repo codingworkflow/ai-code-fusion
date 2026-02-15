@@ -19,7 +19,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_os: linux
+          - os: windows-latest
+            artifact_os: windows
+          - os: macos-latest
+            artifact_os: macos
 
     steps:
       - name: Checkout repository
@@ -88,7 +94,16 @@ jobs:
         id: capture_ui_screenshot
         run: npm run qa:screenshot
         env:
-          UI_SCREENSHOT_NAME: ui-${{ runner.os }}.png
+          UI_SCREENSHOT_NAME: ui-${{ matrix.artifact_os }}.png
+
+      - name: Generate UI baseline manifest
+        id: generate_ui_baseline_manifest
+        if: steps.capture_ui_screenshot.outcome == 'success'
+        run: node scripts/generate-ui-baseline-manifest.js
+        env:
+          QA_ARTIFACT_OS: ${{ matrix.artifact_os }}
+          UI_SCREENSHOT_DIR: dist/qa/screenshots
+          UI_BASELINE_MANIFEST_PATH: dist/qa/baseline-manifest.json
 
       - name: Run Electron E2E (Playwright)
         if: runner.os == 'Linux'
@@ -98,10 +113,21 @@ jobs:
         if: always() && steps.capture_ui_screenshot.outcome == 'success'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
-          name: ui-screenshot-${{ runner.os }}
-          path: dist/qa/screenshots/*.png
+          name: ui-screenshot-${{ matrix.artifact_os }}
+          path: |
+            dist/qa/screenshots/*.png
+            dist/qa/baseline-manifest.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 60
+
+      - name: Upload UI baseline manifest
+        if: always() && steps.generate_ui_baseline_manifest.outcome == 'success'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: ui-screenshot-manifest-${{ matrix.artifact_os }}
+          path: dist/qa/baseline-manifest.json
+          if-no-files-found: error
+          retention-days: 60
 
       - name: Upload Playwright E2E artifacts
         if: runner.os == 'Linux' && always()
