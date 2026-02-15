@@ -51,6 +51,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | `tests/unit/scripts/validate-changelog.test.js`            | `scripts/validate-changelog.js`                                          | Release heading/date format checks, allowed section headings, latest release section coverage                                                          |
 | `tests/unit/scripts/generate-ui-baseline-manifest.test.js` | `scripts/generate-ui-baseline-manifest.js`                               | QA baseline manifest schema, screenshot file map generation, and run metadata capture                                                                  |
 | `tests/unit/scripts/ui-baseline-selection.test.js`         | `scripts/lib/ui-baseline-selection.js` + `scripts/select-qa-baseline.js` | Baseline candidate window filtering, current-run/head-sha exclusion, required artifact checks, and mocked dry-run selection                            |
+| `tests/unit/scripts/ui-drift-compare.test.js`              | `scripts/lib/ui-drift-compare.js` + `scripts/compare-ui-baseline.js`     | Drift threshold policy (`pass/warn/fail`), aggregate drift summarization, and baseline comparison flow (`pass/warn/fail/skipped`)                      |
 | `tests/unit/main/updater.test.ts`                          | `src/main/updater.ts`                                                    | Alpha/stable channel selection, platform gating, update-check result handling                                                                          |
 | `tests/unit/main/feature-flags.test.ts`                    | `src/main/feature-flags.ts`                                              | OpenFeature normalization, env/remote merge rules, secure remote fetch behavior                                                                        |
 | `tests/unit/main/path-security.test.ts`                    | `src/main/security/path-guard.ts`                                        | Root-path authorization, temp-root boundaries, symlink-aware realpath resolution                                                                       |
@@ -107,6 +108,9 @@ QA matrix screenshot artifact contract (baseline-ready):
 - `baseline-manifest.json` includes run context (`workflow`, `run id/attempt`, `git sha/ref`, `os`) and screenshot file map
 - Baseline selection artifact: `ui-baseline-selection` (`dist/qa/baseline-selection.json` + downloaded baseline artifact snapshot when found)
 - Baseline selector checks latest 3 successful `qa-matrix` runs on `main`, excludes current run/context SHAs, and marks skipped when no valid baseline is available
+- Drift report artifact: `ui-drift-report` (`dist/qa/drift-report.json` + per-image diff overlays in `dist/qa/drift-diffs/**/*`)
+- Drift status contract: `pass` (within warn threshold), `warn` (above warn threshold only), `fail` (above fail threshold or artifact gaps), `skipped` (no selected baseline)
+- Baseline promotion guard: PR baseline candidates must include `ui-baseline-promotion-ready` artifact, which is emitted only by `main` runs with `pass` drift status
 - Retention policy: `60` days for screenshot + manifest artifacts
 
 ## Manual UI Doc Test

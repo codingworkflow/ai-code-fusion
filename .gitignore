@@ -73,3 +73,6 @@ start/*
 
 # Local planning notes (never commit)
 docs/plan/
+
+# Local agent settings
+.claude/
