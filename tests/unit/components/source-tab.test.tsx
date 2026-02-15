@@ -17,6 +17,10 @@ type TokenResponse = {
   results: Record<string, number>;
   stats: Record<string, FileStat>;
 };
+type TokenSequenceEntry = {
+  tokenCount: number;
+  stat?: FileStat;
+};
 
 const FILE_STAT_INITIAL: FileStat = {
   mtime: 1700000000000,
@@ -113,6 +117,49 @@ describe('SourceTab Component', () => {
   const advanceTokenDebounce = async () => {
     await act(async () => {
       jest.advanceTimersByTime(TOKEN_DEBOUNCE_MS);
+    });
+  };
+
+  const createResolvedSequenceMock = <T,>(values: T[]) => {
+    const mock = jest.fn();
+    values.forEach((value, index) => {
+      if (index === values.length - 1) {
+        mock.mockResolvedValue(value);
+        return;
+      }
+      mock.mockResolvedValueOnce(value);
+    });
+    return mock;
+  };
+
+  const setupSingleFileTokenScenario = (
+    statsSequence: FileStat[],
+    tokenSequence: TokenSequenceEntry[]
+  ) => {
+    const getFilesStatsMock = createResolvedSequenceMock(
+      statsSequence.map((stat) => createSingleFileStatsPayload(stat))
+    );
+    const countFilesTokensMock = createResolvedSequenceMock(
+      tokenSequence.map(({ tokenCount, stat }) => createTokenPayload(SELECTED_FILE, tokenCount, stat))
+    );
+
+    window.electronAPI.getFilesStats = getFilesStatsMock;
+    window.electronAPI.countFilesTokens = countFilesTokensMock;
+
+    return { getFilesStatsMock, countFilesTokensMock };
+  };
+
+  const getTokenSummaryElement = () => screen.getByText('Tokens').parentElement;
+
+  const advanceAndAssertTokenState = async (
+    countFilesTokensMock: jest.Mock,
+    expectedCalls: number,
+    expectedTokenTotal: string
+  ) => {
+    await advanceTokenDebounce();
+    await waitFor(() => {
+      expect(countFilesTokensMock).toHaveBeenCalledTimes(expectedCalls);
+      expect(getTokenSummaryElement()).toHaveTextContent(expectedTokenTotal);
     });
   };
 
@@ -233,88 +280,41 @@ describe('SourceTab Component', () => {
   });
 
   test('recounts file tokens when cached metadata becomes stale', async () => {
-    const getFilesStatsMock = jest
-      .fn()
-      .mockResolvedValueOnce(createSingleFileStatsPayload(FILE_STAT_INITIAL))
-      .mockResolvedValueOnce(createSingleFileStatsPayload(FILE_STAT_UPDATED))
-      .mockResolvedValue(createSingleFileStatsPayload(FILE_STAT_UPDATED));
-    const countFilesTokensMock = jest
-      .fn()
-      .mockResolvedValueOnce(createTokenPayload(SELECTED_FILE, 120, FILE_STAT_INITIAL))
-      .mockResolvedValueOnce(createTokenPayload(SELECTED_FILE, 145, FILE_STAT_UPDATED));
-
-    window.electronAPI.getFilesStats = getFilesStatsMock;
-    window.electronAPI.countFilesTokens = countFilesTokensMock;
+    const { countFilesTokensMock } = setupSingleFileTokenScenario(
+      [FILE_STAT_INITIAL, FILE_STAT_UPDATED],
+      [
+        { tokenCount: 120, stat: FILE_STAT_INITIAL },
+        { tokenCount: 145, stat: FILE_STAT_UPDATED },
+      ]
+    );
 
     renderSingleFileSourceTab();
-    await advanceTokenDebounce();
-
-    await waitFor(() => {
-      expect(countFilesTokensMock).toHaveBeenCalledTimes(1);
-      expect(screen.getByText('Tokens').parentElement).toHaveTextContent('120');
-    });
-
-    await advanceTokenDebounce();
-
-    await waitFor(() => {
-      expect(countFilesTokensMock).toHaveBeenCalledTimes(2);
-      expect(screen.getByText('Tokens').parentElement).toHaveTextContent('145');
-    });
+    await advanceAndAssertTokenState(countFilesTokensMock, 1, '120');
+    await advanceAndAssertTokenState(countFilesTokensMock, 2, '145');
   });
 
   test('does not recount file tokens when metadata is unchanged', async () => {
-    const getFilesStatsMock = jest.fn().mockResolvedValue(createSingleFileStatsPayload(FILE_STAT_INITIAL));
-    const countFilesTokensMock = jest
-      .fn()
-      .mockResolvedValue(createTokenPayload(SELECTED_FILE, 120, FILE_STAT_INITIAL));
-
-    window.electronAPI.getFilesStats = getFilesStatsMock;
-    window.electronAPI.countFilesTokens = countFilesTokensMock;
+    const { countFilesTokensMock } = setupSingleFileTokenScenario([FILE_STAT_INITIAL], [
+      { tokenCount: 120, stat: FILE_STAT_INITIAL },
+    ]);
 
     renderSingleFileSourceTab();
-    await advanceTokenDebounce();
-
-    await waitFor(() => {
-      expect(countFilesTokensMock).toHaveBeenCalledTimes(1);
-      expect(screen.getByText('Tokens').parentElement).toHaveTextContent('120');
-    });
-
-    await advanceTokenDebounce();
-
-    await waitFor(() => {
-      expect(countFilesTokensMock).toHaveBeenCalledTimes(1);
-      expect(screen.getByText('Tokens').parentElement).toHaveTextContent('120');
-    });
+    await advanceAndAssertTokenState(countFilesTokensMock, 1, '120');
+    await advanceAndAssertTokenState(countFilesTokensMock, 1, '120');
   });
 
   test('handles deleted file by recounting to zero and stabilizing cache state', async () => {
-    const getFilesStatsMock = jest
-      .fn()
-      .mockResolvedValueOnce(createSingleFileStatsPayload(FILE_STAT_INITIAL))
-      .mockResolvedValueOnce(createSingleFileStatsPayload(FILE_STAT_DELETED))
-      .mockResolvedValue(createSingleFileStatsPayload(FILE_STAT_DELETED));
-    const countFilesTokensMock = jest
-      .fn()
-      .mockResolvedValueOnce(createTokenPayload(SELECTED_FILE, 120, FILE_STAT_INITIAL))
-      .mockResolvedValueOnce(createTokenPayload(SELECTED_FILE, 0));
-
-    window.electronAPI.getFilesStats = getFilesStatsMock;
-    window.electronAPI.countFilesTokens = countFilesTokensMock;
+    const { countFilesTokensMock } = setupSingleFileTokenScenario(
+      [FILE_STAT_INITIAL, FILE_STAT_DELETED],
+      [
+        { tokenCount: 120, stat: FILE_STAT_INITIAL },
+        { tokenCount: 0 },
+      ]
+    );
 
     renderSingleFileSourceTab();
-    await advanceTokenDebounce();
-
-    await waitFor(() => {
-      expect(countFilesTokensMock).toHaveBeenCalledTimes(1);
-      expect(screen.getByText('Tokens').parentElement).toHaveTextContent('120');
-    });
-
-    await advanceTokenDebounce();
-
-    await waitFor(() => {
-      expect(countFilesTokensMock).toHaveBeenCalledTimes(2);
-      expect(screen.getByText('Tokens').parentElement).toHaveTextContent('0');
-    });
+    await advanceAndAssertTokenState(countFilesTokensMock, 1, '120');
+    await advanceAndAssertTokenState(countFilesTokensMock, 2, '0');
 
     await advanceTokenDebounce();
 
