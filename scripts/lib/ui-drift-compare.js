@@ -52,15 +52,18 @@ function summarizeDriftComparisons({
   warnThresholdPct = DEFAULT_WARN_THRESHOLD_PCT,
 }) {
   const normalizedComparisons = [...comparisons]
-    .map((comparison) => ({
-      ...comparison,
-      driftPercent: roundPercentage(comparison.driftPercent || 0),
-      status: evaluateDriftStatus({
-        driftPercent: comparison.driftPercent || 0,
-        warnThresholdPct,
-        failThresholdPct,
-      }),
-    }))
+    .map((comparison) => {
+      const roundedDriftPercent = roundPercentage(comparison.driftPercent || 0);
+      return {
+        ...comparison,
+        driftPercent: roundedDriftPercent,
+        status: evaluateDriftStatus({
+          driftPercent: roundedDriftPercent,
+          warnThresholdPct,
+          failThresholdPct,
+        }),
+      };
+    })
     .sort(sortByOsAndFile);
 
   const totalPixelsCompared = normalizedComparisons.reduce(
@@ -145,5 +148,6 @@ module.exports = {
   DEFAULT_WARN_THRESHOLD_PCT,
   evaluateDriftStatus,
   normalizePercentageThreshold,
+  sortByOsAndFile,
   summarizeDriftComparisons,
 };

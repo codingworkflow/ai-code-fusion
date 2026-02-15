@@ -7,10 +7,13 @@ const { PNG } = require('pngjs');
 
 const {
   compareUiBaselineArtifacts,
+  normalizeBaselineRunId,
   resolveThresholds,
+  setGitHubOutput,
 } = require('../../../scripts/compare-ui-baseline');
 const {
   evaluateDriftStatus,
+  sortByOsAndFile,
   summarizeDriftComparisons,
 } = require('../../../scripts/lib/ui-drift-compare');
 
@@ -193,6 +196,46 @@ describe('ui drift compare helpers', () => {
       'UI_DRIFT_WARN_THRESHOLD_PCT must be less than or equal to UI_DRIFT_FAIL_THRESHOLD_PCT'
     );
   });
+
+  test('sortByOsAndFile orders by os then filename', () => {
+    const unsortedRecords = [
+      { fileName: 'z.png', os: 'windows' },
+      { fileName: 'a.png', os: 'linux' },
+      { fileName: 'b.png', os: 'linux' },
+    ];
+    const sortedRecords = [...unsortedRecords].sort(sortByOsAndFile);
+
+    expect(sortedRecords).toEqual([
+      { fileName: 'a.png', os: 'linux' },
+      { fileName: 'b.png', os: 'linux' },
+      { fileName: 'z.png', os: 'windows' },
+    ]);
+  });
+
+  test('normalizeBaselineRunId accepts positive integer ids only', () => {
+    expect(normalizeBaselineRunId('12345')).toBe('12345');
+    expect(normalizeBaselineRunId('../12345')).toBeNull();
+    expect(normalizeBaselineRunId('0')).toBeNull();
+    expect(normalizeBaselineRunId('-1')).toBeNull();
+  });
+
+  test('setGitHubOutput writes multiline-safe output format', () => {
+    const outputDirectory = createTemporaryDirectory('ui-baseline-github-output-');
+    const outputFilePath = path.join(outputDirectory, 'github-output.txt');
+
+    try {
+      process.env.GITHUB_OUTPUT = outputFilePath;
+      setGitHubOutput('status', 'line-one\nline-two');
+
+      const content = fs.readFileSync(outputFilePath, 'utf8');
+      expect(content).toContain('status<<');
+      expect(content).toContain('line-one\nline-two');
+      expect(content.trim().endsWith('__GITHUB_OUTPUT_EOF__')).toBe(true);
+    } finally {
+      delete process.env.GITHUB_OUTPUT;
+      fs.rmSync(outputDirectory, { force: true, recursive: true });
+    }
+  });
 });
 
 describe('compare-ui-baseline integration paths', () => {
@@ -280,5 +323,25 @@ describe('compare-ui-baseline integration paths', () => {
     expect(report.summary.status).toBe('fail');
     expect(report.summary.failingComparisons).toBe(1);
     expect(report.comparisons.find((comparison) => comparison.os === 'linux').status).toBe('fail');
+  });
+
+  test('compareUiBaselineArtifacts rejects invalid selected baseline run ids', () => {
+    expect(() =>
+      compareUiBaselineArtifacts({
+        baselineArtifactsRoot: '/unused/baseline',
+        baselineSelection: {
+          selectedRun: {
+            headSha: 'baseline-invalid-sha',
+            id: '../../etc/passwd',
+          },
+          status: 'selected',
+        },
+        currentArtifactsRoot: '/unused/current',
+        diffOutputDirectory: '/unused/diff',
+        failThresholdPct: 50,
+        pixelmatchThreshold: 0,
+        warnThresholdPct: 10,
+      })
+    ).toThrow('Invalid selected baseline run id');
   });
 });

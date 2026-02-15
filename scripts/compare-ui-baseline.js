@@ -9,6 +9,7 @@ const {
   DEFAULT_FAIL_THRESHOLD_PCT,
   DEFAULT_WARN_THRESHOLD_PCT,
   normalizePercentageThreshold,
+  sortByOsAndFile,
   summarizeDriftComparisons,
 } = require('./lib/ui-drift-compare');
 const { isPathWithinRoot, resolvePathInsideRoot } = require('./select-qa-baseline');
@@ -62,6 +63,15 @@ function readSelectionSummary(selectionPath) {
     skipReason: summary.skipReason || null,
     status: summary.status || 'skipped',
   };
+}
+
+function normalizeBaselineRunId(rawValue) {
+  const numericValue = Number(rawValue);
+  if (!Number.isSafeInteger(numericValue) || numericValue <= 0) {
+    return null;
+  }
+
+  return String(numericValue);
 }
 
 function parsePixelmatchThreshold(environment = process.env) {
@@ -204,14 +214,6 @@ function comparePngFiles({ baselinePath, currentPath, diffPath, pixelmatchThresh
   };
 }
 
-function sortByOsAndFile(leftRecord, rightRecord) {
-  if (leftRecord.os === rightRecord.os) {
-    return leftRecord.fileName.localeCompare(rightRecord.fileName);
-  }
-
-  return leftRecord.os.localeCompare(rightRecord.os);
-}
-
 function compareUiBaselineArtifacts({
   baselineArtifactsRoot,
   baselineSelection,
@@ -232,10 +234,14 @@ function compareUiBaselineArtifacts({
     });
   }
 
-  const baselineRunDirectory = path.join(
-    baselineArtifactsRoot,
-    String(baselineSelection.selectedRun.id)
-  );
+  const normalizedBaselineRunId = normalizeBaselineRunId(baselineSelection.selectedRun.id);
+  if (!normalizedBaselineRunId) {
+    throw new Error(
+      `Invalid selected baseline run id: ${String(baselineSelection.selectedRun.id || '')}`
+    );
+  }
+
+  const baselineRunDirectory = path.join(baselineArtifactsRoot, normalizedBaselineRunId);
   const comparisons = [];
   const missingArtifacts = [];
   const missingBaselineFiles = [];
@@ -442,8 +448,22 @@ function setGitHubOutput(name, value) {
     return;
   }
 
+  const normalizedName = String(name || '').trim();
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(normalizedName)) {
+    throw new Error(`Invalid GitHub output name: ${normalizedName || '<empty>'}`);
+  }
+
   const normalizedValue = value == null ? '' : String(value);
-  fs.appendFileSync(outputFilePath, `${name}=${normalizedValue}\n`, 'utf8');
+  let delimiter = '__GITHUB_OUTPUT_EOF__';
+  while (normalizedValue.includes(delimiter)) {
+    delimiter = `_${delimiter}_`;
+  }
+
+  fs.appendFileSync(
+    outputFilePath,
+    `${normalizedName}<<${delimiter}\n${normalizedValue}\n${delimiter}\n`,
+    'utf8'
+  );
 }
 
 function emitOutputs(report, reportPath) {
@@ -533,8 +553,10 @@ module.exports = {
   comparePngFiles,
   compareUiBaselineArtifacts,
   isPathWithinRoot,
+  normalizeBaselineRunId,
   parsePixelmatchThreshold,
   readSelectionSummary,
   resolvePathInsideRoot,
   resolveThresholds,
+  setGitHubOutput,
 };

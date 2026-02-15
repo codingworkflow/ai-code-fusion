@@ -192,7 +192,6 @@ jobs:
         run: node scripts/select-qa-baseline.js
         env:
           BASELINE_MAX_CANDIDATE_RUNS: 3
-          BASELINE_REQUIRED_ARTIFACTS: ${{ env.BASELINE_REQUIRED_ARTIFACTS }}
           BASELINE_SELECTION_OUTPUT_PATH: dist/qa/baseline-selection.json
           GITHUB_TOKEN: ${{ github.token }}
 
