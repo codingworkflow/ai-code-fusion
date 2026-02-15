@@ -215,4 +215,31 @@ describe('createUpdaterService', () => {
     expect(result.state).toBe('error');
     expect(result.errorMessage).toContain('network failed');
   });
+
+  test('continues updater checks when observer callbacks throw', async () => {
+    const updaterClient = createMockUpdater();
+    updaterClient.checkForUpdates.mockResolvedValue({
+      updateInfo: { version: '0.3.1', releaseName: 'Stable 1' },
+    });
+
+    const runtimeOptions = resolveUpdaterRuntimeOptions({
+      currentVersion: '0.3.0',
+      platform: 'darwin',
+      env: {
+        NODE_ENV: 'production',
+      },
+    });
+
+    const service = createUpdaterService(updaterClient, runtimeOptions, {
+      onCheckEvent: () => {
+        throw new Error('observer failure');
+      },
+    });
+    const result = await service.checkForUpdates();
+
+    expect(result.state).toBe('update-available');
+    expect(result.updateAvailable).toBe(true);
+    expect(result.latestVersion).toBe('0.3.1');
+    expect(updaterClient.checkForUpdates).toHaveBeenCalledTimes(1);
+  });
 });

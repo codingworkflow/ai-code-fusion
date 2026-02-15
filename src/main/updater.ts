@@ -164,6 +164,14 @@ export const createUpdaterService = (
     reason: runtimeOptions.reason,
   };
 
+  const emitCheckEvent = (event: UpdaterCheckEvent) => {
+    try {
+      observers.onCheckEvent?.(event);
+    } catch (error) {
+      console.warn(`Updater check observer failed: ${getErrorMessage(error)}`);
+    }
+  };
+
   const configure = () => {
     if (configured || !runtimeOptions.enabled) {
       return;
@@ -181,7 +189,7 @@ export const createUpdaterService = (
     });
 
     configured = true;
-    observers.onCheckEvent?.({
+    emitCheckEvent({
       ...eventContext,
       event: 'updater_check_configured',
     });
@@ -191,7 +199,7 @@ export const createUpdaterService = (
 
   const checkForUpdates = async (): Promise<UpdateCheckResult> => {
     if (!runtimeOptions.enabled) {
-      observers.onCheckEvent?.({
+      emitCheckEvent({
         ...eventContext,
         event: 'updater_check_disabled',
         reason: runtimeOptions.reason,
@@ -204,13 +212,13 @@ export const createUpdaterService = (
       };
     }
 
-    configure();
-    observers.onCheckEvent?.({
-      ...eventContext,
-      event: 'updater_check_started',
-    });
-
     try {
+      configure();
+      emitCheckEvent({
+        ...eventContext,
+        event: 'updater_check_started',
+      });
+
       const checkResult = (await updaterClient.checkForUpdates()) as UpdateCheckLike | null;
       const updateInfo = checkResult?.updateInfo || {};
       const rawLatestVersion = updateInfo.version;
@@ -231,7 +239,7 @@ export const createUpdaterService = (
         releaseName,
       };
 
-      observers.onCheckEvent?.({
+      emitCheckEvent({
         ...eventContext,
         event: 'updater_check_result',
         state,
@@ -244,7 +252,7 @@ export const createUpdaterService = (
       return result;
     } catch (error) {
       const errorMessage = getErrorMessage(error);
-      observers.onCheckEvent?.({
+      emitCheckEvent({
         ...eventContext,
         event: 'updater_check_error',
         state: 'error',
