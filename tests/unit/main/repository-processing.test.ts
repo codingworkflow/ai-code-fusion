@@ -106,9 +106,12 @@ describe('repository-processing service', () => {
   });
 
   test('does not mutate object prototypes when tree paths contain special keys', () => {
-    const { rootPath, cleanup } = createTempRepository();
+    const { rootPath, createFile, cleanup } = createTempRepository();
     try {
       const prototypeBefore = Reflect.get({}, 'polluted');
+
+      createFile('__proto__/polluted.txt', 'prototype pollution test');
+      createFile('constructor/test.ts', 'constructor path test');
 
       const result = processRepository({
         rootPath,
