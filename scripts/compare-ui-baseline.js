@@ -57,7 +57,16 @@ function readSelectionSummary(selectionPath) {
     };
   }
 
-  const summary = parseJsonFile(selectionPath);
+  let summary;
+  try {
+    summary = parseJsonFile(selectionPath);
+  } catch {
+    return {
+      skipReason: 'baseline_selection_invalid_json',
+      status: 'skipped',
+    };
+  }
+
   return {
     selectedRun: summary.selectedRun || null,
     skipReason: summary.skipReason || null,

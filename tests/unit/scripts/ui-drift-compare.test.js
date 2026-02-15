@@ -8,6 +8,7 @@ const { PNG } = require('pngjs');
 const {
   compareUiBaselineArtifacts,
   normalizeBaselineRunId,
+  readSelectionSummary,
   resolveThresholds,
   setGitHubOutput,
 } = require('../../../scripts/compare-ui-baseline');
@@ -233,6 +234,22 @@ describe('ui drift compare helpers', () => {
       expect(content.trim().endsWith('__GITHUB_OUTPUT_EOF__')).toBe(true);
     } finally {
       delete process.env.GITHUB_OUTPUT;
+      fs.rmSync(outputDirectory, { force: true, recursive: true });
+    }
+  });
+
+  test('readSelectionSummary skips when baseline selection json is invalid', () => {
+    const outputDirectory = createTemporaryDirectory('ui-baseline-selection-invalid-json-');
+    const selectionPath = path.join(outputDirectory, 'baseline-selection.json');
+
+    try {
+      fs.writeFileSync(selectionPath, '{"status": "selected"', 'utf8');
+      const result = readSelectionSummary(selectionPath);
+      expect(result).toEqual({
+        skipReason: 'baseline_selection_invalid_json',
+        status: 'skipped',
+      });
+    } finally {
       fs.rmSync(outputDirectory, { force: true, recursive: true });
     }
   });
