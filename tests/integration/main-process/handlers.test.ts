@@ -3,16 +3,16 @@ const yaml = require('yaml');
 const FAKE_GITHUB_TOKEN = ['ghp', 'AAAAAAAAAAAAAAAAAAAAAAAA'].join('_');
 
 // Mock electron ipcMain
-let mockIpcHandlers: Record<string, unknown>;
-let mockProtocolHandlers: Record<string, unknown>;
-let mockNetFetch: jest.Mock;
-let mockAutoUpdater: {
-  checkForUpdates: jest.Mock;
-  setFeedURL: jest.Mock;
-  allowPrerelease: boolean;
-  autoDownload: boolean;
-  autoInstallOnAppQuit: boolean;
-  channel: string | undefined;
+const mockIpcHandlers = {};
+const mockProtocolHandlers = {};
+const mockNetFetch = jest.fn();
+const mockAutoUpdater = {
+  checkForUpdates: jest.fn(),
+  setFeedURL: jest.fn(),
+  allowPrerelease: false,
+  autoDownload: true,
+  autoInstallOnAppQuit: false,
+  channel: undefined,
 };
 
 const mockIpcMain = {
@@ -20,20 +20,6 @@ const mockIpcMain = {
     mockIpcHandlers[channel] = handler;
   }),
 };
-
-beforeEach(() => {
-  mockIpcHandlers = {};
-  mockProtocolHandlers = {};
-  mockNetFetch = jest.fn();
-  mockAutoUpdater = {
-    checkForUpdates: jest.fn(),
-    setFeedURL: jest.fn(),
-    allowPrerelease: false,
-    autoDownload: true,
-    autoInstallOnAppQuit: false,
-    channel: undefined,
-  };
-});
 
 // Mock required dependencies
 jest.mock('electron', () => ({
@@ -148,11 +134,7 @@ jest.mock('../../../src/utils/content-processor', () => ({
 }));
 
 // Import the main process AFTER setting up all mocks
-const loadMainProcess = () => {
-  // Ensure the main process module is loaded after mocks, with a fresh module cache
-  jest.resetModules();
-  require('../../../src/main/index');
-};
+require('../../../src/main/index');
 
 const buildMockStats = ({
   isDirectory = false,
