@@ -86,6 +86,15 @@ export interface CountFilesTokensResult {
   stats: Record<string, { size: number; mtime: number }>;
 }
 
+export interface GetFilesStatsOptions {
+  rootPath: string;
+  filePaths: string[];
+}
+
+export interface GetFilesStatsResult {
+  stats: Record<string, { size: number; mtime: number }>;
+}
+
 export interface CountFilesTokensOptions {
   rootPath: string;
   filePaths: string[];
@@ -142,6 +151,7 @@ export interface ElectronApi {
   processRepository: (options: ProcessRepositoryOptions) => Promise<ProcessRepositoryResult>;
   getDefaultConfig: () => Promise<string>;
   getAssetPath: (assetName: string) => Promise<string | null>;
+  getFilesStats: (options: GetFilesStatsOptions) => Promise<GetFilesStatsResult>;
   countFilesTokens: (options: CountFilesTokensOptions) => Promise<CountFilesTokensResult>;
   getUpdaterStatus: () => Promise<UpdaterStatus>;
   checkForUpdates: () => Promise<UpdateCheckResult>;

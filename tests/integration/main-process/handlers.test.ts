@@ -195,6 +195,18 @@ describe('Main Process IPC Handlers', () => {
     fs.statSync.mockImplementation((itemPath) =>
       buildMockStats({ isDirectory: isDefaultDirectoryPath(itemPath) })
     );
+    if (!fs.promises) {
+      fs.promises = {};
+    }
+    fs.promises.stat = jest.fn().mockImplementation(async (itemPath) => {
+      if (String(itemPath).includes('nonexistent')) {
+        const notFoundError = new Error(`ENOENT: no such file or directory, stat '${itemPath}'`);
+        (notFoundError as NodeJS.ErrnoException).code = 'ENOENT';
+        throw notFoundError;
+      }
+
+      return buildMockStats({ isDirectory: isDefaultDirectoryPath(itemPath) });
+    });
     if (typeof fs.lstatSync !== 'function') {
       fs.lstatSync = jest.fn();
     }
@@ -1111,6 +1123,75 @@ describe('Main Process IPC Handlers', () => {
 
       expect(result).toBeNull();
       expect(fs.existsSync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('fs:getFilesStats', () => {
+    test('should return stats for files within root path', async () => {
+      const handler = mockIpcHandlers['fs:getFilesStats'];
+      const result = await handler(null, {
+        rootPath: '/mock/repo',
+        filePaths: ['src/file1.js', '/mock/repo/src/file2.js'],
+      });
+
+      expect(result).toBeDefined();
+      expect(result.stats['src/file1.js']).toEqual(
+        expect.objectContaining({
+          size: 1000,
+          mtime: expect.any(Number),
+        })
+      );
+      expect(result.stats['/mock/repo/src/file2.js']).toEqual(
+        expect.objectContaining({
+          size: 1000,
+          mtime: expect.any(Number),
+        })
+      );
+    });
+
+    test('should return zeroed stats for missing files', async () => {
+      const handler = mockIpcHandlers['fs:getFilesStats'];
+      const result = await handler(null, {
+        rootPath: '/mock/repo',
+        filePaths: ['/mock/repo/src/file.js', '/mock/repo/nonexistent/file.js'],
+      });
+
+      expect(result.stats['/mock/repo/src/file.js']).toEqual(
+        expect.objectContaining({
+          size: 1000,
+          mtime: expect.any(Number),
+        })
+      );
+      expect(result.stats['/mock/repo/nonexistent/file.js']).toEqual({
+        size: 0,
+        mtime: 0,
+      });
+    });
+
+    test('should skip files outside root path', async () => {
+      const handler = mockIpcHandlers['fs:getFilesStats'];
+      const result = await handler(null, {
+        rootPath: '/mock/repo',
+        filePaths: ['src/file.js', '../repo-secrets/secret.js', '/mock/repo-secrets/secret.js'],
+      });
+
+      expect(result.stats['src/file.js']).toEqual(
+        expect.objectContaining({
+          size: 1000,
+          mtime: expect.any(Number),
+        })
+      );
+      expect(result.stats['../repo-secrets/secret.js']).toBeUndefined();
+      expect(result.stats['/mock/repo-secrets/secret.js']).toBeUndefined();
+    });
+
+    test('should reject stats requests for unauthorized root path', async () => {
+      const handler = mockIpcHandlers['fs:getFilesStats'];
+      const result = await handler(null, {
+        rootPath: '/etc',
+        filePaths: ['/etc/passwd'],
+      });
+      expect(result).toEqual({ stats: {} });
     });
   });
 

@@ -5,7 +5,12 @@ import yaml from 'yaml';
 import FileTree from './FileTree';
 import Spinner from './icons/Spinner';
 
-import type { CountFilesTokensResult, DirectoryTreeItem, SelectionHandler } from '../../types/ipc';
+import type {
+  CountFilesTokensResult,
+  DirectoryTreeItem,
+  GetFilesStatsResult,
+  SelectionHandler,
+} from '../../types/ipc';
 
 type SourceTabProps = {
   isActive: boolean;
@@ -41,8 +46,8 @@ const updateTokenCache = (
     Object.entries(results).forEach(([file, tokenCount]) => {
       newCache[file] = {
         tokenCount,
-        mtime: stats[file]?.mtime || Date.now(),
-        size: stats[file]?.size || 0,
+        mtime: stats[file]?.mtime ?? 0,
+        size: stats[file]?.size ?? 0,
       };
     });
 
@@ -147,21 +152,50 @@ const SourceTab = ({
 
     setIsCalculating(true);
 
-    const cachedTotal = selectedFilesArray.reduce((sum, filePath) => {
-      return sum + (tokenCache[filePath]?.tokenCount || 0);
-    }, 0);
-
-    setTotalTokens(cachedTotal);
-
-    const filesToProcess = selectedFilesArray.filter((filePath) => !tokenCache[filePath]);
-
-    if (filesToProcess.length === 0) {
-      setIsCalculating(false);
-      return undefined;
-    }
-
     pendingCalculationRef.current = appWindow.setTimeout(async () => {
       try {
+        const canValidateCache = typeof electronAPI.getFilesStats === 'function';
+        const latestStats: GetFilesStatsResult['stats'] = canValidateCache
+          ? (
+              await electronAPI.getFilesStats({
+                rootPath,
+                filePaths: selectedFilesArray,
+              })
+            ).stats
+          : {};
+
+        if (effectEpoch !== calculationEpochRef.current) {
+          return;
+        }
+
+        const filesToProcess = selectedFilesArray.filter((filePath) => {
+          const cachedEntry = tokenCache[filePath];
+          if (!cachedEntry) {
+            return true;
+          }
+
+          if (!canValidateCache) {
+            return false;
+          }
+
+          const currentStats = latestStats[filePath] ?? { mtime: 0, size: 0 };
+          return cachedEntry.mtime !== currentStats.mtime || cachedEntry.size !== currentStats.size;
+        });
+
+        const filesToProcessSet = new Set(filesToProcess);
+        const validatedCachedTotal = selectedFilesArray.reduce((sum, filePath) => {
+          if (filesToProcessSet.has(filePath)) {
+            return sum;
+          }
+          return sum + (tokenCache[filePath]?.tokenCount || 0);
+        }, 0);
+        setTotalTokens(validatedCachedTotal);
+
+        if (filesToProcess.length === 0) {
+          setIsCalculating(false);
+          return;
+        }
+
         const batchSize = Math.min(20, filesToProcess.length);
         const fileBatch = filesToProcess.slice(0, batchSize);
 

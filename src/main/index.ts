@@ -32,6 +32,8 @@ import type {
   AnalyzeRepositoryResult,
   CountFilesTokensOptions,
   CountFilesTokensResult,
+  GetFilesStatsOptions,
+  GetFilesStatsResult,
   ProviderConnectionOptions,
   ProviderConnectionResult,
   ProcessRepositoryOptions,
@@ -50,6 +52,52 @@ let mainWindow: BrowserWindow | null = null;
 let authorizedRootPath: string | null = null;
 const resolveAuthorizedPathForCurrentRoot = (candidatePath: string): string | null =>
   resolveAuthorizedPath(authorizedRootPath, candidatePath);
+type FileMetadata = { size: number; mtime: number };
+type ResolvedFileContext = {
+  filePath: string;
+  resolvedFilePath: string;
+  fileMetadata: FileMetadata;
+};
+
+type ResolvedFileHandlers = {
+  onOutsideRoot: (filePath: string) => void;
+  onMissingFile: (filePath: string) => void;
+  onResolvedFile: (context: ResolvedFileContext) => void;
+  onError: (filePath: string, error: unknown) => void;
+};
+
+const forEachResolvedFile = (
+  authorizedRoot: string,
+  filePaths: string[],
+  handlers: ResolvedFileHandlers
+) => {
+  for (const filePath of filePaths) {
+    try {
+      const resolvedFilePath = path.resolve(authorizedRoot, filePath);
+      if (!isPathWithinRoot(authorizedRoot, resolvedFilePath)) {
+        handlers.onOutsideRoot(filePath);
+        continue;
+      }
+
+      if (!fs.existsSync(resolvedFilePath)) {
+        handlers.onMissingFile(filePath);
+        continue;
+      }
+
+      const stats = fs.statSync(resolvedFilePath);
+      handlers.onResolvedFile({
+        filePath,
+        resolvedFilePath,
+        fileMetadata: {
+          size: stats.size,
+          mtime: stats.mtime.getTime(),
+        },
+      });
+    } catch (error) {
+      handlers.onError(filePath, error);
+    }
+  }
+};
 
 const logUpdaterCheckEvent = (event: UpdaterCheckEvent) => {
   if (event.event === 'updater_check_error') {
@@ -416,6 +464,54 @@ ipcMain.handle('assets:getPath', (_event, assetName: string) => {
   }
 });
 
+// Get file stats for multiple files in a single call
+ipcMain.handle(
+  'fs:getFilesStats',
+  async (_event, options: GetFilesStatsOptions): Promise<GetFilesStatsResult> => {
+    try {
+      const { rootPath, filePaths } = options ?? {};
+      if (!rootPath || !Array.isArray(filePaths) || filePaths.length === 0) {
+        return { stats: {} };
+      }
+
+      const authorizedStatsRoot = resolveAuthorizedPathForCurrentRoot(rootPath);
+      if (!authorizedStatsRoot) {
+        console.warn(`Rejected unauthorized file stats request for root: ${rootPath}`);
+        return { stats: {} };
+      }
+
+      const stats: GetFilesStatsResult['stats'] = {};
+      await Promise.all(
+        filePaths.map(async (filePath) => {
+          const resolvedFilePath = path.resolve(authorizedStatsRoot, filePath);
+          if (!isPathWithinRoot(authorizedStatsRoot, resolvedFilePath)) {
+            console.warn(`Skipping file outside current root directory for stats: ${filePath}`);
+            return;
+          }
+
+          try {
+            const fileStats = await fs.promises.stat(resolvedFilePath);
+            stats[filePath] = {
+              size: fileStats.size,
+              mtime: fileStats.mtime.getTime(),
+            };
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+              console.error(`Error reading file stats for ${filePath}:`, error);
+            }
+            stats[filePath] = { size: 0, mtime: 0 };
+          }
+        })
+      );
+
+      return { stats };
+    } catch (error) {
+      console.error('Error retrieving file stats:', error);
+      return { stats: {} };
+    }
+  }
+);
+
 // Count tokens for multiple files in a single call
 ipcMain.handle(
   'tokens:countFiles',
@@ -435,49 +531,32 @@ ipcMain.handle(
       const results: Record<string, number> = {};
       const stats: Record<string, { size: number; mtime: number }> = {};
 
-      // Process each file
-      for (const filePath of filePaths) {
-        try {
-          const resolvedFilePath = path.resolve(authorizedTokensRoot, filePath);
+      forEachResolvedFile(authorizedTokensRoot, filePaths, {
+        onOutsideRoot: (filePath) => {
+          console.warn(`Skipping file outside current root directory: ${filePath}`);
+          results[filePath] = 0;
+        },
+        onMissingFile: (filePath) => {
+          console.warn(`File not found for token counting: ${filePath}`);
+          results[filePath] = 0;
+        },
+        onResolvedFile: ({ filePath, resolvedFilePath, fileMetadata }) => {
+          stats[filePath] = fileMetadata; // Metadata used for cache validation
 
-          if (!isPathWithinRoot(authorizedTokensRoot, resolvedFilePath)) {
-            console.warn(`Skipping file outside current root directory: ${filePath}`);
-            results[filePath] = 0;
-            continue;
-          }
-
-          // Check if file exists
-          if (!fs.existsSync(resolvedFilePath)) {
-            console.warn(`File not found for token counting: ${filePath}`);
-            results[filePath] = 0;
-            continue;
-          }
-
-          // Get file stats
-          const fileStats = fs.statSync(resolvedFilePath);
-          stats[filePath] = {
-            size: fileStats.size,
-            mtime: fileStats.mtime.getTime(), // Modification time for cache validation
-          };
-
-          // Skip binary files
           if (isBinaryFile(resolvedFilePath)) {
             console.log(`Skipping binary file for token counting: ${filePath}`);
             results[filePath] = 0;
-            continue;
+            return;
           }
 
-          // Read file content
           const content = fs.readFileSync(resolvedFilePath, { encoding: 'utf-8', flag: 'r' });
-
-          // Count tokens using the singleton token counter
-          const tokenCount = tokenCounter.countTokens(content);
-          results[filePath] = tokenCount;
-        } catch (error) {
+          results[filePath] = tokenCounter.countTokens(content);
+        },
+        onError: (filePath, error) => {
           console.error(`Error counting tokens for file ${filePath}:`, error);
           results[filePath] = 0;
-        }
-      }
+        },
+      });
 
       return { results, stats };
     } catch (error) {

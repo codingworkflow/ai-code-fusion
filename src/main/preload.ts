@@ -7,6 +7,8 @@ import type {
   CountFilesTokensResult,
   DirectoryTreeItem,
   ElectronApi,
+  GetFilesStatsOptions,
+  GetFilesStatsResult,
   ProviderConnectionOptions,
   ProviderConnectionResult,
   ProcessRepositoryOptions,
@@ -56,6 +58,8 @@ const electronAPI: ElectronApi = {
   getDefaultConfig: () => ipcRenderer.invoke('config:getDefault') as Promise<string>,
   getAssetPath: (assetName: string) =>
     ipcRenderer.invoke('assets:getPath', assetName) as Promise<string | null>,
+  getFilesStats: (options: GetFilesStatsOptions) =>
+    ipcRenderer.invoke('fs:getFilesStats', options) as Promise<GetFilesStatsResult>,
   countFilesTokens: (options: CountFilesTokensOptions) =>
     ipcRenderer.invoke('tokens:countFiles', options) as Promise<CountFilesTokensResult>,
   getUpdaterStatus: () => ipcRenderer.invoke('updater:getStatus') as Promise<UpdaterStatus>,
