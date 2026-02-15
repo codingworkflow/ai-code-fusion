@@ -101,7 +101,8 @@ QA matrix screenshot artifact contract (baseline-ready):
 - Windows screenshot artifact: `ui-screenshot-windows`
 - macOS screenshot artifact: `ui-screenshot-macos`
 - Per-OS manifest artifact: `ui-screenshot-manifest-<linux|windows|macos>`
-- Screenshot artifacts include `dist/qa/screenshots/*.png` and `dist/qa/baseline-manifest.json`
+- Screenshot artifacts include `dist/qa/screenshots/*.png`
+- Manifest artifacts include `dist/qa/baseline-manifest.json`
 - `baseline-manifest.json` includes run context (`workflow`, `run id/attempt`, `git sha/ref`, `os`) and screenshot file map
 - Retention policy: `60` days for screenshot + manifest artifacts
 

@@ -114,9 +114,7 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: ui-screenshot-${{ matrix.artifact_os }}
-          path: |
-            dist/qa/screenshots/*.png
-            dist/qa/baseline-manifest.json
+          path: dist/qa/screenshots/*.png
           if-no-files-found: error
           retention-days: 60
 
