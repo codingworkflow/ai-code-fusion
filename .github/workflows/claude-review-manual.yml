@@ -6,196 +6,26 @@ on:
       pr_number:
         description: Pull request number to review
         required: true
-        type: string
+        type: number
       force_review:
         description: Run review even when the PR is below default size thresholds
-        required: true
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
+        required: false
+        default: false
+        type: boolean
 
-permissions:
-  contents: read
-
-concurrency:
-  group: claude-manual-review-${{ inputs.pr_number }}
-  cancel-in-progress: true
+permissions: {}
 
 jobs:
   claude-review:
-    name: Claude Manual Review
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
-      id-token: write
-
-    steps:
-      - name: Enforce default branch dispatch
-        env:
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          if [ "${REF_NAME}" != "main" ]; then
-            echo "Manual reviews are only allowed from main. Current ref: ${REF_NAME}"
-            exit 1
-          fi
-
-      - name: Authorize dispatcher (allowlist)
-        env:
-          ACTOR: ${{ github.actor }}
-          ALLOWED_ACTORS: ${{ vars.ALLOWED_ACTORS }}
-        run: |
-          set -euo pipefail
-
-          if [ -z "${ALLOWED_ACTORS}" ]; then
-            echo "Missing required variable: ALLOWED_ACTORS"
-            echo "Set a comma-separated list of owner usernames allowed to dispatch this workflow."
-            exit 1
-          fi
-
-          allowed="false"
-          IFS=',' read -r -a actors <<< "${ALLOWED_ACTORS}"
-          for raw_actor in "${actors[@]}"; do
-            candidate="$(echo "${raw_actor}" | xargs)"
-            if [ -n "${candidate}" ] && [ "${candidate}" = "${ACTOR}" ]; then
-              allowed="true"
-              break
-            fi
-          done
-
-          if [ "${allowed}" != "true" ]; then
-            echo "Actor '${ACTOR}' is not authorized to run this workflow."
-            exit 1
-          fi
-
-      - name: Login to Azure with OIDC
-        uses: Azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Fetch Claude OAuth token from Azure Key Vault
-        id: keyvault
-        env:
-          AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
-          CLAUDE_SECRET_NAME: ${{ vars.CLAUDE_TOKEN_SECRET_NAME }}
-        run: |
-          set -euo pipefail
-
-          claude_token="$(az keyvault secret show --vault-name "${AZURE_KEY_VAULT_NAME}" --name "${CLAUDE_SECRET_NAME}" --query value -o tsv)"
-          if [ -z "${claude_token}" ]; then
-            echo "Failed to read Claude token from Azure Key Vault secret '${CLAUDE_SECRET_NAME}'."
-            exit 1
-          fi
-
-          echo "::add-mask::${claude_token}"
-          echo "claude_code_oauth_token=${claude_token}" >> "${GITHUB_OUTPUT}"
-
-      - name: Resolve pull request metadata
-        id: pr
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-        run: |
-          set -euo pipefail
-
-          if ! [[ "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
-            echo "Invalid pr_number input: '${PR_NUMBER}'. Expected a numeric pull request number."
-            exit 1
-          fi
-
-          pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
-          head_sha="$(echo "${pr_json}" | jq -r '.head.sha')"
-          title="$(echo "${pr_json}" | jq -r '.title')"
-          body="$(echo "${pr_json}" | jq -r '.body // ""')"
-          changed_files="$(echo "${pr_json}" | jq -r '.changed_files')"
-          additions="$(echo "${pr_json}" | jq -r '.additions')"
-          deletions="$(echo "${pr_json}" | jq -r '.deletions')"
-          total_changes="$((additions + deletions))"
-
-          echo "head_sha=${head_sha}" >> "${GITHUB_OUTPUT}"
-          echo "changed_files=${changed_files}" >> "${GITHUB_OUTPUT}"
-          echo "total_changes=${total_changes}" >> "${GITHUB_OUTPUT}"
-
-          title_delim="TITLE_$(cat /proc/sys/kernel/random/uuid)"
-          {
-            echo "title<<${title_delim}"
-            echo "${title}"
-            echo "${title_delim}"
-          } >> "${GITHUB_OUTPUT}"
-
-          body_delim="BODY_$(cat /proc/sys/kernel/random/uuid)"
-          {
-            echo "body<<${body_delim}"
-            echo "${body}"
-            echo "${body_delim}"
-          } >> "${GITHUB_OUTPUT}"
-
-      - name: Skip tiny pull requests unless forced
-        if: ${{ inputs.force_review != 'true' && fromJSON(steps.pr.outputs.changed_files) < 5 && fromJSON(steps.pr.outputs.total_changes) < 20 }}
-        run: |
-          echo "Skipping Claude review because changed_files < 5 and total_changes < 20."
-          echo "Re-run with force_review=true to review this PR."
-
-      - name: Checkout pull request head
-        if: ${{ inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20 }}
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          ref: ${{ steps.pr.outputs.head_sha }}
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Run Claude manual pull request review
-        id: claude_review
-        if: ${{ inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20 }}
-        continue-on-error: true
-        uses: anthropics/claude-code-action@c22f7c3f9dbdf2faa98a4c3139f7ec9eb5a691dc
-        with:
-          claude_code_oauth_token: ${{ steps.keyvault.outputs.claude_code_oauth_token }}
-          github_token: ${{ github.token }}
-          allowed_non_write_users: ${{ github.actor }}
-          prompt: |
-            REPO: ${{ github.repository }}
-            PR NUMBER: ${{ inputs.pr_number }}
-            PR TITLE: ${{ steps.pr.outputs.title }}
-            PR BODY:
-            ${{ steps.pr.outputs.body }}
-
-            You are performing a strict pull request review. Review only changed files in this PR.
-            Post exactly one consolidated `gh pr comment`.
-
-            Required comment format:
-            - first line: `Model used: anthropics/claude-code-action`
-            - section `### Executive Summary`
-            - section `### Findings`
-            - section `### Test Coverage Gaps`
-            - section `### Final Verdict`
-
-            Findings requirements:
-            - prioritize by severity: Critical, High, Medium, Low
-            - include concrete evidence with `path:line` references from the diff
-            - classify each finding as one of: Bug, Security, Performance, Testing, Maintainability
-            - explain why it matters and provide a concrete fix
-            - avoid speculative findings without evidence
-
-            If no material issues exist, state exactly `No material issues found` and list any residual risks.
-            Review only; do not modify files, push commits, or open additional PRs.
-            Keep comments factual, specific, and action-oriented.
-
-      - name: Warn when Claude review fails (non-blocking)
-        if: ${{ always() && (inputs.force_review == 'true' || fromJSON(steps.pr.outputs.changed_files) >= 5 || fromJSON(steps.pr.outputs.total_changes) >= 20) && steps.claude_review.outcome == 'failure' }}
-        env:
-          PR_NUMBER: ${{ inputs.pr_number }}
-        run: |
-          echo "::warning::Claude manual review failed but is configured as non-blocking. Check the previous step logs."
-          {
-            echo "### Claude Manual Review Warning"
-            echo "- PR: #${PR_NUMBER}"
-            echo "- Model action: anthropics/claude-code-action"
-            echo "- Status: failed (non-blocking via continue-on-error)"
-          } >> "${GITHUB_STEP_SUMMARY}"
+    uses: codingworkflow/codingworkflow-security-policies/.github/workflows/reusable-claude-review.yml@55070d1bc124fbe46d9a8edbc8d536826d4e15ed
+    with:
+      pr_number: ${{ inputs.pr_number }}
+      force_review: ${{ inputs.force_review }}
+      allowed_actors: ${{ vars.ALLOWED_ACTORS }}
+      azure_client_id: ${{ vars.AZURE_CLIENT_ID }}
+      azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+      azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      azure_key_vault_name: ${{ vars.AZURE_KEY_VAULT_NAME }}
+      claude_secret_name: ${{ vars.CLAUDE_TOKEN_SECRET_NAME }}
+      min_changed_files: 5
+      min_total_changes: 20
