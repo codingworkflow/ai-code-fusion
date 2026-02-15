@@ -31,7 +31,7 @@ describe('repository-processing service', () => {
     try {
       createFile('src/index.js', 'const answer = 42;\n');
       const warnMock = jest.fn();
-      const invalidFileEntry = null as unknown as FileInfo;
+      const invalidFileEntry = {} as unknown as FileInfo;
 
       const result = processRepository({
         rootPath,
@@ -85,8 +85,13 @@ describe('repository-processing service', () => {
   });
 
   test('keeps nested tree structure stable when a path prefix appears as a file entry', () => {
-    const { rootPath, cleanup } = createTempRepository();
+    const { rootPath, createFile, cleanup } = createTempRepository();
     try {
+      // Intentionally avoid creating a/b as a file. On Windows, a file cannot coexist
+      // with a child path like a/b/c.txt, but we still want to verify tree stability
+      // when both entries appear in filesInfo.
+      createFile('a/b/c.txt', 'child file\n');
+
       const result = processRepository({
         rootPath,
         filesInfo: [
@@ -106,9 +111,12 @@ describe('repository-processing service', () => {
   });
 
   test('does not mutate object prototypes when tree paths contain special keys', () => {
-    const { rootPath, cleanup } = createTempRepository();
+    const { rootPath, createFile, cleanup } = createTempRepository();
     try {
       const prototypeBefore = Reflect.get({}, 'polluted');
+
+      createFile('__proto__/polluted.txt', 'prototype pollution test');
+      createFile('constructor/test.ts', 'constructor path test');
 
       const result = processRepository({
         rootPath,
