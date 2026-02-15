@@ -37,5 +37,6 @@ describe('shared provider registry', () => {
     expect(isSupportedProviderId('unsupported')).toBe(false);
     expect(isSupportedProviderId('')).toBe(false);
     expect(isSupportedProviderId(null)).toBe(false);
+    expect(isSupportedProviderId(undefined)).toBe(false);
   });
 });
