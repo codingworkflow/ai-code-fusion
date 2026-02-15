@@ -87,8 +87,9 @@ describe('repository-processing service', () => {
   test('keeps nested tree structure stable when a path prefix appears as a file entry', () => {
     const { rootPath, createFile, cleanup } = createTempRepository();
     try {
-      // Create actual files corresponding to the paths used in filesInfo
-      createFile('a/b', 'prefix file\n');
+      // Intentionally avoid creating a/b as a file. On Windows, a file cannot coexist
+      // with a child path like a/b/c.txt, but we still want to verify tree stability
+      // when both entries appear in filesInfo.
       createFile('a/b/c.txt', 'child file\n');
 
       const result = processRepository({
