@@ -88,7 +88,7 @@ jest.mock('../../../src/renderer/components/SourceTab', () => {
         <button
           data-testid='refresh-tree-btn'
           onClick={() => {
-            Promise.resolve(onRefreshTree()).catch(() => {});
+            void onRefreshTree();
           }}
         >
           Refresh Tree
@@ -412,6 +412,30 @@ describe('App Component', () => {
 
     expect(window.electronAPI.selectDirectory).toHaveBeenCalled();
     expect(window.electronAPI.getDirectoryTree).toHaveBeenCalled();
+  });
+
+  test('shows an error banner when directory selection IPC fails', async () => {
+    window.electronAPI.selectDirectory.mockRejectedValueOnce(new Error('IPC failure'));
+
+    render(<App />);
+
+    const tabElements = screen.getAllByRole('button');
+    const sourceTab = tabElements.find((el) => el.textContent === 'Source');
+    fireEvent.click(sourceTab);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('select-directory-btn'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/An error occurred while loading directory content. Check the console for details./i)
+      ).toBeInTheDocument();
+    });
+
+    expect(window.electronAPI.selectDirectory).toHaveBeenCalled();
+    expect(window.electronAPI.getDirectoryTree).not.toHaveBeenCalled();
   });
 
   test('shows an error banner when refreshing directory tree fails', async () => {

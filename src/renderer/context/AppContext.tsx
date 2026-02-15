@@ -159,26 +159,35 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     setConfigContent(config);
   }, []);
 
+  const resetSelectionAndAnalysisState = useCallback(() => {
+    setSelectedFiles(new Set());
+    setSelectedFolders(new Set());
+    analysisResultRef.current = null;
+    setProcessedResult(null);
+  }, []);
+
   const refreshDirectoryTree = useCallback(async () => {
     if (!rootPath) {
       return;
     }
 
-    setSelectedFiles(new Set());
-    setSelectedFolders(new Set());
-    analysisResultRef.current = null;
-    setProcessedResult(null);
+    resetSelectionAndAnalysisState();
 
     try {
-      await appWindow.electronAPI?.resetGitignoreCache?.();
-      const tree = await appWindow.electronAPI?.getDirectoryTree?.(rootPath, configContent);
+      const electronAPI = appWindow.electronAPI;
+      if (!electronAPI?.getDirectoryTree) {
+        throw new Error(i18n.t('errors.electronApiUnavailable'));
+      }
+
+      await electronAPI.resetGitignoreCache?.();
+      const tree = await electronAPI.getDirectoryTree(rootPath, configContent);
       setDirectoryTree(tree ?? []);
     } catch (error) {
       const processedError = ensureError(error);
       console.error('Error refreshing directory tree:', processedError);
       showError({ translationKey: 'errors.directoryLoadFailed' });
     }
-  }, [rootPath, configContent, appWindow, showError]);
+  }, [rootPath, configContent, appWindow, resetSelectionAndAnalysisState, showError]);
 
   const activeTabRef = useRef<TabId>(activeTab);
   activeTabRef.current = activeTab;
@@ -219,20 +228,22 @@ export const AppProvider = ({ children }: AppProviderProps) => {
 
   const selectDirectory = useCallback(async (): Promise<boolean> => {
     try {
-      const dirPath = await appWindow.electronAPI?.selectDirectory?.();
+      const electronAPI = appWindow.electronAPI;
+      if (!electronAPI?.selectDirectory || !electronAPI?.getDirectoryTree) {
+        throw new Error(i18n.t('errors.electronApiUnavailable'));
+      }
+
+      const dirPath = await electronAPI.selectDirectory();
 
       if (!dirPath) {
         return false;
       }
 
-      setSelectedFiles(new Set());
-      setSelectedFolders(new Set());
-      analysisResultRef.current = null;
-      setProcessedResult(null);
+      resetSelectionAndAnalysisState();
+      await electronAPI.resetGitignoreCache?.();
+      const tree = await electronAPI.getDirectoryTree(dirPath, configContent);
       setRootPath(dirPath);
       localStorage.setItem('rootPath', dirPath);
-      await appWindow.electronAPI?.resetGitignoreCache?.();
-      const tree = await appWindow.electronAPI?.getDirectoryTree?.(dirPath, configContent);
       setDirectoryTree(tree ?? []);
       return true;
     } catch (error) {
@@ -241,7 +252,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       showError({ translationKey: 'errors.directoryLoadFailed' });
       return false;
     }
-  }, [appWindow, configContent, showError]);
+  }, [appWindow, configContent, resetSelectionAndAnalysisState, showError]);
 
   const handleFileSelect = useCallback((filePath: string, isSelected: boolean) => {
     if (isSelected && !isPathWithinRootBoundary(filePath, rootPath)) {
