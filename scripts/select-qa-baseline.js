@@ -52,9 +52,18 @@ function resolveExcludedShas(environment = process.env, eventPayload = {}) {
 }
 
 function parseRequiredArtifacts(environment = process.env) {
+  const hasConfiguredArtifacts = Object.prototype.hasOwnProperty.call(
+    environment,
+    'BASELINE_REQUIRED_ARTIFACTS'
+  );
   const rawArtifacts = String(environment.BASELINE_REQUIRED_ARTIFACTS || '').trim();
-  if (rawArtifacts.length === 0) {
+  if (rawArtifacts.length === 0 && !hasConfiguredArtifacts) {
     return [...REQUIRED_BASELINE_ARTIFACTS];
+  }
+  if (rawArtifacts.length === 0 && hasConfiguredArtifacts) {
+    throw new Error(
+      'BASELINE_REQUIRED_ARTIFACTS must not be empty when the variable is configured'
+    );
   }
 
   const parsedArtifacts = rawArtifacts
@@ -92,7 +101,14 @@ async function githubRequest({ endpoint, token, method = 'GET' }) {
     method,
   });
   const bodyText = await response.text();
-  const body = bodyText.length > 0 ? JSON.parse(bodyText) : {};
+  let body = {};
+  if (bodyText.length > 0) {
+    try {
+      body = JSON.parse(bodyText);
+    } catch {
+      body = {};
+    }
+  }
 
   if (!response.ok) {
     const message = body?.message || bodyText || 'Unknown GitHub API failure';

@@ -3,7 +3,11 @@ const {
   buildExcludedHeadShas,
   selectBaselineRun,
 } = require('../../../scripts/lib/ui-baseline-selection');
-const { selectBaselineFromGitHub } = require('../../../scripts/select-qa-baseline');
+const {
+  parseMaxCandidateRuns,
+  parseRequiredArtifacts,
+  selectBaselineFromGitHub,
+} = require('../../../scripts/select-qa-baseline');
 
 describe('ui baseline selection helpers', () => {
   test('selectBaselineRun chooses the first valid candidate in the run window', () => {
@@ -85,6 +89,38 @@ describe('ui baseline selection helpers', () => {
 });
 
 describe('select-qa-baseline dry-run', () => {
+  test('selectBaselineFromGitHub fails when GitHub token is missing', async () => {
+    await expect(
+      selectBaselineFromGitHub({
+        environment: {
+          GITHUB_REPOSITORY: 'codingworkflow/ai-code-fusion',
+          GITHUB_RUN_ID: '900',
+          GITHUB_SHA: 'merge-sha',
+        },
+        eventPayload: {},
+      })
+    ).rejects.toThrow('GITHUB_TOKEN (or GH_TOKEN) is required for baseline selection');
+  });
+
+  test('parseMaxCandidateRuns falls back to default for invalid values', () => {
+    expect(parseMaxCandidateRuns({ BASELINE_MAX_CANDIDATE_RUNS: '0' })).toBe(3);
+    expect(parseMaxCandidateRuns({ BASELINE_MAX_CANDIDATE_RUNS: '-4' })).toBe(3);
+    expect(parseMaxCandidateRuns({ BASELINE_MAX_CANDIDATE_RUNS: 'not-a-number' })).toBe(3);
+    expect(parseMaxCandidateRuns({ BASELINE_MAX_CANDIDATE_RUNS: '4.9' })).toBe(4);
+  });
+
+  test('parseRequiredArtifacts rejects explicitly empty variable values', () => {
+    expect(() =>
+      parseRequiredArtifacts({
+        BASELINE_REQUIRED_ARTIFACTS: '   ',
+      })
+    ).toThrow('BASELINE_REQUIRED_ARTIFACTS must not be empty when the variable is configured');
+  });
+
+  test('parseRequiredArtifacts uses defaults when variable is not configured', () => {
+    expect(parseRequiredArtifacts({})).toEqual(REQUIRED_BASELINE_ARTIFACTS);
+  });
+
   test('selectBaselineFromGitHub evaluates mocked run metadata and selects prior main baseline', async () => {
     const listWorkflowRuns = jest.fn().mockResolvedValue([
       { createdAt: '2026-02-15T01:00:00Z', headBranch: 'main', headSha: 'merge-sha', id: 900 },
