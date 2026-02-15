@@ -133,7 +133,11 @@ jest.mock('../../../src/utils/content-processor', () => ({
 }));
 
 // Import the main process AFTER setting up all mocks
-require('../../../src/main/index');
+const loadMainProcess = () => {
+  // Ensure the main process module is loaded after mocks, with a fresh module cache
+  jest.resetModules();
+  require('../../../src/main/index');
+};
 
 const buildMockStats = ({
   isDirectory = false,
