@@ -107,6 +107,45 @@ function allPixelsChangedImage() {
   ];
 }
 
+function runComparisonScenario({
+  baselineImageMap,
+  currentImageMap,
+  runId,
+  runSha,
+  temporaryDirectoryPrefix,
+}) {
+  const baselineRoot = createTemporaryDirectory(`${temporaryDirectoryPrefix}-baseline-`);
+  const currentRoot = createTemporaryDirectory(`${temporaryDirectoryPrefix}-current-`);
+  const diffRoot = createTemporaryDirectory(`${temporaryDirectoryPrefix}-diff-`);
+
+  try {
+    const baselineRunRoot = path.join(baselineRoot, String(runId));
+    fs.mkdirSync(baselineRunRoot, { recursive: true });
+    writeArtifactSet(baselineRunRoot, baselineImageMap);
+    writeArtifactSet(currentRoot, currentImageMap);
+
+    return compareUiBaselineArtifacts({
+      baselineArtifactsRoot: baselineRoot,
+      baselineSelection: {
+        selectedRun: {
+          headSha: runSha,
+          id: runId,
+        },
+        status: 'selected',
+      },
+      currentArtifactsRoot: currentRoot,
+      diffOutputDirectory: diffRoot,
+      failThresholdPct: 50,
+      pixelmatchThreshold: 0,
+      warnThresholdPct: 10,
+    });
+  } finally {
+    fs.rmSync(baselineRoot, { force: true, recursive: true });
+    fs.rmSync(currentRoot, { force: true, recursive: true });
+    fs.rmSync(diffRoot, { force: true, recursive: true });
+  }
+}
+
 describe('ui drift compare helpers', () => {
   test('evaluateDriftStatus follows pass/warn/fail thresholds', () => {
     expect(
@@ -176,143 +215,70 @@ describe('compare-ui-baseline integration paths', () => {
   });
 
   test('compareUiBaselineArtifacts returns pass when screenshots are identical', () => {
-    const baselineRoot = createTemporaryDirectory('ui-baseline-pass-baseline-');
-    const currentRoot = createTemporaryDirectory('ui-baseline-pass-current-');
-    const diffRoot = createTemporaryDirectory('ui-baseline-pass-diff-');
-
-    try {
-      const baselineRunRoot = path.join(baselineRoot, '777');
-      fs.mkdirSync(baselineRunRoot, { recursive: true });
-      writeArtifactSet(baselineRunRoot, {
+    const report = runComparisonScenario({
+      baselineImageMap: {
         linux: blackImage(),
         macos: blackImage(),
         windows: blackImage(),
-      });
-      writeArtifactSet(currentRoot, {
+      },
+      currentImageMap: {
         linux: blackImage(),
         macos: blackImage(),
         windows: blackImage(),
-      });
+      },
+      runId: 777,
+      runSha: 'baseline-pass-sha',
+      temporaryDirectoryPrefix: 'ui-baseline-pass',
+    });
 
-      const report = compareUiBaselineArtifacts({
-        baselineArtifactsRoot: baselineRoot,
-        baselineSelection: {
-          selectedRun: {
-            headSha: 'baseline-pass-sha',
-            id: 777,
-          },
-          status: 'selected',
-        },
-        currentArtifactsRoot: currentRoot,
-        diffOutputDirectory: diffRoot,
-        failThresholdPct: 50,
-        pixelmatchThreshold: 0,
-        warnThresholdPct: 10,
-      });
-
-      expect(report.summary.status).toBe('pass');
-      expect(report.summary.comparedImages).toBe(3);
-      expect(report.pixelTotals.aggregateDriftPct).toBe(0);
-      expect(report.comparisons.every((comparison) => comparison.status === 'pass')).toBe(true);
-    } finally {
-      fs.rmSync(baselineRoot, { force: true, recursive: true });
-      fs.rmSync(currentRoot, { force: true, recursive: true });
-      fs.rmSync(diffRoot, { force: true, recursive: true });
-    }
+    expect(report.summary.status).toBe('pass');
+    expect(report.summary.comparedImages).toBe(3);
+    expect(report.pixelTotals.aggregateDriftPct).toBe(0);
+    expect(report.comparisons.every((comparison) => comparison.status === 'pass')).toBe(true);
   });
 
   test('compareUiBaselineArtifacts returns warn when drift exceeds warn threshold only', () => {
-    const baselineRoot = createTemporaryDirectory('ui-baseline-warn-baseline-');
-    const currentRoot = createTemporaryDirectory('ui-baseline-warn-current-');
-    const diffRoot = createTemporaryDirectory('ui-baseline-warn-diff-');
-
-    try {
-      const baselineRunRoot = path.join(baselineRoot, '888');
-      fs.mkdirSync(baselineRunRoot, { recursive: true });
-      writeArtifactSet(baselineRunRoot, {
+    const report = runComparisonScenario({
+      baselineImageMap: {
         linux: blackImage(),
         macos: blackImage(),
         windows: blackImage(),
-      });
-      writeArtifactSet(currentRoot, {
+      },
+      currentImageMap: {
         linux: onePixelChangedImage(),
         macos: blackImage(),
         windows: blackImage(),
-      });
+      },
+      runId: 888,
+      runSha: 'baseline-warn-sha',
+      temporaryDirectoryPrefix: 'ui-baseline-warn',
+    });
 
-      const report = compareUiBaselineArtifacts({
-        baselineArtifactsRoot: baselineRoot,
-        baselineSelection: {
-          selectedRun: {
-            headSha: 'baseline-warn-sha',
-            id: 888,
-          },
-          status: 'selected',
-        },
-        currentArtifactsRoot: currentRoot,
-        diffOutputDirectory: diffRoot,
-        failThresholdPct: 50,
-        pixelmatchThreshold: 0,
-        warnThresholdPct: 10,
-      });
-
-      expect(report.summary.status).toBe('warn');
-      expect(report.summary.warningComparisons).toBe(1);
-      expect(report.summary.failingComparisons).toBe(0);
-      expect(report.comparisons.find((comparison) => comparison.os === 'linux').status).toBe(
-        'warn'
-      );
-    } finally {
-      fs.rmSync(baselineRoot, { force: true, recursive: true });
-      fs.rmSync(currentRoot, { force: true, recursive: true });
-      fs.rmSync(diffRoot, { force: true, recursive: true });
-    }
+    expect(report.summary.status).toBe('warn');
+    expect(report.summary.warningComparisons).toBe(1);
+    expect(report.summary.failingComparisons).toBe(0);
+    expect(report.comparisons.find((comparison) => comparison.os === 'linux').status).toBe('warn');
   });
 
   test('compareUiBaselineArtifacts returns fail when drift exceeds fail threshold', () => {
-    const baselineRoot = createTemporaryDirectory('ui-baseline-fail-baseline-');
-    const currentRoot = createTemporaryDirectory('ui-baseline-fail-current-');
-    const diffRoot = createTemporaryDirectory('ui-baseline-fail-diff-');
-
-    try {
-      const baselineRunRoot = path.join(baselineRoot, '999');
-      fs.mkdirSync(baselineRunRoot, { recursive: true });
-      writeArtifactSet(baselineRunRoot, {
+    const report = runComparisonScenario({
+      baselineImageMap: {
         linux: blackImage(),
         macos: blackImage(),
         windows: blackImage(),
-      });
-      writeArtifactSet(currentRoot, {
+      },
+      currentImageMap: {
         linux: allPixelsChangedImage(),
         macos: blackImage(),
         windows: blackImage(),
-      });
+      },
+      runId: 999,
+      runSha: 'baseline-fail-sha',
+      temporaryDirectoryPrefix: 'ui-baseline-fail',
+    });
 
-      const report = compareUiBaselineArtifacts({
-        baselineArtifactsRoot: baselineRoot,
-        baselineSelection: {
-          selectedRun: {
-            headSha: 'baseline-fail-sha',
-            id: 999,
-          },
-          status: 'selected',
-        },
-        currentArtifactsRoot: currentRoot,
-        diffOutputDirectory: diffRoot,
-        failThresholdPct: 50,
-        pixelmatchThreshold: 0,
-        warnThresholdPct: 10,
-      });
-
-      expect(report.summary.status).toBe('fail');
-      expect(report.summary.failingComparisons).toBe(1);
-      expect(report.comparisons.find((comparison) => comparison.os === 'linux').status).toBe(
-        'fail'
-      );
-    } finally {
-      fs.rmSync(baselineRoot, { force: true, recursive: true });
-      fs.rmSync(currentRoot, { force: true, recursive: true });
-      fs.rmSync(diffRoot, { force: true, recursive: true });
-    }
+    expect(report.summary.status).toBe('fail');
+    expect(report.summary.failingComparisons).toBe(1);
+    expect(report.comparisons.find((comparison) => comparison.os === 'linux').status).toBe('fail');
   });
 });

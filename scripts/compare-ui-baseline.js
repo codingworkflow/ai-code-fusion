@@ -11,6 +11,7 @@ const {
   normalizePercentageThreshold,
   summarizeDriftComparisons,
 } = require('./lib/ui-drift-compare');
+const { isPathWithinRoot, resolvePathInsideRoot } = require('./select-qa-baseline');
 
 const pixelmatch = pixelmatchModule.default || pixelmatchModule;
 
@@ -30,30 +31,6 @@ const SUPPORTED_ARTIFACT_OSES = ['linux', 'windows', 'macos'];
 
 function ensureDirectoryForFile(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-}
-
-function isPathWithinRoot(targetPath) {
-  const relativePath = path.relative(ROOT_DIR, targetPath);
-  if (relativePath === '') {
-    return true;
-  }
-
-  return !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
-}
-
-function resolvePathInsideRoot(rawValue, fallbackPath, environmentVariableName) {
-  const normalizedRawValue = String(rawValue || '').trim();
-  const candidatePath = normalizedRawValue.length > 0 ? normalizedRawValue : fallbackPath;
-  const resolvedPath = path.isAbsolute(candidatePath)
-    ? path.normalize(candidatePath)
-    : path.resolve(ROOT_DIR, candidatePath);
-  if (!isPathWithinRoot(resolvedPath)) {
-    throw new Error(
-      `${environmentVariableName} must resolve inside the repository root (${ROOT_DIR}): ${resolvedPath}`
-    );
-  }
-
-  return resolvedPath;
 }
 
 function resolvePathInsideDirectory(fileName, directoryPath, fieldName) {
