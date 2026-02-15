@@ -1,3 +1,4 @@
+const path = require('path');
 const {
   REQUIRED_BASELINE_ARTIFACTS,
   buildExcludedHeadShas,
@@ -140,7 +141,9 @@ describe('select-qa-baseline dry-run', () => {
       'BASELINE_SELECTION_OUTPUT_PATH'
     );
 
-    expect(resolvedPath.endsWith('dist/qa/custom-baseline-selection.json')).toBe(true);
+    expect(
+      resolvedPath.endsWith(path.join('dist', 'qa', 'custom-baseline-selection.json'))
+    ).toBe(true);
   });
 
   test('selectBaselineFromGitHub evaluates mocked run metadata and selects prior main baseline', async () => {
