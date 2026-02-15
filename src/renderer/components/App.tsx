@@ -144,6 +144,7 @@ const AppContent = () => {
             className={`absolute inset-0 overflow-y-auto bg-white dark:bg-gray-800 p-4 text-gray-900 dark:text-gray-100 transition-colors duration-200 ${activeTab === 'source' ? '' : 'hidden'}`}
           >
             <SourceTab
+              isActive={activeTab === 'source'}
               rootPath={rootPath}
               directoryTree={directoryTree}
               selectedFiles={selectedFiles}
