@@ -12,6 +12,48 @@ export interface UpdaterRuntimeOptions extends UpdaterStatus {
   checkOnStart: boolean;
 }
 
+export type UpdaterCheckEvent =
+  | {
+      event: 'updater_check_configured' | 'updater_check_started';
+      channel: UpdaterChannel;
+      allowPrerelease: boolean;
+      owner: string;
+      repo: string;
+    }
+  | {
+      event: 'updater_check_disabled';
+      channel: UpdaterChannel;
+      allowPrerelease: boolean;
+      owner: string;
+      repo: string;
+      reason?: string;
+    }
+  | {
+      event: 'updater_check_result';
+      channel: UpdaterChannel;
+      allowPrerelease: boolean;
+      owner: string;
+      repo: string;
+      state: Exclude<UpdateCheckResult['state'], 'disabled' | 'error'>;
+      updateAvailable: boolean;
+      latestVersion?: string;
+      releaseName?: string;
+      reason?: string;
+    }
+  | {
+      event: 'updater_check_error';
+      channel: UpdaterChannel;
+      allowPrerelease: boolean;
+      owner: string;
+      repo: string;
+      state: 'error';
+      errorMessage: string;
+    };
+
+export interface UpdaterServiceObservers {
+  onCheckEvent?: (event: UpdaterCheckEvent) => void;
+}
+
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
 
 export const parseBooleanEnv = (value: string | undefined): boolean | undefined => {
@@ -26,6 +68,14 @@ export const isAlphaVersion = (version: string): boolean => {
     return false;
   }
   return version.toLowerCase().includes('-alpha');
+};
+
+export const isPrereleaseVersion = (version: string | undefined): boolean => {
+  if (typeof version !== 'string') {
+    return false;
+  }
+
+  return version.includes('-');
 };
 
 export const resolveUpdaterChannel = (version: string): UpdaterChannel => {
@@ -98,7 +148,8 @@ type UpdaterClient = Pick<
 
 export const createUpdaterService = (
   updaterClient: UpdaterClient,
-  runtimeOptions: UpdaterRuntimeOptions
+  runtimeOptions: UpdaterRuntimeOptions,
+  observers: UpdaterServiceObservers = {}
 ) => {
   let configured = false;
 
@@ -130,12 +181,28 @@ export const createUpdaterService = (
     });
 
     configured = true;
+    observers.onCheckEvent?.({
+      event: 'updater_check_configured',
+      channel: runtimeOptions.channel,
+      allowPrerelease: runtimeOptions.allowPrerelease,
+      owner: runtimeOptions.owner,
+      repo: runtimeOptions.repo,
+    });
   };
 
   const getStatus = (): UpdaterStatus => ({ ...baseStatus });
 
   const checkForUpdates = async (): Promise<UpdateCheckResult> => {
     if (!runtimeOptions.enabled) {
+      observers.onCheckEvent?.({
+        event: 'updater_check_disabled',
+        channel: runtimeOptions.channel,
+        allowPrerelease: runtimeOptions.allowPrerelease,
+        owner: runtimeOptions.owner,
+        repo: runtimeOptions.repo,
+        reason: runtimeOptions.reason,
+      });
+
       return {
         ...baseStatus,
         state: 'disabled',
@@ -144,29 +211,66 @@ export const createUpdaterService = (
     }
 
     configure();
+    observers.onCheckEvent?.({
+      event: 'updater_check_started',
+      channel: runtimeOptions.channel,
+      allowPrerelease: runtimeOptions.allowPrerelease,
+      owner: runtimeOptions.owner,
+      repo: runtimeOptions.repo,
+    });
 
     try {
       const checkResult = (await updaterClient.checkForUpdates()) as UpdateCheckLike | null;
       const updateInfo = checkResult?.updateInfo || {};
-      const latestVersion = updateInfo.version;
+      const rawLatestVersion = updateInfo.version;
+      const prereleaseFiltered =
+        !runtimeOptions.allowPrerelease && isPrereleaseVersion(rawLatestVersion);
+      const latestVersion = prereleaseFiltered ? undefined : rawLatestVersion;
       const updateAvailable =
         typeof latestVersion === 'string' &&
         latestVersion.length > 0 &&
         latestVersion !== runtimeOptions.currentVersion;
-
-      return {
+      const state = updateAvailable ? 'update-available' : 'up-to-date';
+      const releaseName = prereleaseFiltered ? undefined : updateInfo.releaseName;
+      const result: UpdateCheckResult = {
         ...baseStatus,
-        state: updateAvailable ? 'update-available' : 'up-to-date',
+        state,
         updateAvailable,
         latestVersion,
-        releaseName: updateInfo.releaseName,
+        releaseName,
       };
+
+      observers.onCheckEvent?.({
+        event: 'updater_check_result',
+        channel: runtimeOptions.channel,
+        allowPrerelease: runtimeOptions.allowPrerelease,
+        owner: runtimeOptions.owner,
+        repo: runtimeOptions.repo,
+        state,
+        updateAvailable,
+        latestVersion,
+        releaseName,
+        reason: prereleaseFiltered ? 'stable_channel_prerelease_rejected' : undefined,
+      });
+
+      return result;
     } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      observers.onCheckEvent?.({
+        event: 'updater_check_error',
+        channel: runtimeOptions.channel,
+        allowPrerelease: runtimeOptions.allowPrerelease,
+        owner: runtimeOptions.owner,
+        repo: runtimeOptions.repo,
+        state: 'error',
+        errorMessage,
+      });
+
       return {
         ...baseStatus,
         state: 'error',
         updateAvailable: false,
-        errorMessage: getErrorMessage(error),
+        errorMessage,
       };
     }
   };

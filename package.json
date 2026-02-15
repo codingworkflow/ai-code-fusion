@@ -30,6 +30,7 @@
     "test:watch": "jest --watch --config jest.config.js --passWithNoTests",
     "test:stress": "jest --config jest.config.js --runInBand --testMatch=\"**/tests/stress/**/*.{js,jsx,ts,tsx}\" --verbose",
     "test:catalog": "node scripts/validate-test-catalog.js",
+    "test:updater-smoke": "jest --config jest.config.js --runInBand --testMatch=\"**/tests/unit/main/updater-smoke.test.{js,ts}\" --verbose",
     "test:gitignore": "jest --config jest.config.js --testMatch=\"**/tests/unit/gitignore-parser.test.{js,ts}\" --verbose",
     "test:binary": "jest --config jest.config.js --testMatch=\"**/tests/unit/binary-detection.test.{js,ts}\" --verbose",
     "test:patterns": "jest --config jest.config.js --testMatch=\"**/tests/**/*pattern*.test.{js,ts}\" --verbose",

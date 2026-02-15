@@ -5,6 +5,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 ## Core Commands
 
 - Full tests: `npm test -- --runInBand`
+- Updater smoke suite: `npm run test:updater-smoke`
 - Test catalog consistency (path + discovery checks): `npm run test:catalog`
 - Stress metrics summary (+ optional Pushgateway publish): `npm run stress:metrics`
 - Stress publish verification in Prometheus: `npm run prometheus:verify`
@@ -53,6 +54,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | `tests/unit/scripts/ui-baseline-selection.test.js`         | `scripts/lib/ui-baseline-selection.js` + `scripts/select-qa-baseline.js` | Baseline candidate window filtering, current-run/head-sha exclusion, required artifact checks, and mocked dry-run selection                            |
 | `tests/unit/scripts/ui-drift-compare.test.js`              | `scripts/lib/ui-drift-compare.js` + `scripts/compare-ui-baseline.js`     | Drift threshold policy (`pass/warn/fail`), aggregate drift summarization, and baseline comparison flow (`pass/warn/fail/skipped`)                      |
 | `tests/unit/main/updater.test.ts`                          | `src/main/updater.ts`                                                    | Alpha/stable channel selection, platform gating, update-check result handling                                                                          |
+| `tests/unit/main/updater-smoke.test.ts`                    | `src/main/updater.ts`                                                    | Manual updater-check flow, stable-vs-alpha prerelease assertions, Linux-disabled guard, and structured updater check observability events              |
 | `tests/unit/main/feature-flags.test.ts`                    | `src/main/feature-flags.ts`                                              | OpenFeature normalization, env/remote merge rules, secure remote fetch behavior                                                                        |
 | `tests/unit/main/path-security.test.ts`                    | `src/main/security/path-guard.ts`                                        | Root-path authorization, temp-root boundaries, symlink-aware realpath resolution                                                                       |
 | `tests/unit/main/provider-connection.test.ts`              | `src/main/services/provider-connection.ts`                               | Provider defaults, URL validation/normalization, request construction, timeout/error handling                                                          |
@@ -135,6 +137,7 @@ QA matrix screenshot artifact contract (baseline-ready):
 - Main process / IPC changes:
   - `tests/integration/main-process/handlers.test.ts`
   - `tests/unit/main/updater.test.ts`
+  - `tests/unit/main/updater-smoke.test.ts`
   - `tests/unit/main/feature-flags.test.ts`
   - `tests/unit/main/path-security.test.ts`
   - `tests/unit/main/provider-connection.test.ts`
@@ -152,5 +155,6 @@ QA matrix screenshot artifact contract (baseline-ready):
 - CI quality gate/workflow changes:
   - `npm run lint`
   - `npm test -- --runInBand`
+  - `npm run test:updater-smoke`
 - XML export end-to-end:
   - `tests/integration/main-process/xml-export-e2e.test.ts`
