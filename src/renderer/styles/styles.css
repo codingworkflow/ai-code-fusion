@@ -53,7 +53,7 @@
   top: 10px;
   width: 12px;
   height: 1px;
-  background-color: #e5e7eb;
+  background-color: theme('colors.gray.200');
 }
 
 .dark .tree-line::after {
