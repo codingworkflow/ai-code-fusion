@@ -32,6 +32,8 @@ import type {
   AnalyzeRepositoryResult,
   CountFilesTokensOptions,
   CountFilesTokensResult,
+  GetFilesStatsOptions,
+  GetFilesStatsResult,
   ProviderConnectionOptions,
   ProviderConnectionResult,
   ProcessRepositoryOptions,
@@ -415,6 +417,56 @@ ipcMain.handle('assets:getPath', (_event, assetName: string) => {
     return null;
   }
 });
+
+// Get file stats for multiple files in a single call
+ipcMain.handle(
+  'fs:getFilesStats',
+  async (_event, options: GetFilesStatsOptions): Promise<GetFilesStatsResult> => {
+    try {
+      const { rootPath, filePaths } = options ?? {};
+      if (!rootPath || !Array.isArray(filePaths) || filePaths.length === 0) {
+        return { stats: {} };
+      }
+
+      const authorizedStatsRoot = resolveAuthorizedPathForCurrentRoot(rootPath);
+      if (!authorizedStatsRoot) {
+        console.warn(`Rejected unauthorized file stats request for root: ${rootPath}`);
+        return { stats: {} };
+      }
+
+      const stats: GetFilesStatsResult['stats'] = {};
+
+      for (const filePath of filePaths) {
+        try {
+          const resolvedFilePath = path.resolve(authorizedStatsRoot, filePath);
+          if (!isPathWithinRoot(authorizedStatsRoot, resolvedFilePath)) {
+            console.warn(`Skipping file outside current root directory for stats: ${filePath}`);
+            continue;
+          }
+
+          if (!fs.existsSync(resolvedFilePath)) {
+            stats[filePath] = { size: 0, mtime: 0 };
+            continue;
+          }
+
+          const fileStats = fs.statSync(resolvedFilePath);
+          stats[filePath] = {
+            size: fileStats.size,
+            mtime: fileStats.mtime.getTime(),
+          };
+        } catch (error) {
+          console.error(`Error reading file stats for ${filePath}:`, error);
+          stats[filePath] = { size: 0, mtime: 0 };
+        }
+      }
+
+      return { stats };
+    } catch (error) {
+      console.error('Error retrieving file stats:', error);
+      return { stats: {} };
+    }
+  }
+);
 
 // Count tokens for multiple files in a single call
 ipcMain.handle(

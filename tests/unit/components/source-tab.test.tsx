@@ -62,6 +62,18 @@ describe('SourceTab Component', () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
 
+    window.electronAPI.getFilesStats = jest.fn().mockResolvedValue({
+      stats: {
+        [SELECTED_FILE]: {
+          mtime: 1700000000000,
+          size: 1024,
+        },
+        [UPDATED_SELECTED_FILE]: {
+          mtime: 1700000000001,
+          size: 512,
+        },
+      },
+    });
     window.electronAPI.countFilesTokens = jest.fn().mockResolvedValue({
       results: {},
       stats: {},
@@ -200,5 +212,197 @@ describe('SourceTab Component', () => {
       expect(processButton).toBeEnabled();
       expect(processButton).toHaveTextContent('Process Selected Files');
     });
+  });
+
+  test('recounts file tokens when cached metadata becomes stale', async () => {
+    const getFilesStatsMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        stats: {
+          [SELECTED_FILE]: {
+            mtime: 1700000000000,
+            size: 1024,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        stats: {
+          [SELECTED_FILE]: {
+            mtime: 1700000000100,
+            size: 1024,
+          },
+        },
+      })
+      .mockResolvedValue({
+        stats: {
+          [SELECTED_FILE]: {
+            mtime: 1700000000100,
+            size: 1024,
+          },
+        },
+      });
+    const countFilesTokensMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        results: {
+          [SELECTED_FILE]: 120,
+        },
+        stats: {
+          [SELECTED_FILE]: {
+            mtime: 1700000000000,
+            size: 1024,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        results: {
+          [SELECTED_FILE]: 145,
+        },
+        stats: {
+          [SELECTED_FILE]: {
+            mtime: 1700000000100,
+            size: 1024,
+          },
+        },
+      });
+
+    window.electronAPI.getFilesStats = getFilesStatsMock;
+    window.electronAPI.countFilesTokens = countFilesTokensMock;
+
+    render(<SourceTab {...createProps({ directoryTree: defaultDirectoryTree.slice(0, 1) })} />);
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    await waitFor(() => {
+      expect(countFilesTokensMock).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    await waitFor(() => {
+      expect(countFilesTokensMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  test('does not recount file tokens when metadata is unchanged', async () => {
+    const getFilesStatsMock = jest.fn().mockResolvedValue({
+      stats: {
+        [SELECTED_FILE]: {
+          mtime: 1700000000000,
+          size: 1024,
+        },
+      },
+    });
+    const countFilesTokensMock = jest.fn().mockResolvedValue({
+      results: {
+        [SELECTED_FILE]: 120,
+      },
+      stats: {
+        [SELECTED_FILE]: {
+          mtime: 1700000000000,
+          size: 1024,
+        },
+      },
+    });
+
+    window.electronAPI.getFilesStats = getFilesStatsMock;
+    window.electronAPI.countFilesTokens = countFilesTokensMock;
+
+    render(<SourceTab {...createProps({ directoryTree: defaultDirectoryTree.slice(0, 1) })} />);
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    await waitFor(() => {
+      expect(countFilesTokensMock).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(countFilesTokensMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('handles deleted file by recounting to zero and stabilizing cache state', async () => {
+    const getFilesStatsMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        stats: {
+          [SELECTED_FILE]: {
+            mtime: 1700000000000,
+            size: 1024,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        stats: {
+          [SELECTED_FILE]: {
+            mtime: 0,
+            size: 0,
+          },
+        },
+      })
+      .mockResolvedValue({
+        stats: {
+          [SELECTED_FILE]: {
+            mtime: 0,
+            size: 0,
+          },
+        },
+      });
+    const countFilesTokensMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        results: {
+          [SELECTED_FILE]: 120,
+        },
+        stats: {
+          [SELECTED_FILE]: {
+            mtime: 1700000000000,
+            size: 1024,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        results: {
+          [SELECTED_FILE]: 0,
+        },
+        stats: {},
+      });
+
+    window.electronAPI.getFilesStats = getFilesStatsMock;
+    window.electronAPI.countFilesTokens = countFilesTokensMock;
+
+    render(<SourceTab {...createProps({ directoryTree: defaultDirectoryTree.slice(0, 1) })} />);
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    await waitFor(() => {
+      expect(countFilesTokensMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('Tokens').parentElement).toHaveTextContent('120');
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    await waitFor(() => {
+      expect(countFilesTokensMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('Tokens').parentElement).toHaveTextContent('0');
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(countFilesTokensMock).toHaveBeenCalledTimes(2);
   });
 });

@@ -183,6 +183,9 @@ window.electronAPI = {
   }),
   getDefaultConfig: jest.fn().mockResolvedValue('# Default config'),
   getAssetPath: jest.fn().mockResolvedValue('/mock/assets/image.png'),
+  getFilesStats: jest.fn().mockResolvedValue({
+    stats: { '/mock/file1.js': { size: 1000, mtime: Date.now() } },
+  }),
   countFilesTokens: jest.fn().mockResolvedValue({
     results: { '/mock/file1.js': 100 },
     stats: { '/mock/file1.js': { size: 1000, mtime: Date.now() } },

@@ -40,6 +40,9 @@ describe('App SourceTab activity', () => {
       }),
       getDefaultConfig: jest.fn().mockResolvedValue('show_token_count: true'),
       getAssetPath: jest.fn().mockResolvedValue(null),
+      getFilesStats: jest.fn().mockResolvedValue({
+        stats: { [FILE_PATH]: { size: 42, mtime: 1700000000000 } },
+      }),
       countFilesTokens: jest.fn().mockResolvedValue({
         results: { [FILE_PATH]: 12 },
         stats: { [FILE_PATH]: { size: 42, mtime: 1700000000000 } },

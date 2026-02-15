@@ -1114,6 +1114,75 @@ describe('Main Process IPC Handlers', () => {
     });
   });
 
+  describe('fs:getFilesStats', () => {
+    test('should return stats for files within root path', async () => {
+      const handler = mockIpcHandlers['fs:getFilesStats'];
+      const result = await handler(null, {
+        rootPath: '/mock/repo',
+        filePaths: ['src/file1.js', '/mock/repo/src/file2.js'],
+      });
+
+      expect(result).toBeDefined();
+      expect(result.stats['src/file1.js']).toEqual(
+        expect.objectContaining({
+          size: 1000,
+          mtime: expect.any(Number),
+        })
+      );
+      expect(result.stats['/mock/repo/src/file2.js']).toEqual(
+        expect.objectContaining({
+          size: 1000,
+          mtime: expect.any(Number),
+        })
+      );
+    });
+
+    test('should return zeroed stats for missing files', async () => {
+      const handler = mockIpcHandlers['fs:getFilesStats'];
+      const result = await handler(null, {
+        rootPath: '/mock/repo',
+        filePaths: ['/mock/repo/src/file.js', '/mock/repo/nonexistent/file.js'],
+      });
+
+      expect(result.stats['/mock/repo/src/file.js']).toEqual(
+        expect.objectContaining({
+          size: 1000,
+          mtime: expect.any(Number),
+        })
+      );
+      expect(result.stats['/mock/repo/nonexistent/file.js']).toEqual({
+        size: 0,
+        mtime: 0,
+      });
+    });
+
+    test('should skip files outside root path', async () => {
+      const handler = mockIpcHandlers['fs:getFilesStats'];
+      const result = await handler(null, {
+        rootPath: '/mock/repo',
+        filePaths: ['src/file.js', '../repo-secrets/secret.js', '/mock/repo-secrets/secret.js'],
+      });
+
+      expect(result.stats['src/file.js']).toEqual(
+        expect.objectContaining({
+          size: 1000,
+          mtime: expect.any(Number),
+        })
+      );
+      expect(result.stats['../repo-secrets/secret.js']).toBeUndefined();
+      expect(result.stats['/mock/repo-secrets/secret.js']).toBeUndefined();
+    });
+
+    test('should reject stats requests for unauthorized root path', async () => {
+      const handler = mockIpcHandlers['fs:getFilesStats'];
+      const result = await handler(null, {
+        rootPath: '/etc',
+        filePaths: ['/etc/passwd'],
+      });
+      expect(result).toEqual({ stats: {} });
+    });
+  });
+
   describe('tokens:countFiles', () => {
     test('should count tokens for multiple files', async () => {
       // Setup

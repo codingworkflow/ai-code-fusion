@@ -28,7 +28,7 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 | `tests/unit/components/config-tab.test.tsx`                | `src/renderer/components/ConfigTab.tsx`                                     | Config toggles/inputs, dev-only provider surface gating, provider validation/connection wiring, provider-config preservation, directory picker trigger |
 | `tests/unit/components/file-tree.test.tsx`                 | `src/renderer/components/FileTree.tsx`                                      | Tree render, folder expand/collapse, select all, empty-state behavior                                                                                  |
 | `tests/unit/components/language-selector.test.tsx`         | `src/renderer/components/LanguageSelector.tsx`                              | Locale selector rendering, language switching, and localStorage persistence                                                                            |
-| `tests/unit/components/source-tab.test.tsx`                | `src/renderer/components/SourceTab.tsx`                                     | Source tab input state, filter toggles, and event forwarding behavior                                                                                  |
+| `tests/unit/components/source-tab.test.tsx`                | `src/renderer/components/SourceTab.tsx`                                     | Token-count loading state, stale async guard behavior, and metadata-driven cache recount validation                                                    |
 | `tests/unit/i18n/locales-parity.test.ts`                   | `src/renderer/i18n/locales/*/common.json`                                   | Locale key parity across EN/ES/FR/DE resources                                                                                                         |
 | `tests/unit/file-analyzer.test.ts`                         | `src/utils/file-analyzer.ts`                                                | Include/exclude rules, gitignore behavior, binary handling, error cases                                                                                |
 | `tests/unit/gitignore-parser.test.ts`                      | `src/utils/gitignore-parser.ts`                                             | Pattern parsing, negation behavior, caching, nested path handling                                                                                      |
@@ -65,11 +65,11 @@ Purpose: quick map of what is covered, why it exists, and which command to run.
 
 ## Integration Tests
 
-| File                                                    | Primary Target                       | Key Use Cases                                                                                                                  |
-| ------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `tests/integration/main-process/handlers.test.ts`       | Main IPC handlers                    | `fs:getDirectoryTree`, `repo:analyze`, `repo:process`, `tokens:countFiles`, `provider:testConnection` correctness and failures |
-| `tests/integration/main-process/xml-export-e2e.test.ts` | XML export pipeline                  | End-to-end XML shape, CDATA wrapping, invalid-character sanitization, summary metrics                                          |
-| `tests/integration/pattern-merging.test.ts`             | Filtering + gitignore merge behavior | Combined behavior of include/exclude patterns with gitignore toggles                                                           |
+| File                                                    | Primary Target                       | Key Use Cases                                                                                                                                      |
+| ------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/integration/main-process/handlers.test.ts`       | Main IPC handlers                    | `fs:getDirectoryTree`, `fs:getFilesStats`, `repo:analyze`, `repo:process`, `tokens:countFiles`, `provider:testConnection` correctness and failures |
+| `tests/integration/main-process/xml-export-e2e.test.ts` | XML export pipeline                  | End-to-end XML shape, CDATA wrapping, invalid-character sanitization, summary metrics                                                              |
+| `tests/integration/pattern-merging.test.ts`             | Filtering + gitignore merge behavior | Combined behavior of include/exclude patterns with gitignore toggles                                                                               |
 
 ## Stress / Benchmark Tests
 
