@@ -33,7 +33,6 @@ jobs:
         run: npm ci
 
       - name: Run tests with coverage
-        continue-on-error: true
         run: npm test -- --coverage --runInBand
 
       - name: Ensure coverage report exists
@@ -67,7 +66,6 @@ jobs:
           echo "sonar_token=${sonar_token}" >> "${GITHUB_OUTPUT}"
 
       - name: SonarCloud scan
-        continue-on-error: true
         uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -77,15 +75,9 @@ jobs:
             -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.organization=${{ vars.SONAR_ORGANIZATION || 'codingworkflow' }}
             -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY || 'codingworkflow_ai-code-fusion' }}
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-            -Dsonar.sources=src
-            -Dsonar.tests=tests,src/__tests__
-            -Dsonar.test.inclusions=tests/**/*.test.{js,jsx,ts,tsx},tests/**/*.spec.{js,jsx,ts,tsx},tests/**/*.stress.test.{js,jsx,ts,tsx},src/**/__tests__/**/*.{js,jsx,ts,tsx},src/**/*.test.{js,jsx,ts,tsx},src/**/*.spec.{js,jsx,ts,tsx}
-            -Dsonar.exclusions=node_modules/**,dist/**,coverage/**,tests/**,scripts/**,**/__tests__/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx,src/renderer/styles.css
-            -Dsonar.cpd.exclusions=tests/**,scripts/**,src/**/__tests__/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx,**/*.stress.test.js,**/*.stress.test.jsx,**/*.stress.test.ts,**/*.stress.test.tsx
+            -Dproject.settings=sonar-project.properties
 
       - name: SonarCloud quality gate
-        continue-on-error: true
         uses: SonarSource/sonarqube-quality-gate-action@cf038b0e0cdecfa9e56c198bbb7d21d751d62c3b
         with:
           scanMetadataReportFile: .scannerwork/report-task.txt
