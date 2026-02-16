@@ -2,7 +2,7 @@ const DEFAULT_PROJECT_NAME = 'Repository AI Code Fusion';
 const DEFAULT_PROJECT_VERSION = '0.1.0';
 const DEFAULT_SOURCES = 'src';
 const DEFAULT_EXCLUSIONS =
-  'node_modules/**,dist/**,coverage/**,tests/**,scripts/**,**/__tests__/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx';
+  'node_modules/**,dist/**,coverage/**,tests/**,scripts/**,**/__tests__/**,**/*.test.js,**/*.test.jsx,**/*.test.ts,**/*.test.tsx,**/*.spec.js,**/*.spec.jsx,**/*.spec.ts,**/*.spec.tsx,src/renderer/styles/styles.css,vault-agent-env.hcl';
 const DEFAULT_TESTS = 'src/__tests__,tests';
 const DEFAULT_TEST_INCLUSIONS =
   'tests/**/*.test.{js,jsx,ts,tsx},tests/**/*.spec.{js,jsx,ts,tsx},tests/**/*.stress.test.{js,jsx,ts,tsx},src/**/__tests__/**/*.{js,jsx,ts,tsx},src/**/*.test.{js,jsx,ts,tsx},src/**/*.spec.{js,jsx,ts,tsx}';
