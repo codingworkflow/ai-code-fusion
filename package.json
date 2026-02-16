@@ -199,7 +199,7 @@
     "playwright": "^1.58.2",
     "pngjs": "^7.0.0",
     "postcss": "^8.4.35",
-    "postcss-loader": "^8.1.0",
+    "postcss-loader": "^8.2.1",
     "prettier": "^3.2.5",
     "rimraf": "^5.0.5",
     "sonarqube-scanner": "^4.3.4",
