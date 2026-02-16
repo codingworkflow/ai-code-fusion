@@ -65,6 +65,7 @@ jobs:
             exit 1
           fi
 
+          echo "::add-mask::${sonar_token}"
           echo "sonar_token=${sonar_token}" >> "${GITHUB_OUTPUT}"
 
       - name: Disable SonarCloud Automatic Analysis
