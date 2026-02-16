@@ -111,7 +111,7 @@ function allPixelsChangedImage() {
   ];
 }
 
-function runComparisonScenario({
+async function runComparisonScenario({
   baselineImageMap,
   currentImageMap,
   runId,
@@ -128,7 +128,7 @@ function runComparisonScenario({
     writeArtifactSet(baselineRunRoot, baselineImageMap);
     writeArtifactSet(currentRoot, currentImageMap);
 
-    return compareUiBaselineArtifacts({
+    return await compareUiBaselineArtifacts({
       baselineArtifactsRoot: baselineRoot,
       baselineSelection: {
         selectedRun: {
@@ -256,8 +256,8 @@ describe('ui drift compare helpers', () => {
 });
 
 describe('compare-ui-baseline integration paths', () => {
-  test('compareUiBaselineArtifacts returns skipped when baseline is unavailable', () => {
-    const report = compareUiBaselineArtifacts({
+  test('compareUiBaselineArtifacts returns skipped when baseline is unavailable', async () => {
+    const report = await compareUiBaselineArtifacts({
       baselineArtifactsRoot: '/unused/baseline',
       baselineSelection: {
         skipReason: 'no_valid_baseline',
@@ -274,8 +274,8 @@ describe('compare-ui-baseline integration paths', () => {
     expect(report.summary.skipReason).toBe('no_valid_baseline');
   });
 
-  test('compareUiBaselineArtifacts returns pass when screenshots are identical', () => {
-    const report = runComparisonScenario({
+  test('compareUiBaselineArtifacts returns pass when screenshots are identical', async () => {
+    const report = await runComparisonScenario({
       baselineImageMap: {
         linux: blackImage(),
         macos: blackImage(),
@@ -297,8 +297,8 @@ describe('compare-ui-baseline integration paths', () => {
     expect(report.comparisons.every((comparison) => comparison.status === 'pass')).toBe(true);
   });
 
-  test('compareUiBaselineArtifacts returns warn when drift exceeds warn threshold only', () => {
-    const report = runComparisonScenario({
+  test('compareUiBaselineArtifacts returns warn when drift exceeds warn threshold only', async () => {
+    const report = await runComparisonScenario({
       baselineImageMap: {
         linux: blackImage(),
         macos: blackImage(),
@@ -320,8 +320,8 @@ describe('compare-ui-baseline integration paths', () => {
     expect(report.comparisons.find((comparison) => comparison.os === 'linux').status).toBe('warn');
   });
 
-  test('compareUiBaselineArtifacts returns fail when drift exceeds fail threshold', () => {
-    const report = runComparisonScenario({
+  test('compareUiBaselineArtifacts returns fail when drift exceeds fail threshold', async () => {
+    const report = await runComparisonScenario({
       baselineImageMap: {
         linux: blackImage(),
         macos: blackImage(),
@@ -342,8 +342,8 @@ describe('compare-ui-baseline integration paths', () => {
     expect(report.comparisons.find((comparison) => comparison.os === 'linux').status).toBe('fail');
   });
 
-  test('compareUiBaselineArtifacts rejects invalid selected baseline run ids', () => {
-    expect(() =>
+  test('compareUiBaselineArtifacts rejects invalid selected baseline run ids', async () => {
+    await expect(
       compareUiBaselineArtifacts({
         baselineArtifactsRoot: '/unused/baseline',
         baselineSelection: {
@@ -359,6 +359,6 @@ describe('compare-ui-baseline integration paths', () => {
         pixelmatchThreshold: 0,
         warnThresholdPct: 10,
       })
-    ).toThrow('Invalid selected baseline run id');
+    ).rejects.toThrow('Invalid selected baseline run id');
   });
 });

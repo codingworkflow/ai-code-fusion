@@ -2,7 +2,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const pixelmatchModule = require('pixelmatch');
 const { PNG } = require('pngjs');
 
 const {
@@ -14,7 +13,7 @@ const {
 } = require('./lib/ui-drift-compare');
 const { isPathWithinRoot, resolvePathInsideRoot } = require('./select-qa-baseline');
 
-const pixelmatch = pixelmatchModule.default || pixelmatchModule;
+let pixelmatchLoader = null;
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const DEFAULT_BASELINE_ARTIFACTS_ROOT = path.join(ROOT_DIR, 'dist', 'qa', 'baseline');
@@ -29,6 +28,50 @@ const DEFAULT_DIFF_OUTPUT_DIR = path.join(ROOT_DIR, 'dist', 'qa', 'drift-diffs')
 const DEFAULT_PIXELMATCH_THRESHOLD = 0.1;
 const DEFAULT_REPORT_PATH = path.join(ROOT_DIR, 'dist', 'qa', 'drift-report.json');
 const SUPPORTED_ARTIFACT_OSES = ['linux', 'windows', 'macos'];
+
+function isEsmRequireFailure(error) {
+  if (!error) {
+    return false;
+  }
+
+  if (error.code === 'ERR_REQUIRE_ESM') {
+    return true;
+  }
+
+  const errorMessage = String(error.message || '');
+  return (
+    errorMessage.includes('Unexpected token') ||
+    errorMessage.includes('Cannot use import statement outside a module')
+  );
+}
+
+function normalizePixelmatchModule(pixelmatchModule) {
+  const pixelmatch = pixelmatchModule?.default || pixelmatchModule;
+  if (typeof pixelmatch !== 'function') {
+    throw new TypeError('Failed to load pixelmatch function');
+  }
+
+  return pixelmatch;
+}
+
+async function loadPixelmatch() {
+  if (!pixelmatchLoader) {
+    pixelmatchLoader = (async () => {
+      try {
+        return normalizePixelmatchModule(require('pixelmatch'));
+      } catch (error) {
+        if (!isEsmRequireFailure(error)) {
+          throw error;
+        }
+      }
+
+      const pixelmatchModule = await import('pixelmatch');
+      return normalizePixelmatchModule(pixelmatchModule);
+    })();
+  }
+
+  return pixelmatchLoader;
+}
 
 function ensureDirectoryForFile(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -160,7 +203,7 @@ function readManifest(manifestPath, artifactName) {
   };
 }
 
-function comparePngFiles({ baselinePath, currentPath, diffPath, pixelmatchThreshold }) {
+function comparePngFiles({ baselinePath, currentPath, diffPath, pixelmatch, pixelmatchThreshold }) {
   const baselineImage = PNG.sync.read(fs.readFileSync(baselinePath));
   const currentImage = PNG.sync.read(fs.readFileSync(currentPath));
 
@@ -223,7 +266,7 @@ function comparePngFiles({ baselinePath, currentPath, diffPath, pixelmatchThresh
   };
 }
 
-function compareUiBaselineArtifacts({
+async function compareUiBaselineArtifacts({
   baselineArtifactsRoot,
   baselineSelection,
   currentArtifactsRoot,
@@ -251,6 +294,7 @@ function compareUiBaselineArtifacts({
   }
 
   const baselineRunDirectory = path.join(baselineArtifactsRoot, normalizedBaselineRunId);
+  const pixelmatch = await loadPixelmatch();
   const comparisons = [];
   const missingArtifacts = [];
   const missingBaselineFiles = [];
@@ -397,6 +441,7 @@ function compareUiBaselineArtifacts({
         baselinePath,
         currentPath,
         diffPath,
+        pixelmatch,
         pixelmatchThreshold,
       });
       const driftPercent =
@@ -517,7 +562,7 @@ async function main() {
   const pixelmatchThreshold = parsePixelmatchThreshold();
   const baselineSelection = readSelectionSummary(baselineSelectionPath);
 
-  const report = compareUiBaselineArtifacts({
+  const report = await compareUiBaselineArtifacts({
     baselineArtifactsRoot,
     baselineSelection,
     currentArtifactsRoot,
