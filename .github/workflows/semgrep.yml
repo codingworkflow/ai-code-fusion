@@ -69,7 +69,7 @@ jobs:
 
       - name: Upload Semgrep SARIF
         if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: github/codeql-action/upload-sarif@77591e2c4a43bf190ac768983419eb058187e62f
+        uses: github/codeql-action/upload-sarif@9e907b5e64f6b83e7804b09294d44122997950d6
         with:
           sarif_file: semgrep.sarif
           category: /tool:semgrep
