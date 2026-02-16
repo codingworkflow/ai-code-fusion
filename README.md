@@ -118,6 +118,12 @@ devcontainer exec --workspace-folder . id -u
 devcontainer exec --workspace-folder . npm run lint
 ```
 
+## Bug Reports & Support
+
+For `ai-code-fusion` and `claude-code-api`, use this discussion thread for bug reports and troubleshooting:
+
+- https://github.com/codingworkflow/ai-code-fusion/discussions/151
+
 ## Governance
 
 - [Code of Conduct](CODE_OF_CONDUCT.md)

@@ -41,7 +41,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Scorecards SARIF
-        uses: github/codeql-action/upload-sarif@77591e2c4a43bf190ac768983419eb058187e62f
+        uses: github/codeql-action/upload-sarif@9e907b5e64f6b83e7804b09294d44122997950d6
         with:
           sarif_file: scorecards.sarif
           category: /tool:ossf-scorecards
