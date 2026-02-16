@@ -65,13 +65,43 @@ jobs:
             exit 1
           fi
 
+          echo "::add-mask::${sonar_token}"
           echo "sonar_token=${sonar_token}" >> "${GITHUB_OUTPUT}"
 
+      - name: Disable SonarCloud Automatic Analysis
+        env:
+          SONAR_TOKEN: ${{ steps.keyvault.outputs.sonar_token }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY || 'codingworkflow_ai-code-fusion' }}
+        run: |
+          set -euo pipefail
+
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq is required to validate SonarCloud API responses."
+            exit 1
+          fi
+
+          auth_header="$(printf '%s:' "${SONAR_TOKEN}" | base64 | tr -d '\n')"
+
+          response="$(
+            curl -sS --fail \
+              -H "Authorization: Basic ${auth_header}" \
+              -X POST "https://sonarcloud.io/api/autoscan/activation" \
+              --data-urlencode "projectKey=${SONAR_PROJECT_KEY}" \
+              --data-urlencode "enable=false"
+          )"
+
+          if ! echo "${response}" | jq empty >/dev/null 2>&1; then
+            echo "Failed to disable SonarCloud Automatic Analysis: response was not valid JSON."
+            exit 1
+          fi
+
+          if echo "${response}" | jq -e '.errors | length > 0' >/dev/null 2>&1; then
+            echo "Failed to disable SonarCloud Automatic Analysis:"
+            echo "${response}" | jq -r '.errors[]?.msg // empty' | sed 's/^/- /'
+            exit 1
+          fi
+
       - name: SonarCloud scan
-        # Temporary tolerance: this repository currently has SonarCloud Automatic Analysis enabled,
-        # which conflicts with manual CI scanner execution and returns exit code 3.
-        # Keep the job green while retaining explicit test and dependency install gates.
-        continue-on-error: true
         uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -84,7 +114,6 @@ jobs:
             -Dproject.settings=sonar-project.properties
 
       - name: SonarCloud quality gate
-        continue-on-error: true
         uses: SonarSource/sonarqube-quality-gate-action@cf038b0e0cdecfa9e56c198bbb7d21d751d62c3b
         with:
           scanMetadataReportFile: .scannerwork/report-task.txt
