@@ -22,6 +22,7 @@ module.exports = {
   coverageDirectory: '<rootDir>/coverage',
   collectCoverageFrom: [
     '<rootDir>/src/renderer/components/**/*.{js,jsx,ts,tsx}',
+    '<rootDir>/src/renderer/public/**/*.js',
     '<rootDir>/src/main/index.ts',
     '<rootDir>/src/main/preload.ts',
     '<rootDir>/src/main/security/navigation-guard.ts',
