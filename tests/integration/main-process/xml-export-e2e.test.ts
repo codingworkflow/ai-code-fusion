@@ -37,6 +37,8 @@ describe('XML export end-to-end', () => {
         setMenu: jest.fn(),
         webContents: {
           openDevTools: jest.fn(),
+          setWindowOpenHandler: jest.fn(),
+          on: jest.fn(),
         },
       })),
       ipcMain: {
@@ -50,6 +52,9 @@ describe('XML export end-to-end', () => {
       },
       net: {
         fetch: mockNetFetch,
+      },
+      shell: {
+        openExternal: jest.fn().mockResolvedValue(undefined),
       },
       protocol: {
         handle: jest.fn(),

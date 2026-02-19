@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { pathToFileURL } = require('node:url');
 const yaml = require('yaml');
 const FAKE_GITHUB_TOKEN = ['ghp', 'AAAAAAAAAAAAAAAAAAAAAAAA'].join('_');
 
@@ -6,6 +7,9 @@ const FAKE_GITHUB_TOKEN = ['ghp', 'AAAAAAAAAAAAAAAAAAAAAAAA'].join('_');
 const mockIpcHandlers = {};
 const mockProtocolHandlers = {};
 const mockNetFetch = jest.fn();
+let latestWindowOpenHandler = null;
+let latestWillNavigateHandler = null;
+let latestRendererIndexPath = null;
 const mockAutoUpdater = {
   checkForUpdates: jest.fn(),
   setFeedURL: jest.fn(),
@@ -31,11 +35,22 @@ jest.mock('electron', () => ({
     getVersion: jest.fn().mockReturnValue('0.2.0'),
   },
   BrowserWindow: jest.fn().mockImplementation(() => ({
-    loadFile: jest.fn().mockResolvedValue(null),
+    loadFile: jest.fn().mockImplementation(async (targetPath) => {
+      latestRendererIndexPath = targetPath;
+      return null;
+    }),
     on: jest.fn(),
     setMenu: jest.fn(),
     webContents: {
       openDevTools: jest.fn(),
+      setWindowOpenHandler: jest.fn((handler) => {
+        latestWindowOpenHandler = handler;
+      }),
+      on: jest.fn((eventName, handler) => {
+        if (eventName === 'will-navigate') {
+          latestWillNavigateHandler = handler;
+        }
+      }),
     },
   })),
   ipcMain: mockIpcMain,
@@ -50,6 +65,9 @@ jest.mock('electron', () => ({
   },
   net: {
     fetch: mockNetFetch,
+  },
+  shell: {
+    openExternal: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -325,6 +343,47 @@ describe('Main Process IPC Handlers', () => {
       const response = await handler({ url: 'assets://icon.png' });
       expect(response).toBeDefined();
       expect(response.status).toBe(404);
+    });
+  });
+
+  describe('window navigation guards', () => {
+    test('should deny window-open requests and only allow http(s) in external opener', () => {
+      const { shell } = require('electron');
+      expect(latestWindowOpenHandler).toBeDefined();
+
+      expect(latestWindowOpenHandler({ url: 'file:///etc/passwd' })).toEqual({ action: 'deny' });
+      expect(shell.openExternal).not.toHaveBeenCalled();
+
+      expect(latestWindowOpenHandler({ url: 'https://example.com/docs' })).toEqual({
+        action: 'deny',
+      });
+      expect(shell.openExternal).toHaveBeenCalledWith('https://example.com/docs');
+    });
+
+    test('should prevent disallowed will-navigate targets and open allowed external urls', () => {
+      const { shell } = require('electron');
+      expect(latestWillNavigateHandler).toBeDefined();
+      expect(latestRendererIndexPath).toBeDefined();
+      const rendererIndexUrl = pathToFileURL(latestRendererIndexPath).toString();
+
+      const allowedEvent = { preventDefault: jest.fn() };
+      latestWillNavigateHandler(allowedEvent, rendererIndexUrl);
+      expect(allowedEvent.preventDefault).not.toHaveBeenCalled();
+
+      const blockedEvent = { preventDefault: jest.fn() };
+      latestWillNavigateHandler(blockedEvent, 'https://example.com/security');
+      expect(blockedEvent.preventDefault).toHaveBeenCalledTimes(1);
+      expect(shell.openExternal).toHaveBeenCalledWith('https://example.com/security');
+
+      const disallowedProtocolEvent = { preventDefault: jest.fn() };
+      latestWillNavigateHandler(disallowedProtocolEvent, 'javascript:alert(1)');
+      expect(disallowedProtocolEvent.preventDefault).toHaveBeenCalledTimes(1);
+      expect(shell.openExternal).not.toHaveBeenCalledWith('javascript:alert(1)');
+
+      const aboutBlankEvent = { preventDefault: jest.fn() };
+      latestWillNavigateHandler(aboutBlankEvent, 'about:blank');
+      expect(aboutBlankEvent.preventDefault).toHaveBeenCalledTimes(1);
+      expect(shell.openExternal).not.toHaveBeenCalledWith('about:blank');
     });
   });
 

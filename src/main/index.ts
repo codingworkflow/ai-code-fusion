@@ -2,7 +2,7 @@ import fs from 'fs';
 import { pathToFileURL } from 'node:url';
 import path from 'path';
 
-import { app, BrowserWindow, dialog, ipcMain, net, protocol } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 
 import { loadDefaultConfig } from '../utils/config-manager';
@@ -12,6 +12,10 @@ import { TokenCounter } from '../utils/token-counter';
 
 import { getErrorMessage } from './errors';
 import { initializeUpdaterFeatureFlags } from './feature-flags';
+import {
+  isAllowedExternalNavigationUrl,
+  isAllowedInAppNavigationUrl,
+} from './security/navigation-guard';
 import {
   isPathWithinRoot,
   isPathWithinTempRoot,
@@ -122,8 +126,34 @@ let updaterService = createUpdaterService(
 
 const APP_ROOT = path.resolve(__dirname, '../../..');
 const RENDERER_INDEX_PATH = path.join(APP_ROOT, 'src', 'renderer', 'public', 'index.html');
+const RENDERER_INDEX_URL = pathToFileURL(RENDERER_INDEX_PATH).toString();
 const ASSETS_DIR = path.join(APP_ROOT, 'src', 'assets');
 const createForbiddenAssetResponse = (): Response => new Response('Forbidden', { status: 403 });
+const isTestEnvironment = process.env.NODE_ENV === 'test';
+
+const resolveTestPathOverride = (envKey: string): string | null => {
+  if (!isTestEnvironment) {
+    return null;
+  }
+
+  const configuredPath = process.env[envKey];
+  if (typeof configuredPath !== 'string' || configuredPath.trim().length === 0) {
+    return null;
+  }
+
+  return path.resolve(configuredPath);
+};
+
+const openAllowedExternalUrl = (url: string) => {
+  if (!isAllowedExternalNavigationUrl(url)) {
+    console.warn(`Blocked external navigation URL: ${url}`);
+    return;
+  }
+
+  void shell.openExternal(url).catch((error) => {
+    console.error(`Failed to open external URL: ${url}`, error);
+  });
+};
 
 // Set environment
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -161,6 +191,20 @@ async function createWindow() {
 
   // Hide the menu bar completely in all modes
   mainWindow.setMenu(null);
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    openAllowedExternalUrl(url);
+    return { action: 'deny' };
+  });
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (isAllowedInAppNavigationUrl(url, RENDERER_INDEX_URL)) {
+      return;
+    }
+
+    event.preventDefault();
+    openAllowedExternalUrl(url);
+  });
 
   // Load the index.html file
   if (isDevelopment) {
@@ -290,6 +334,12 @@ ipcMain.handle(
 
 // Select directory dialog
 ipcMain.handle('dialog:selectDirectory', async () => {
+  const testDirectoryPath = resolveTestPathOverride('E2E_DIALOG_DIRECTORY_PATH');
+  if (testDirectoryPath) {
+    authorizedRootPath = testDirectoryPath;
+    return testDirectoryPath;
+  }
+
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow ?? undefined, {
     properties: ['openDirectory'],
   });
@@ -393,6 +443,12 @@ ipcMain.handle(
 
 // Save output to file
 ipcMain.handle('fs:saveFile', async (_event, { content, defaultPath }: SaveFileOptions) => {
+  const testSavePath = resolveTestPathOverride('E2E_DIALOG_SAVE_PATH');
+  if (testSavePath) {
+    fs.writeFileSync(testSavePath, content);
+    return testSavePath;
+  }
+
   const safeDefaultPath = typeof defaultPath === 'string' ? defaultPath : '';
   const defaultExtension = safeDefaultPath ? path.extname(safeDefaultPath).toLowerCase() : '';
   const filters =

@@ -26,6 +26,8 @@ jest.mock('electron', () => ({
     setMenu: jest.fn(),
     webContents: {
       openDevTools: jest.fn(),
+      setWindowOpenHandler: jest.fn(),
+      on: jest.fn(),
     },
   })),
   ipcMain: {
@@ -45,6 +47,9 @@ jest.mock('electron', () => ({
   },
   net: {
     fetch: jest.fn().mockResolvedValue({ ok: true, status: 200, url: 'file:///mock/icon.png' }),
+  },
+  shell: {
+    openExternal: jest.fn().mockResolvedValue(undefined),
   },
 }));
 

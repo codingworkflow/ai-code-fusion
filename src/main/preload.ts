@@ -18,6 +18,16 @@ import type {
   UpdaterStatus,
 } from '../types/ipc';
 
+// Keep preload self-contained: sandboxed preload cannot reliably require local modules.
+const isAllowedExternalNavigationUrl = (url: string): boolean => {
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:';
+  } catch {
+    return false;
+  }
+};
+
 type DevUtils = {
   clearLocalStorage: () => boolean;
   isDev: boolean;
@@ -38,7 +48,12 @@ const devUtils: DevUtils = {
 
 const electronShellApi: ElectronShellApi = {
   shell: {
-    openExternal: (url: string) => shell.openExternal(url),
+    openExternal: async (url: string) => {
+      if (!isAllowedExternalNavigationUrl(url)) {
+        throw new Error(`Blocked external URL: ${url}`);
+      }
+      await shell.openExternal(url);
+    },
   },
 };
 
