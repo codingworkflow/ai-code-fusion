@@ -36,6 +36,8 @@ jest.mock('electron', () => ({
     setMenu: jest.fn(),
     webContents: {
       openDevTools: jest.fn(),
+      setWindowOpenHandler: jest.fn(),
+      on: jest.fn(),
     },
   })),
   ipcMain: mockIpcMain,
@@ -50,6 +52,9 @@ jest.mock('electron', () => ({
   },
   net: {
     fetch: mockNetFetch,
+  },
+  shell: {
+    openExternal: jest.fn().mockResolvedValue(undefined),
   },
 }));
 

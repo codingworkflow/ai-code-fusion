@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer, shell } from 'electron';
 
+import { isAllowedExternalNavigationUrl } from './security/navigation-guard';
+
 import type {
   AnalyzeRepositoryOptions,
   AnalyzeRepositoryResult,
@@ -38,7 +40,12 @@ const devUtils: DevUtils = {
 
 const electronShellApi: ElectronShellApi = {
   shell: {
-    openExternal: (url: string) => shell.openExternal(url),
+    openExternal: async (url: string) => {
+      if (!isAllowedExternalNavigationUrl(url)) {
+        throw new Error(`Blocked external URL: ${url}`);
+      }
+      await shell.openExternal(url);
+    },
   },
 };
 
