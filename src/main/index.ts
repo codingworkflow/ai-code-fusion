@@ -178,12 +178,12 @@ async function createWindow() {
   // Hide the menu bar completely in all modes
   mainWindow.setMenu(null);
 
-  mainWindow.webContents.setWindowOpenHandler?.(({ url }) => {
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     openAllowedExternalUrl(url);
     return { action: 'deny' };
   });
 
-  mainWindow.webContents.on?.('will-navigate', (event, url) => {
+  mainWindow.webContents.on('will-navigate', (event, url) => {
     if (isAllowedInAppNavigationUrl(url, RENDERER_INDEX_URL)) {
       return;
     }

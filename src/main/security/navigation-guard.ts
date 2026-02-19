@@ -7,18 +7,28 @@ export const isAllowedExternalNavigationUrl = (url: string): boolean => {
   }
 };
 
-const isAboutBlank = (url: string): boolean => url === 'about:blank';
-
-export const isAllowedInAppNavigationUrl = (url: string, rendererIndexUrl: string): boolean => {
-  if (isAboutBlank(url)) {
-    return true;
+const normalizeFilePathname = (pathname: string): string => {
+  const driveLetterMatch = pathname.match(/^\/([A-Za-z]):/);
+  if (!driveLetterMatch) {
+    return pathname;
   }
 
+  const driveLetter = driveLetterMatch[1].toLowerCase();
+  return `/${driveLetter}:${pathname.slice(3)}`;
+};
+
+export const isAllowedInAppNavigationUrl = (url: string, rendererIndexUrl: string): boolean => {
   try {
     const targetUrl = new URL(url);
     const rendererUrl = new URL(rendererIndexUrl);
 
-    return targetUrl.protocol === 'file:' && targetUrl.pathname === rendererUrl.pathname;
+    if (targetUrl.protocol !== 'file:' || rendererUrl.protocol !== 'file:') {
+      return false;
+    }
+
+    return (
+      normalizeFilePathname(targetUrl.pathname) === normalizeFilePathname(rendererUrl.pathname)
+    );
   } catch {
     return false;
   }

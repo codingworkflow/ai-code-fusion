@@ -18,18 +18,25 @@ describe('navigation-guard', () => {
     expect(isAllowedExternalNavigationUrl('not-a-url')).toBe(false);
   });
 
-  test('allows renderer index and about:blank for in-app navigation', () => {
+  test('allows renderer index URL variants for in-app navigation', () => {
     expect(isAllowedInAppNavigationUrl(rendererIndexUrl, rendererIndexUrl)).toBe(true);
     expect(
       isAllowedInAppNavigationUrl(`${rendererIndexUrl}?view=source#details`, rendererIndexUrl)
     ).toBe(true);
-    expect(isAllowedInAppNavigationUrl('about:blank', rendererIndexUrl)).toBe(true);
+  });
+
+  test('allows renderer index URL when only Windows drive-letter casing differs', () => {
+    const windowsRendererUrl = 'file:///C:/Users/Alice/app/index.html';
+    const windowsTargetUrl = 'file:///c:/Users/Alice/app/index.html?view=source';
+
+    expect(isAllowedInAppNavigationUrl(windowsTargetUrl, windowsRendererUrl)).toBe(true);
   });
 
   test('rejects non-index file URLs and external protocols for in-app navigation', () => {
     expect(
       isAllowedInAppNavigationUrl(pathToFileURL('/workspace/mock-app/other.html').toString(), rendererIndexUrl)
     ).toBe(false);
+    expect(isAllowedInAppNavigationUrl('about:blank', rendererIndexUrl)).toBe(false);
     expect(isAllowedInAppNavigationUrl('https://example.com', rendererIndexUrl)).toBe(false);
     expect(isAllowedInAppNavigationUrl('not-a-url', rendererIndexUrl)).toBe(false);
   });

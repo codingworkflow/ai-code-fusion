@@ -379,6 +379,11 @@ describe('Main Process IPC Handlers', () => {
       latestWillNavigateHandler(disallowedProtocolEvent, 'javascript:alert(1)');
       expect(disallowedProtocolEvent.preventDefault).toHaveBeenCalledTimes(1);
       expect(shell.openExternal).not.toHaveBeenCalledWith('javascript:alert(1)');
+
+      const aboutBlankEvent = { preventDefault: jest.fn() };
+      latestWillNavigateHandler(aboutBlankEvent, 'about:blank');
+      expect(aboutBlankEvent.preventDefault).toHaveBeenCalledTimes(1);
+      expect(shell.openExternal).not.toHaveBeenCalledWith('about:blank');
     });
   });
 
