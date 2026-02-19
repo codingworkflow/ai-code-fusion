@@ -123,6 +123,11 @@
     "noFilesSelectedForProcessing": "No hay archivos seleccionados para procesar. Ve a la pestaña Fuente y selecciona archivos.",
     "refreshFailed": "Se produjo un error al actualizar el contenido. Revisa la consola para más detalles.",
     "noProcessedContentToSave": "No hay contenido procesado para guardar.",
-    "saveFailed": "Se produjo un error al guardar el archivo. Revisa la consola para más detalles."
+    "saveFailed": "Se produjo un error al guardar el archivo. Revisa la consola para más detalles.",
+    "rendererRootCrashedTitle": "La aplicación encontró un error inesperado.",
+    "rendererRootCrashedDescription": "Intenta de nuevo. Si vuelve a ocurrir, reinicia la aplicación.",
+    "tabCrashedTitle": "Esta pestaña no se pudo renderizar.",
+    "tabCrashedDescription": "Vuelve a intentarlo en esta vista. Si persiste, cambia de pestaña e inténtalo otra vez.",
+    "retryRender": "Reintentar"
   }
 }

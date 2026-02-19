@@ -123,6 +123,11 @@
     "noFilesSelectedForProcessing": "Es sind keine Dateien zur Verarbeitung ausgewählt. Wechsle zum Quell-Tab und wähle Dateien aus.",
     "refreshFailed": "Beim Aktualisieren des Inhalts ist ein Fehler aufgetreten. Details in der Konsole.",
     "noProcessedContentToSave": "Kein verarbeiteter Inhalt zum Speichern vorhanden.",
-    "saveFailed": "Beim Speichern der Datei ist ein Fehler aufgetreten. Details in der Konsole."
+    "saveFailed": "Beim Speichern der Datei ist ein Fehler aufgetreten. Details in der Konsole.",
+    "rendererRootCrashedTitle": "Die App hat einen unerwarteten Fehler festgestellt.",
+    "rendererRootCrashedDescription": "Bitte erneut versuchen. Wenn das erneut passiert, starte die App neu.",
+    "tabCrashedTitle": "Dieser Tab konnte nicht gerendert werden.",
+    "tabCrashedDescription": "Versuche diese Ansicht erneut. Falls das Problem bleibt, wechsle den Tab und versuche es noch einmal.",
+    "retryRender": "Erneut versuchen"
   }
 }
