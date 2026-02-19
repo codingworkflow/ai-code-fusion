@@ -17,6 +17,15 @@ const DEFAULT_SCREENSHOT_NAME = `ui-${process.platform}-${process.arch}.png`;
 const DEFAULT_LOCALE = 'en';
 const SUPPORTED_LOCALES = ['en', 'es', 'fr', 'de'];
 const FIXED_MTIME = 1700000000000;
+const QA_DISABLE_ANIMATIONS_STYLESHEET_PATH = '/__qa__/disable-animations.css';
+const QA_DISABLE_ANIMATIONS_STYLESHEET_CONTENT = `
+*, *::before, *::after {
+  transition-duration: 0s !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+`;
 
 function loadSecretScannerHelpers() {
   const compiledSecretScannerPath = path.join(
@@ -133,6 +142,22 @@ function resolveFilePath(requestUrl) {
 
 function createStaticServer() {
   return http.createServer((request, response) => {
+    let requestPath;
+
+    try {
+      requestPath = decodeURIComponent((request.url || '/').split('?')[0]);
+    } catch {
+      response.writeHead(400, { 'Content-Type': 'text/plain; charset=UTF-8' });
+      response.end('Bad Request');
+      return;
+    }
+
+    if (requestPath === QA_DISABLE_ANIMATIONS_STYLESHEET_PATH) {
+      response.writeHead(200, { 'Content-Type': 'text/css; charset=UTF-8' });
+      response.end(QA_DISABLE_ANIMATIONS_STYLESHEET_CONTENT);
+      return;
+    }
+
     const requestedPath = resolveFilePath(request.url || '/');
 
     if (!requestedPath) {
@@ -575,16 +600,24 @@ async function captureLocaleScreenshots(page) {
 
 async function captureAppStateScreenshots(page) {
   await runStep('Disable animations for stable screenshots', async () => {
-    await page.addStyleTag({
-      content: `
-        *, *::before, *::after {
-          transition-duration: 0s !important;
-          animation-duration: 0s !important;
-          animation-delay: 0s !important;
-          scroll-behavior: auto !important;
-        }
-      `,
-    });
+    await page.evaluate(async (stylesheetHref) => {
+      const existingStylesheet = document.querySelector('link[data-qa-disable-animations="true"]');
+      if (existingStylesheet instanceof HTMLLinkElement) {
+        return;
+      }
+
+      await new Promise((resolve, reject) => {
+        const stylesheetLink = document.createElement('link');
+        stylesheetLink.rel = 'stylesheet';
+        stylesheetLink.href = stylesheetHref;
+        stylesheetLink.setAttribute('data-qa-disable-animations', 'true');
+        stylesheetLink.onload = resolve;
+        stylesheetLink.onerror = () => {
+          reject(new Error('Failed to load QA disable-animations stylesheet'));
+        };
+        document.head.appendChild(stylesheetLink);
+      });
+    }, QA_DISABLE_ANIMATIONS_STYLESHEET_PATH);
   });
 
   await runStep('Wait for app root', async () => {
