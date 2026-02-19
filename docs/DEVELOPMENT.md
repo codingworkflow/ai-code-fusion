@@ -74,6 +74,19 @@ make mend-scan
 - `RENOVATE_TOKEN_FILE`
 - `gh auth token` (GitHub CLI fallback)
 
+## Renderer CSP Policy
+
+- The renderer HTML (`src/renderer/public/index.html`) defines a strict CSP via
+  `<meta http-equiv="Content-Security-Policy" ...>`.
+- Policy baseline:
+  - `script-src 'self'`
+  - `style-src 'self'`
+  - `object-src 'none'`
+  - `base-uri 'none'`
+- No `'unsafe-inline'` or `'unsafe-eval'` exceptions are allowed.
+- Dark mode bootstrap is intentionally externalized to `src/renderer/public/theme-bootstrap.js`
+  so startup theme logic works without inline scripts.
+
 ## Manual Setup (Without Make)
 
 ```bash

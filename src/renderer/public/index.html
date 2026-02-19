@@ -3,23 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: assets:; font-src 'self' data:; connect-src 'self' https: http:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+    />
     <title>AI Code Fusion</title>
     <link rel="stylesheet" href="../../../dist/renderer/output.css" />
-    <script>
-      // Apply dark mode immediately to prevent flash of light theme
-      const appWindow = globalThis;
-      const savedMode = localStorage.getItem('darkMode');
-      const prefersDark =
-        typeof appWindow.matchMedia === 'function' &&
-        appWindow.matchMedia('(prefers-color-scheme: dark)').matches;
-      const shouldEnableDarkMode = savedMode === 'true' || (savedMode === null && prefersDark);
-
-      if (shouldEnableDarkMode) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    </script>
+    <script src="./theme-bootstrap.js"></script>
   </head>
   <body
     class="h-screen overflow-hidden bg-gray-100 dark:bg-gray-900 transition-colors duration-200"
