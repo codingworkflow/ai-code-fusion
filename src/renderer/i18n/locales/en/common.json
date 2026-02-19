@@ -123,6 +123,11 @@
     "noFilesSelectedForProcessing": "No files are selected for processing. Please go to the Source tab and select files.",
     "refreshFailed": "An error occurred while refreshing content. Check the console for details.",
     "noProcessedContentToSave": "No processed content to save.",
-    "saveFailed": "An error occurred while saving the file. Check the console for details."
+    "saveFailed": "An error occurred while saving the file. Check the console for details.",
+    "rendererRootCrashedTitle": "The app hit an unexpected error.",
+    "rendererRootCrashedDescription": "Please retry. If this keeps happening, restart the app.",
+    "tabCrashedTitle": "This tab failed to render.",
+    "tabCrashedDescription": "Retry this view. If the issue persists, switch tabs and try again.",
+    "retryRender": "Retry"
   }
 }

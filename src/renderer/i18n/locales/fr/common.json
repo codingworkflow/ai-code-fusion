@@ -123,6 +123,11 @@
     "noFilesSelectedForProcessing": "Aucun fichier sélectionné pour le traitement. Allez dans l'onglet Source et sélectionnez des fichiers.",
     "refreshFailed": "Une erreur s'est produite lors de l'actualisation du contenu. Consultez la console pour plus de détails.",
     "noProcessedContentToSave": "Aucun contenu traité à enregistrer.",
-    "saveFailed": "Une erreur s'est produite lors de l'enregistrement du fichier. Consultez la console pour plus de détails."
+    "saveFailed": "Une erreur s'est produite lors de l'enregistrement du fichier. Consultez la console pour plus de détails.",
+    "rendererRootCrashedTitle": "L'application a rencontré une erreur inattendue.",
+    "rendererRootCrashedDescription": "Réessayez. Si le problème persiste, redémarrez l'application.",
+    "tabCrashedTitle": "Cet onglet n'a pas pu être affiché.",
+    "tabCrashedDescription": "Réessayez cette vue. Si le problème persiste, changez d'onglet puis recommencez.",
+    "retryRender": "Réessayer"
   }
 }

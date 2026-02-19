@@ -7,6 +7,7 @@ import '../i18n';
 
 import ConfigTab from './ConfigTab';
 import DarkModeToggle from './DarkModeToggle';
+import ErrorBoundary from './ErrorBoundary';
 import LanguageSelector from './LanguageSelector';
 import ProcessedTab from './ProcessedTab';
 import SourceTab from './SourceTab';
@@ -60,6 +61,9 @@ const AppContent = () => {
   } = useApp();
 
   const appWindow = globalThis as Window & typeof globalThis;
+  const tabFallbackTitle = t('errors.tabCrashedTitle');
+  const tabFallbackMessage = t('errors.tabCrashedDescription');
+  const retryLabel = t('errors.retryRender');
 
   return (
     <div className='mx-auto flex h-screen w-full max-w-screen-2xl flex-col p-4'>
@@ -134,7 +138,14 @@ const AppContent = () => {
             aria-labelledby='tab-config'
             className={`absolute inset-0 overflow-y-auto bg-white dark:bg-gray-800 p-4 text-gray-900 dark:text-gray-100 transition-colors duration-200 ${activeTab === 'config' ? '' : 'hidden'}`}
           >
-            <ConfigTab configContent={configContent} onConfigChange={updateConfig} />
+            <ErrorBoundary
+              fallbackTitle={tabFallbackTitle}
+              fallbackMessage={tabFallbackMessage}
+              resetLabel={retryLabel}
+              resetKeys={[activeTab, configContent]}
+            >
+              <ConfigTab configContent={configContent} onConfigChange={updateConfig} />
+            </ErrorBoundary>
           </div>
 
           <div
@@ -143,20 +154,27 @@ const AppContent = () => {
             aria-labelledby='tab-source'
             className={`absolute inset-0 overflow-y-auto bg-white dark:bg-gray-800 p-4 text-gray-900 dark:text-gray-100 transition-colors duration-200 ${activeTab === 'source' ? '' : 'hidden'}`}
           >
-            <SourceTab
-              isActive={activeTab === 'source'}
-              rootPath={rootPath}
-              directoryTree={directoryTree}
-              selectedFiles={selectedFiles}
-              selectedFolders={selectedFolders}
-              configContent={configContent}
-              onDirectorySelect={selectDirectory}
-              onFileSelect={handleFileSelect}
-              onFolderSelect={handleFolderSelect}
-              onBatchSelect={handleBatchSelect}
-              onAnalyze={handleAnalyze}
-              onRefreshTree={refreshDirectoryTree}
-            />
+            <ErrorBoundary
+              fallbackTitle={tabFallbackTitle}
+              fallbackMessage={tabFallbackMessage}
+              resetLabel={retryLabel}
+              resetKeys={[activeTab, rootPath, selectedFiles.size, selectedFolders.size]}
+            >
+              <SourceTab
+                isActive={activeTab === 'source'}
+                rootPath={rootPath}
+                directoryTree={directoryTree}
+                selectedFiles={selectedFiles}
+                selectedFolders={selectedFolders}
+                configContent={configContent}
+                onDirectorySelect={selectDirectory}
+                onFileSelect={handleFileSelect}
+                onFolderSelect={handleFolderSelect}
+                onBatchSelect={handleBatchSelect}
+                onAnalyze={handleAnalyze}
+                onRefreshTree={refreshDirectoryTree}
+              />
+            </ErrorBoundary>
           </div>
 
           <div
@@ -165,11 +183,18 @@ const AppContent = () => {
             aria-labelledby='tab-processed'
             className={`absolute inset-0 overflow-y-auto bg-white dark:bg-gray-800 p-4 text-gray-900 dark:text-gray-100 transition-colors duration-200 ${activeTab === 'processed' ? '' : 'hidden'}`}
           >
-            <ProcessedTab
-              processedResult={processedResult}
-              onSave={handleSaveOutput}
-              onRefresh={handleRefreshProcessed}
-            />
+            <ErrorBoundary
+              fallbackTitle={tabFallbackTitle}
+              fallbackMessage={tabFallbackMessage}
+              resetLabel={retryLabel}
+              resetKeys={[activeTab, processedResult?.content]}
+            >
+              <ProcessedTab
+                processedResult={processedResult}
+                onSave={handleSaveOutput}
+                onRefresh={handleRefreshProcessed}
+              />
+            </ErrorBoundary>
           </div>
         </div>
       </div>
@@ -178,12 +203,20 @@ const AppContent = () => {
 };
 
 const App = () => {
+  const { t } = useTranslation();
+
   return (
-    <DarkModeProvider>
-      <AppProvider>
-        <AppContent />
-      </AppProvider>
-    </DarkModeProvider>
+    <ErrorBoundary
+      fallbackTitle={t('errors.rendererRootCrashedTitle')}
+      fallbackMessage={t('errors.rendererRootCrashedDescription')}
+      resetLabel={t('errors.retryRender')}
+    >
+      <DarkModeProvider>
+        <AppProvider>
+          <AppContent />
+        </AppProvider>
+      </DarkModeProvider>
+    </ErrorBoundary>
   );
 };
 
