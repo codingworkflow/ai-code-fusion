@@ -129,6 +129,20 @@ const RENDERER_INDEX_PATH = path.join(APP_ROOT, 'src', 'renderer', 'public', 'in
 const RENDERER_INDEX_URL = pathToFileURL(RENDERER_INDEX_PATH).toString();
 const ASSETS_DIR = path.join(APP_ROOT, 'src', 'assets');
 const createForbiddenAssetResponse = (): Response => new Response('Forbidden', { status: 403 });
+const isTestEnvironment = process.env.NODE_ENV === 'test';
+
+const resolveTestPathOverride = (envKey: string): string | null => {
+  if (!isTestEnvironment) {
+    return null;
+  }
+
+  const configuredPath = process.env[envKey];
+  if (typeof configuredPath !== 'string' || configuredPath.trim().length === 0) {
+    return null;
+  }
+
+  return path.resolve(configuredPath);
+};
 
 const openAllowedExternalUrl = (url: string) => {
   if (!isAllowedExternalNavigationUrl(url)) {
@@ -320,6 +334,12 @@ ipcMain.handle(
 
 // Select directory dialog
 ipcMain.handle('dialog:selectDirectory', async () => {
+  const testDirectoryPath = resolveTestPathOverride('E2E_DIALOG_DIRECTORY_PATH');
+  if (testDirectoryPath) {
+    authorizedRootPath = testDirectoryPath;
+    return testDirectoryPath;
+  }
+
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow ?? undefined, {
     properties: ['openDirectory'],
   });
@@ -423,6 +443,12 @@ ipcMain.handle(
 
 // Save output to file
 ipcMain.handle('fs:saveFile', async (_event, { content, defaultPath }: SaveFileOptions) => {
+  const testSavePath = resolveTestPathOverride('E2E_DIALOG_SAVE_PATH');
+  if (testSavePath) {
+    fs.writeFileSync(testSavePath, content);
+    return testSavePath;
+  }
+
   const safeDefaultPath = typeof defaultPath === 'string' ? defaultPath : '';
   const defaultExtension = safeDefaultPath ? path.extname(safeDefaultPath).toLowerCase() : '';
   const filters =

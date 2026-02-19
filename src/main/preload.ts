@@ -1,7 +1,5 @@
 import { contextBridge, ipcRenderer, shell } from 'electron';
 
-import { isAllowedExternalNavigationUrl } from './security/navigation-guard';
-
 import type {
   AnalyzeRepositoryOptions,
   AnalyzeRepositoryResult,
@@ -19,6 +17,16 @@ import type {
   UpdateCheckResult,
   UpdaterStatus,
 } from '../types/ipc';
+
+// Keep preload self-contained: sandboxed preload cannot reliably require local modules.
+const isAllowedExternalNavigationUrl = (url: string): boolean => {
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:';
+  } catch {
+    return false;
+  }
+};
 
 type DevUtils = {
   clearLocalStorage: () => boolean;

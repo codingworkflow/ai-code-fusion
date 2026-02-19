@@ -114,27 +114,6 @@ const createFixtureProject = (browserName: string): string => {
   return projectDir;
 };
 
-const stubNativeDialogs = async (
-  electronApp: ElectronApplication,
-  projectDir: string,
-  savePath: string
-) => {
-  await electronApp.evaluate(
-    ({ dialog }, { directoryPath, outputPath }) => {
-      dialog.showOpenDialog = async () => ({
-        canceled: false,
-        filePaths: [directoryPath],
-      });
-
-      dialog.showSaveDialog = async () => ({
-        canceled: false,
-        filePath: outputPath,
-      });
-    },
-    { directoryPath: projectDir, outputPath: savePath }
-  );
-};
-
 const configureFlowDefaults = async (
   page: Page,
   exportFormat: 'markdown' | 'xml' = 'markdown'
@@ -158,19 +137,8 @@ const openFixtureProject = async (page: Page, exportFormat: 'markdown' | 'xml' =
   const selectFolderButton = page.getByRole('button', { name: 'Select Folder' });
   const sourceTab = page.getByRole('tab', { name: 'Select Files' });
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await selectFolderButton.click();
-    const isSourceTabActive = (await sourceTab.getAttribute('aria-selected')) === 'true';
-    if (isSourceTabActive) {
-      break;
-    }
-
-    if (attempt === 2) {
-      await expect(sourceTab).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 });
-    }
-  }
-
-  await expect(sourceTab).toHaveAttribute('aria-selected', 'true');
+  await selectFolderButton.click();
+  await expect(sourceTab).toHaveAttribute('aria-selected', 'true', { timeout: 15_000 });
   await expect(page.getByLabel('Select All')).toBeVisible();
 };
 
@@ -238,6 +206,8 @@ const test = base.extend<E2EFixtures>({
       NODE_ENV: 'test',
       ELECTRON_USER_DATA_PATH: userDataDir,
       ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
+      E2E_DIALOG_DIRECTORY_PATH: projectDir,
+      E2E_DIALOG_SAVE_PATH: savePath,
     };
 
     if (process.platform === 'linux') {
@@ -249,8 +219,6 @@ const test = base.extend<E2EFixtures>({
       cwd: REPO_ROOT,
       env: launchEnv,
     });
-
-    await stubNativeDialogs(electronApp, projectDir, savePath);
 
     await use(electronApp);
     await electronApp.close();
