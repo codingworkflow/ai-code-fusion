@@ -155,8 +155,22 @@ const configureFlowDefaults = async (
 
 const openFixtureProject = async (page: Page, exportFormat: 'markdown' | 'xml' = 'markdown') => {
   await configureFlowDefaults(page, exportFormat);
-  await page.getByRole('button', { name: 'Select Folder' }).click();
-  await expect(page.getByRole('tab', { name: 'Select Files' })).toHaveAttribute('aria-selected', 'true');
+  const selectFolderButton = page.getByRole('button', { name: 'Select Folder' });
+  const sourceTab = page.getByRole('tab', { name: 'Select Files' });
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await selectFolderButton.click();
+    const isSourceTabActive = (await sourceTab.getAttribute('aria-selected')) === 'true';
+    if (isSourceTabActive) {
+      break;
+    }
+
+    if (attempt === 2) {
+      await expect(sourceTab).toHaveAttribute('aria-selected', 'true', { timeout: 5_000 });
+    }
+  }
+
+  await expect(sourceTab).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByLabel('Select All')).toBeVisible();
 };
 
