@@ -157,7 +157,7 @@
     "@electron/rebuild": "^4.0.3",
     "@eslint/js": "^9.39.2",
     "@jest/globals": "^30.2.0",
-    "@tailwindcss/cli": "^4.1.18",
+    "@tailwindcss/cli": "^4.2.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
