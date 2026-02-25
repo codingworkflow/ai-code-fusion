@@ -136,7 +136,7 @@
     "@openfeature/server-sdk": "^1.20.1",
     "clsx": "^2.1.0",
     "electron-store": "^11.0.2",
-    "electron-updater": "^6.7.3",
+    "electron-updater": "^6.8.3",
     "i18next": "^25.8.8",
     "minimatch": "^10.2.2",
     "path-browserify": "^1.0.1",
