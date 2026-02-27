@@ -57,7 +57,7 @@ jobs:
 
       - name: Upload unit test report artifact
         if: always() && github.event_name == 'pull_request'
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: unit-test-results-${{ matrix.os }}
           path: dist/test-results/${{ matrix.os }}/junit.xml
@@ -111,7 +111,7 @@ jobs:
 
       - name: Upload UI screenshot
         if: always() && steps.capture_ui_screenshot.outcome == 'success'
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: ui-screenshot-${{ matrix.artifact_os }}
           path: dist/qa/screenshots/*.png
@@ -120,7 +120,7 @@ jobs:
 
       - name: Upload UI baseline manifest
         if: always() && steps.generate_ui_baseline_manifest.outcome == 'success'
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: ui-screenshot-manifest-${{ matrix.artifact_os }}
           path: dist/qa/baseline-manifest.json
@@ -129,7 +129,7 @@ jobs:
 
       - name: Upload Playwright E2E artifacts
         if: runner.os == 'Linux' && always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: playwright-e2e-linux
           path: |
@@ -140,7 +140,7 @@ jobs:
 
       - name: Upload stress benchmark artifacts
         if: runner.os == 'Linux' && always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: stress-benchmarks-linux
           path: |
@@ -223,7 +223,7 @@ jobs:
 
       - name: Upload baseline selection artifact
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: ui-baseline-selection
           path: |
@@ -287,7 +287,7 @@ jobs:
 
       - name: Upload drift report artifacts
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: ui-drift-report
           path: |
@@ -312,7 +312,7 @@ jobs:
 
       - name: Upload baseline promotion marker
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.compare_ui_baseline.outputs.status == 'pass'
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: ui-baseline-promotion-ready
           path: dist/qa/baseline-promotion-ready.txt
