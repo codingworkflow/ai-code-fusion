@@ -166,7 +166,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
-    "@typescript-eslint/parser": "^8.55.0",
+    "@typescript-eslint/parser": "^8.56.1",
     "autoprefixer": "^10.4.17",
     "babel-jest": "^30.2.0",
     "babel-loader": "^10.0.0",
