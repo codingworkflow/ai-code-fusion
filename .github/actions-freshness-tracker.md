@@ -2,11 +2,11 @@
 
 # Actions Freshness Tracker
 
-Last updated: 2026-03-05T04:54:48.408Z
+Last updated: 2026-03-06T04:51:47.938Z
 
 # GitHub Actions Freshness Report
 
-Generated at: 2026-03-05T04:54:47.823Z
+Generated at: 2026-03-06T04:51:47.391Z
 
 - Workflows scanned: 15
 - Action references found: 70
@@ -19,10 +19,10 @@ Generated at: 2026-03-05T04:54:47.823Z
 | Action | Pinned SHA | Latest tag | Latest SHA | Location |
 | --- | --- | --- | --- | --- |
 | actions/setup-node | `6044e13b5dc4` | `v6.3.0` | `53b83947a5a9` | `.github/workflows/actions-freshness.yml:30` |
-| github/codeql-action/init | `89a39a4e5982` | `codeql-bundle-v2.24.2` | `5e7a52feb2a3` | `.github/workflows/codeql.yml:34` |
-| github/codeql-action/analyze | `89a39a4e5982` | `codeql-bundle-v2.24.2` | `5e7a52feb2a3` | `.github/workflows/codeql.yml:40` |
+| github/codeql-action/init | `89a39a4e5982` | `codeql-bundle-v2.24.3` | `0c0c5dc2f136` | `.github/workflows/codeql.yml:34` |
+| github/codeql-action/analyze | `89a39a4e5982` | `codeql-bundle-v2.24.3` | `0c0c5dc2f136` | `.github/workflows/codeql.yml:40` |
 | actions/dependency-review-action | `05fe4576374b` | `v4.9.0` | `2031cfc08025` | `.github/workflows/dependency-review.yml:30` |
-| github/codeql-action/upload-sarif | `89a39a4e5982` | `codeql-bundle-v2.24.2` | `5e7a52feb2a3` | `.github/workflows/poutine.yml:41` |
+| github/codeql-action/upload-sarif | `89a39a4e5982` | `codeql-bundle-v2.24.3` | `0c0c5dc2f136` | `.github/workflows/poutine.yml:41` |
 | actions/setup-node | `6044e13b5dc4` | `v6.3.0` | `53b83947a5a9` | `.github/workflows/qa-matrix.yml:37` |
 | actions/setup-node | `6044e13b5dc4` | `v6.3.0` | `53b83947a5a9` | `.github/workflows/qa-matrix.yml:176` |
 | actions/setup-node | `6044e13b5dc4` | `v6.3.0` | `53b83947a5a9` | `.github/workflows/qa-matrix.yml:253` |
@@ -32,8 +32,8 @@ Generated at: 2026-03-05T04:54:47.823Z
 | actions/setup-node | `6044e13b5dc4` | `v6.3.0` | `53b83947a5a9` | `.github/workflows/release.yml:67` |
 | actions/setup-node | `6044e13b5dc4` | `v6.3.0` | `53b83947a5a9` | `.github/workflows/release.yml:140` |
 | actions/setup-node | `6044e13b5dc4` | `v6.3.0` | `53b83947a5a9` | `.github/workflows/sbom.yml:27` |
-| github/codeql-action/upload-sarif | `89a39a4e5982` | `codeql-bundle-v2.24.2` | `5e7a52feb2a3` | `.github/workflows/scorecards.yml:44` |
-| github/codeql-action/upload-sarif | `89a39a4e5982` | `codeql-bundle-v2.24.2` | `5e7a52feb2a3` | `.github/workflows/semgrep.yml:72` |
+| github/codeql-action/upload-sarif | `89a39a4e5982` | `codeql-bundle-v2.24.3` | `0c0c5dc2f136` | `.github/workflows/scorecards.yml:44` |
+| github/codeql-action/upload-sarif | `89a39a4e5982` | `codeql-bundle-v2.24.3` | `0c0c5dc2f136` | `.github/workflows/semgrep.yml:72` |
 | actions/setup-node | `6044e13b5dc4` | `v6.3.0` | `53b83947a5a9` | `.github/workflows/sonarcloud.yml:26` |
 | actions/setup-node | `6044e13b5dc4` | `v6.3.0` | `53b83947a5a9` | `.github/workflows/type-check.yml:27` |
 
