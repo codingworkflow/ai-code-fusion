@@ -2,17 +2,17 @@
 
 # Actions Freshness Tracker
 
-Last updated: 2026-03-09T04:58:18.911Z
+Last updated: 2026-03-10T04:51:59.311Z
 
 # GitHub Actions Freshness Report
 
-Generated at: 2026-03-09T04:58:18.023Z
+Generated at: 2026-03-10T04:51:58.671Z
 
 - Workflows scanned: 15
 - Action references found: 70
 - Full-SHA pinned references: 70
 - Unpinned references: 0
-- Stale pinned references: 5
+- Stale pinned references: 6
 
 ## Stale pinned references
 
@@ -21,6 +21,7 @@ Generated at: 2026-03-09T04:58:18.023Z
 | github/codeql-action/init | `0d579ffd059c` | `codeql-bundle-v2.24.3` | `0c0c5dc2f136` | `.github/workflows/codeql.yml:34` |
 | github/codeql-action/analyze | `0d579ffd059c` | `codeql-bundle-v2.24.3` | `0c0c5dc2f136` | `.github/workflows/codeql.yml:40` |
 | github/codeql-action/upload-sarif | `0d579ffd059c` | `codeql-bundle-v2.24.3` | `0c0c5dc2f136` | `.github/workflows/poutine.yml:41` |
+| anchore/sbom-action | `17ae17401790` | `v0.23.1` | `57aae528053a` | `.github/workflows/sbom.yml:64` |
 | github/codeql-action/upload-sarif | `0d579ffd059c` | `codeql-bundle-v2.24.3` | `0c0c5dc2f136` | `.github/workflows/scorecards.yml:44` |
 | github/codeql-action/upload-sarif | `0d579ffd059c` | `codeql-bundle-v2.24.3` | `0c0c5dc2f136` | `.github/workflows/semgrep.yml:72` |
 
