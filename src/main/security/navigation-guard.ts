@@ -8,7 +8,7 @@ export const isAllowedExternalNavigationUrl = (url: string): boolean => {
 };
 
 const normalizeFilePathname = (pathname: string): string => {
-  const driveLetterMatch = pathname.match(/^\/([A-Za-z]):/);
+  const driveLetterMatch = /^\/([A-Za-z]):/.exec(pathname);
   if (!driveLetterMatch) {
     return pathname;
   }
