@@ -6,3 +6,4 @@ coverage
 .github
 .husky
 .claude
+.agent-runner
