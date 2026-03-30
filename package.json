@@ -207,6 +207,6 @@
     "tailwindcss": "^4.2.2",
     "typescript": "^5.7.3",
     "webpack": "^5.105.4",
-    "webpack-cli": "^7.0.0"
+    "webpack-cli": "^7.0.2"
   }
 }
