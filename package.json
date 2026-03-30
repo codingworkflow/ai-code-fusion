@@ -137,7 +137,7 @@
     "clsx": "^2.1.0",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.8.3",
-    "i18next": "^25.10.4",
+    "i18next": "^26.0.1",
     "minimatch": "^10.2.4",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
