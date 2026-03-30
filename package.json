@@ -205,7 +205,7 @@
     "sonarqube-scanner": "^4.3.5",
     "style-loader": "^4.0.0",
     "tailwindcss": "^4.2.2",
-    "typescript": "^5.7.3",
+    "typescript": "^6.0.2",
     "webpack": "^5.105.4",
     "webpack-cli": "^7.0.0"
   }
