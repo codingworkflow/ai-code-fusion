@@ -38,7 +38,7 @@ jobs:
           mv results.cleaned.sarif results.sarif
 
       - name: Upload poutine SARIF
-        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc
+        uses: github/codeql-action/upload-sarif@9e0d7b8d25671d64c341c19c0152d693099fb5ba
         with:
           sarif_file: results.sarif
           category: /tool:poutine
