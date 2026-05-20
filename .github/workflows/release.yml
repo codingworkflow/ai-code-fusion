@@ -199,7 +199,7 @@ jobs:
 
       - name: Get Changelog Entry
         id: changelog_reader
-        uses: mindsers/changelog-reader-action@32aa5b4c155d76c94e4ec883a223c947b2f02656
+        uses: mindsers/changelog-reader-action@1faaf50aa09d5793d9a100819973df801febfb31
         with:
           validation_level: warn
           path: ./CHANGELOG.md
