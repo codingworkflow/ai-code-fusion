@@ -12,7 +12,7 @@
       "groupName": "github actions"
     },
     {
-      "matchPackageNames": ["react", "react-dom", "react-router-dom"],
+      "matchPackageNames": ["react", "react-dom"],
       "groupName": "react ecosystem"
     },
     {
