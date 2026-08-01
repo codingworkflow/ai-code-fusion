@@ -21,19 +21,19 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Run OSSF Scorecards analysis
-        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc
         with:
           results_file: scorecards.sarif
           results_format: sarif
           publish_results: true
 
       - name: Upload Scorecards SARIF artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: scorecards-sarif
           path: scorecards.sarif
@@ -41,7 +41,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Scorecards SARIF
-        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc
+        uses: github/codeql-action/upload-sarif@18420e3271f74589575af831a523c833acda327f
         with:
           sarif_file: scorecards.sarif
           category: /tool:ossf-scorecards
