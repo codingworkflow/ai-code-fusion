@@ -34,7 +34,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
           cache: npm
@@ -57,7 +57,7 @@ jobs:
 
       - name: Upload unit test report artifact
         if: always() && github.event_name == 'pull_request'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: unit-test-results-${{ matrix.os }}
           path: dist/test-results/${{ matrix.os }}/junit.xml
@@ -111,7 +111,7 @@ jobs:
 
       - name: Upload UI screenshot
         if: always() && steps.capture_ui_screenshot.outcome == 'success'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ui-screenshot-${{ matrix.artifact_os }}
           path: dist/qa/screenshots/*.png
@@ -120,7 +120,7 @@ jobs:
 
       - name: Upload UI baseline manifest
         if: always() && steps.generate_ui_baseline_manifest.outcome == 'success'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ui-screenshot-manifest-${{ matrix.artifact_os }}
           path: dist/qa/baseline-manifest.json
@@ -129,7 +129,7 @@ jobs:
 
       - name: Upload Playwright E2E artifacts
         if: runner.os == 'Linux' && always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: playwright-e2e-linux
           path: |
@@ -140,7 +140,7 @@ jobs:
 
       - name: Upload stress benchmark artifacts
         if: runner.os == 'Linux' && always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: stress-benchmarks-linux
           path: |
@@ -173,7 +173,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
           cache: npm
@@ -223,7 +223,7 @@ jobs:
 
       - name: Upload baseline selection artifact
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ui-baseline-selection
           path: |
@@ -250,7 +250,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
           cache: npm
@@ -260,14 +260,14 @@ jobs:
         run: npm ci
 
       - name: Download current screenshot artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           merge-multiple: false
           path: dist/qa/current
           pattern: ui-screenshot-*
 
       - name: Download baseline selection artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: ui-baseline-selection
           path: dist/qa/resolved-baseline
@@ -287,7 +287,7 @@ jobs:
 
       - name: Upload drift report artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ui-drift-report
           path: |
@@ -312,7 +312,7 @@ jobs:
 
       - name: Upload baseline promotion marker
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.compare_ui_baseline.outputs.status == 'pass'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ui-baseline-promotion-ready
           path: dist/qa/baseline-promotion-ready.txt
@@ -335,7 +335,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
           cache: npm
@@ -368,13 +368,13 @@ jobs:
           fetch-depth: 1
 
       - name: Download unit test report artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: unit-test-results-${{ matrix.os }}
           path: dist/test-results/${{ matrix.os }}
 
       - name: Publish unit test results
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2
+        uses: dorny/test-reporter@d1b5dff021aa968b288b02285a8bf47471c5928a
         with:
           name: Unit Tests (${{ matrix.os }})
           path: dist/test-results/${{ matrix.os }}/junit.xml
