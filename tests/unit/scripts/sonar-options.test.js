@@ -1,4 +1,7 @@
-const { buildScannerOptions, DEFAULT_CPD_EXCLUSIONS } = require('../../../scripts/lib/sonar-options');
+const {
+  buildScannerOptions,
+  DEFAULT_CPD_EXCLUSIONS,
+} = require('../../../scripts/lib/sonar-options');
 
 describe('buildScannerOptions', () => {
   test('uses sonar.cpd.exclusions from project properties when present', () => {
@@ -76,5 +79,20 @@ describe('buildScannerOptions', () => {
     expect(options['sonar.sources']).toBe('src');
     expect(options.MALICIOUS_FLAG).toBeUndefined();
     expect(options['x-custom-setting']).toBeUndefined();
+  });
+});
+
+describe('Sonar scanner module compatibility', () => {
+  test('exposes the callback scanner as an ESM default export', () => {
+    const { execFileSync } = jest.requireActual('child_process');
+    const result = execFileSync(
+      process.execPath,
+      [
+        '-e',
+        "const { default: scanner } = require('sonarqube-scanner'); process.stdout.write(typeof scanner);",
+      ],
+      { encoding: 'utf8' }
+    );
+    expect(result).toBe('function');
   });
 });

@@ -2,7 +2,7 @@
 const { execFileSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const sonarqubeScanner = require('sonarqube-scanner');
+const { default: sonarqubeScanner } = require('sonarqube-scanner');
 const { buildScannerOptions } = require('./lib/sonar-options');
 
 function redactUrlForLogs(rawUrl) {
